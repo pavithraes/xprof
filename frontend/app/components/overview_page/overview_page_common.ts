@@ -1,11 +1,10 @@
-import {GeneralAnalysis, InputPipelineAnalysis, NormalizedAcceleratorPerformance, OverviewPageDataTuple, RecommendationResult, RunEnvironment, SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
+import {GeneralAnalysis, InputPipelineAnalysis, NormalizedAcceleratorPerformance, OverviewPageDataTuple, RunEnvironment, SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {Diagnostics} from 'org_xprof/frontend/app/common/interfaces/diagnostics';
 import {parseDiagnosticsDataTable} from 'org_xprof/frontend/app/common/utils/utils';
 
 const GENERAL_ANALYSIS_INDEX = 0;
 const INPUT_PIPELINE_ANALYSIS_INDEX = 1;
 const RUN_ENVIRONMENT_INDEX = 2;
-const RECOMMENDATION_RESULT_INDEX = 3;
 const INFERENCE_LATENCY_CHART_INDEX = 4;
 const NORMALIZED_ACCELERATOR_PERFORMANCE_INDEX = 5;
 const DIAGNOSTICS_INDEX = 6;
@@ -17,7 +16,6 @@ export class OverviewPageCommon {
   diagnostics: Diagnostics = {info: [], warnings: [], errors: []};
   generalAnalysis: GeneralAnalysis|null = null;
   inputPipelineAnalysis: InputPipelineAnalysis|null = null;
-  recommendationResult: RecommendationResult|null = null;
   runEnvironment: RunEnvironment|null = null;
   inferenceLatencyData: SimpleDataTable|null = null;
   normalizedAcceleratorPerformance: NormalizedAcceleratorPerformance|null =
@@ -35,7 +33,6 @@ export class OverviewPageCommon {
     this.generalAnalysis = data[GENERAL_ANALYSIS_INDEX];
     this.inputPipelineAnalysis = data[INPUT_PIPELINE_ANALYSIS_INDEX];
     this.runEnvironment = data[RUN_ENVIRONMENT_INDEX];
-    this.recommendationResult = data[RECOMMENDATION_RESULT_INDEX];
     this.normalizedAcceleratorPerformance =
         data[NORMALIZED_ACCELERATOR_PERFORMANCE_INDEX];
     if (data.length > INFERENCE_LATENCY_CHART_INDEX + 1) {

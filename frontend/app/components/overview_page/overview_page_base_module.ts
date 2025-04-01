@@ -1,6 +1,6 @@
 import {CommonModule} from '@angular/common';
 import {Component, Input, NgModule} from '@angular/core';
-import {type GeneralAnalysis, type InputPipelineAnalysis, type RecommendationResult, type RunEnvironment, type SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
+import {type GeneralAnalysis, type InputPipelineAnalysis, type RunEnvironment, type SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {type Diagnostics} from 'org_xprof/frontend/app/common/interfaces/diagnostics';
 import {DiagnosticsViewModule} from 'org_xprof/frontend/app/components/diagnostics_view/diagnostics_view_module';
 import {InferenceLatencyChartModule} from 'org_xprof/frontend/app/components/overview_page/inference_latency_chart/inference_latency_chart_module';
@@ -24,7 +24,6 @@ export class OverviewPageBase {
   @Input() diagnostics: Diagnostics|null = null;
   @Input() generalAnalysis: GeneralAnalysis|null = null;
   @Input() inputPipelineAnalysis: InputPipelineAnalysis|null = null;
-  @Input() recommendationResult: RecommendationResult|null = null;
   @Input() runEnvironment: RunEnvironment|null = null;
   @Input() inferenceLatencyData: SimpleDataTable|null = null;
 

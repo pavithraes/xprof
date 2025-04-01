@@ -88,7 +88,12 @@ export declare interface RunEnvironment extends SimpleDataTable {
   p?: Record<string, string>; /* Run environment property */
 }
 
-/** The base interface for a recommendation result. */
+/**
+ * The base interface for a recommendation result.
+ * TODO(jonahweaver): Undeprecate this interface and utilize this interface
+ * for the recommendation result view in the overview page once documentation
+ * is updated.
+ */
 export declare interface RecommendationResult extends SimpleDataTable {
   p?: Record<string, string>; /* Recommendation result property */
 }
