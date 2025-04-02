@@ -18,6 +18,7 @@ pytype_extension(
         ":profiler_plugin_impl",
         "@local_xla//xla/pjrt:status_casters",
         "@local_xla//xla/tsl/platform:types",
+        "@local_xla//xla/tsl/platform/cloud:gcs_file_system",
         "@local_xla//xla/tsl/profiler/rpc/client:capture_profile",
         "@org_tensorflow//tensorflow/core/profiler/convert:tool_options",
         "@pybind11",
