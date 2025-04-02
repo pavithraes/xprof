@@ -8,6 +8,8 @@ import {setLoadingStateAction} from 'org_xprof/frontend/app/store/actions';
 import {ReplaySubject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
+const MEMORY_VIEWER_TOOL_NAME = 'memory_viewer';
+
 /** A memory viewer component. */
 @Component({
   standalone: false,
@@ -39,10 +41,13 @@ export class MemoryViewer implements OnDestroy {
         message: 'Loading data',
       }
     }));
+    let params = new Map<string, string>();
+    params = params.set('memory_space', event.memorySpaceColor || '0');
 
     this.dataService
         .getData(
-            event.run || '', event.tag || 'memory_viewer', event.host || '')
+            event.run || this.currentRun, event.tag || MEMORY_VIEWER_TOOL_NAME,
+            event.host || this.currentHost, params)
         .pipe(takeUntil(this.destroyed))
         .subscribe(data => {
           this.store.dispatch(setLoadingStateAction({
@@ -54,8 +59,8 @@ export class MemoryViewer implements OnDestroy {
           if (!data) return;
           this.memoryViewerPreprocessResult =
               data as MemoryViewerPreprocessResult | null;
-          this.currentRun = event.run || '';
-          this.currentHost = event.host || '';
+          this.currentRun = event.run || this.currentRun;
+          this.currentHost = event.host || this.currentHost;
         });
   }
 
