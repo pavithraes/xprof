@@ -123,6 +123,14 @@ class TpuKerasTest(absltest.TestCase):
     self.assertEqual(run_environment['p']['host_count'], '1')
     self.assertRegex(run_environment['p']['device_type'], 'TPU.*')
 
+  def test_overview_page_creates_cache(self):
+    xspace_filenames = self._get_session_snapshot()
+    raw_to_tool_data.xspace_to_tool_data(xspace_filenames, 'overview_page', {})
+    profile_plugin_root = os.path.join(log_dir, 'plugins/profile')
+    # The session exists under a director whose name is time-dependent.
+    cache_glob = os.path.join(profile_plugin_root, '*', '*.op_stats.pb')
+    self.assertNotEmpty(cache_glob)
+
   def test_op_profile(self):
     xspace_filenames = self._get_session_snapshot()
     result, _ = raw_to_tool_data.xspace_to_tool_data(
