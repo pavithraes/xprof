@@ -27,7 +27,6 @@ xprof_ng_module(
         "@org_xprof//frontend/app/components/overview_page/performance_summary",
         "@org_xprof//frontend/app/components/overview_page/run_environment_view",
         "@org_xprof//frontend/app/components/overview_page/step_time_graph",
-        "@org_xprof//frontend/app/components/overview_page/top_ops_table",
         "@org_xprof//frontend/app/services/data_service",
         "@org_xprof//frontend/app/store",
     ],

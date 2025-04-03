@@ -43,12 +43,6 @@
         [inferenceLatencyData]="inferenceLatencyData"
         [class]="darkTheme ? 'dark-theme' : ''">
       </inference-latency-chart>
-      <top-ops-table
-        [initiallyExpanded]="false"
-        [generalAnalysis]="generalAnalysis"
-        [inputPipelineAnalysis]="inputPipelineAnalysis"
-        [class]="darkTheme ? 'dark-theme' : ''">
-      </top-ops-table>
       <ng-content select="[recommendationResultView]"></ng-content>
       <ng-content select="[sblView]"></ng-content>
       <ng-content select="[tfDataView]"></ng-content>

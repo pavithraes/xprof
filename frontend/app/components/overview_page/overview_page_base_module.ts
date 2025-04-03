@@ -8,7 +8,6 @@ import {NormalizedAcceleratorPerformanceViewModule} from 'org_xprof/frontend/app
 import {PerformanceSummaryModule} from 'org_xprof/frontend/app/components/overview_page/performance_summary/performance_summary_module';
 import {RunEnvironmentViewModule} from 'org_xprof/frontend/app/components/overview_page/run_environment_view/run_environment_view_module';
 import {StepTimeGraphModule} from 'org_xprof/frontend/app/components/overview_page/step_time_graph/step_time_graph_module';
-import {TopOpsTableModule} from 'org_xprof/frontend/app/components/overview_page/top_ops_table/top_ops_table_module';
 
 /** A base overview page component. */
 @Component({
@@ -46,7 +45,6 @@ export class OverviewPageBase {
     PerformanceSummaryModule,
     RunEnvironmentViewModule,
     StepTimeGraphModule,
-    TopOpsTableModule,
     NormalizedAcceleratorPerformanceViewModule,
     InferenceLatencyChartModule,
   ],
