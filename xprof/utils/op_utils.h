@@ -33,8 +33,9 @@ using ::tensorflow::profiler::OpMetrics_MemoryAccessed;
 using tsl::uint64;
 
 // Converts the memory access breakdown into OpMetrics's format.
-proto2::RepeatedPtrField<OpMetrics::MemoryAccessed> ConvertPerformanceInfo(
-    const proto2::RepeatedPtrField<
+tsl::protobuf::RepeatedPtrField<OpMetrics::MemoryAccessed>
+ConvertPerformanceInfo(
+    const tsl::protobuf::RepeatedPtrField<
         tensorflow::profiler::PerformanceInfoWrapper::PerfInfoType::
             MemoryAccessed>& memory_accessed_breakdown,
     uint64_t occurrences);

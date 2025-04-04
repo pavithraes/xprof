@@ -34,12 +34,14 @@ namespace tensorflow {
 namespace profiler {
 using tsl::uint64;
 
-proto2::RepeatedPtrField<OpMetrics::MemoryAccessed> ConvertPerformanceInfo(
-    const proto2::RepeatedPtrField<
+tsl::protobuf::RepeatedPtrField<OpMetrics::MemoryAccessed>
+ConvertPerformanceInfo(
+    const tsl::protobuf::RepeatedPtrField<
         tensorflow::profiler::PerformanceInfoWrapper::PerfInfoType::
             MemoryAccessed>& memory_accessed_breakdown,
     uint64_t occurrences) {
-  proto2::RepeatedPtrField<OpMetrics::MemoryAccessed> memory_access_breakdown;
+  tsl::protobuf::RepeatedPtrField<OpMetrics::MemoryAccessed>
+      memory_access_breakdown;
   for (const auto& m : memory_accessed_breakdown) {
     auto* memory_access = memory_access_breakdown.Add();
     memory_access->set_operation_type(m.is_read()

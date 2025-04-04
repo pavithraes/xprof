@@ -442,7 +442,7 @@ cc_library(
         "@local_xla//xla/service/gpu:cublas_cudnn",
         "@local_xla//xla/service/gpu/model:gpu_hlo_cost_analysis",
         "@local_xla//xla/tsl/platform:errors",
-        "@org_tensorflow//tensorflow/core/profiler/protobuf:op_metrics_proto_cc",
+        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
     ],
 )
 
