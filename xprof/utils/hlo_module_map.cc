@@ -51,7 +51,8 @@ HloInstructionWrapper::HloInstructionWrapper(
       tf_op_name_(tsl::profiler::TfOpFullname(Metadata().op_type(),
                                               Metadata().op_name())),
       category_(instr_->ToCategory()),
-      expression_(UncachedExpression(instr_, false, kMaxHlolNameSize)) {
+      expression_(UncachedExpression(instr_, false, kMaxHlolNameSize)),
+      deduplicated_name_(instr_->metadata().deduplicated_name()){
   if (cost_analysis != nullptr) {
     performance_info_wrapper_ =
         tensorflow::profiler::PerformanceInfoWrapper::Create(cost_analysis,
@@ -152,10 +153,12 @@ void AddHloProto(HloModuleMap& hlo_module_map, uint64_t program_id,
                                               std::move(cost_analysis)));
 }
 
-void ProcessHloModuleMapFromXSpace(HloModuleMap& hlo_module_map,
-                                   const XSpace* space) {
+void ProcessHloModuleMapFromXSpace(
+    HloModuleMap& hlo_module_map, const XSpace* space,
+    tensorflow::profiler::HloCostAnalysisWrapper::Factory&
+        create_cost_analysis) {
   for (auto& [program_id, hlo_proto] : ParseHloProtosFromXSpace(*space)) {
-    AddHloProto(hlo_module_map, program_id, *hlo_proto);
+    AddHloProto(hlo_module_map, program_id, *hlo_proto, create_cost_analysis());
   }
 }
 
