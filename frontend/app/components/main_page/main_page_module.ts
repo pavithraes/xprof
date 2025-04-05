@@ -5,6 +5,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {MatSidenavModule} from '@angular/material/sidenav';
 import {MatToolbarModule} from '@angular/material/toolbar';
 import {RouterModule, Routes} from '@angular/router';
+import {DiagnosticsViewModule} from 'org_xprof/frontend/app/components/diagnostics_view/diagnostics_view_module';
 import {EmptyPage} from 'org_xprof/frontend/app/components/empty_page/empty_page';
 import {EmptyPageModule} from 'org_xprof/frontend/app/components/empty_page/empty_page_module';
 import {FrameworkOpStatsAdapter, FrameworkOpStatsAdapterModule} from 'org_xprof/frontend/app/components/framework_op_stats/framework_op_stats_adapter';
@@ -79,6 +80,7 @@ export const routes: Routes = [
     HloStatsModule,
     RooflineModelModule,
     InferenceProfileModule,
+    DiagnosticsViewModule,
     RouterModule.forRoot(routes),
   ],
   exports: [MainPage]

@@ -11,6 +11,7 @@ xprof_ng_module(
         ":data_service_v2_interface",
         "@npm//@angular/common",
         "@npm//@angular/core",
+        "@npm//@ngrx/store",
         "@npm//rxjs",
         "@org_xprof//frontend/app/common/angular:angular_common_http",
         "@org_xprof//frontend/app/common/constants",
@@ -18,6 +19,7 @@ xprof_ng_module(
         "@org_xprof//frontend/app/common/utils",
         "@org_xprof//frontend/app/components/op_profile:op_profile_data",
         "@org_xprof//frontend/app/services/data_service:mock_data",
+        "@org_xprof//frontend/app/store",
     ],
 )
 

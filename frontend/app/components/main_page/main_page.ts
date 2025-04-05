@@ -1,8 +1,9 @@
 import {Component, OnDestroy} from '@angular/core';
 import {Store} from '@ngrx/store';
+import {Diagnostics} from 'org_xprof/frontend/app/common/interfaces/diagnostics';
 import {NavigationEvent} from 'org_xprof/frontend/app/common/interfaces/navigation_event';
 import {CommunicationService} from 'org_xprof/frontend/app/services/communication_service/communication_service';
-import {getLoadingState} from 'org_xprof/frontend/app/store/selectors';
+import {getErrorMessage, getLoadingState} from 'org_xprof/frontend/app/store/selectors';
 import {LoadingState} from 'org_xprof/frontend/app/store/state';
 import {ReplaySubject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
@@ -22,6 +23,7 @@ export class MainPage implements OnDestroy {
   loadingMessage = '';
   isSideNavOpen = true;
   navigationReady = false;
+  errorMessage = '';
 
   constructor(
       store: Store<{}>,
@@ -32,6 +34,11 @@ export class MainPage implements OnDestroy {
         .subscribe((loadingState: LoadingState) => {
           this.loading = loadingState.loading;
           this.loadingMessage = loadingState.message;
+        });
+    store.select(getErrorMessage)
+        .pipe(takeUntil(this.destroyed))
+        .subscribe((errorMessage: string) => {
+          this.errorMessage = errorMessage;
         });
     this.communicationService.navigationReady.subscribe(
         (navigationEvent: NavigationEvent) => {
@@ -47,6 +54,14 @@ export class MainPage implements OnDestroy {
                        .filter(tool => navigationEvent?.tag?.startsWith(tool))
                        .length > 0);
         });
+  }
+
+  get diagnostics(): Diagnostics {
+    return {
+      errors: this.errorMessage ? [this.errorMessage] : [],
+      info: [],
+      warnings: [],
+    };
   }
 
   ngOnDestroy() {

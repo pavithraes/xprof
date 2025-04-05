@@ -25,6 +25,7 @@ xprof_ng_module(
         "@org_xprof//frontend/app/common/angular:angular_material_toolbar",
         "@org_xprof//frontend/app/common/constants",
         "@org_xprof//frontend/app/common/interfaces",
+        "@org_xprof//frontend/app/components/diagnostics_view",
         "@org_xprof//frontend/app/components/empty_page",
         "@org_xprof//frontend/app/components/framework_op_stats:framework_op_stats_adapter",
         "@org_xprof//frontend/app/components/graph_viewer",

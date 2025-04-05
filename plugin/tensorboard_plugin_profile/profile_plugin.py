@@ -709,6 +709,8 @@ class ProfilePlugin(base_plugin.TBPlugin):
         return respond('No Data', 'text/plain', code=404)
       return respond(data, content_type, content_encoding=content_encoding)
     # Data fetch error handler
+    except TimeoutError as e:
+      return respond(str(e), 'text/plain', code=500)
     except AttributeError as e:
       return respond(str(e), 'text/plain', code=500)
     except ValueError as e:

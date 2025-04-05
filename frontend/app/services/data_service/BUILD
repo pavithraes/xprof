@@ -12,10 +12,12 @@ xprof_ng_module(
         ":mock_data",
         "@npm//@angular/common",
         "@npm//@angular/core",
+        "@npm//@ngrx/store",
         "@npm//rxjs",
         "@org_xprof//frontend/app/common/angular:angular_common_http",
         "@org_xprof//frontend/app/common/constants",
         "@org_xprof//frontend/app/common/interfaces",
+        "@org_xprof//frontend/app/store",
     ],
 )
 

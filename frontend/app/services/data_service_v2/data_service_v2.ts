@@ -1,12 +1,15 @@
 import {PlatformLocation} from '@angular/common';
-import {HttpClient, HttpParams} from '@angular/common/http';
+import {HttpClient, HttpErrorResponse, HttpParams} from '@angular/common/http';
 import {Injectable} from '@angular/core';
+import {Store} from '@ngrx/store';
 import {API_PREFIX, DATA_API, HLO_MODULE_LIST_API, LOCAL_URL, PLUGIN_NAME} from 'org_xprof/frontend/app/common/constants/constants';
 import {DataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import * as utils from 'org_xprof/frontend/app/common/utils/utils';
 import {OpProfileData, OpProfileSummary} from 'org_xprof/frontend/app/components/op_profile/op_profile_data';
 import {DataServiceV2Interface} from 'org_xprof/frontend/app/services/data_service_v2/data_service_v2_interface';
-import {Observable} from 'rxjs';
+import {setErrorMessageStateAction} from 'org_xprof/frontend/app/store/actions';
+import {Observable, of} from 'rxjs';
+import {catchError} from 'rxjs/operators';
 
 /** The data service class that calls API and return response. */
 @Injectable()
@@ -17,13 +20,40 @@ export class DataServiceV2 implements DataServiceV2Interface {
 
   constructor(
       private readonly httpClient: HttpClient,
-      platformLocation: PlatformLocation) {
+      platformLocation: PlatformLocation,
+      private readonly store: Store<{}>,
+  ) {
     this.isLocalDevelopment = platformLocation.pathname === LOCAL_URL;
     if (String(platformLocation.pathname).includes(API_PREFIX + PLUGIN_NAME)) {
       this.pathPrefix =
           String(platformLocation.pathname).split(API_PREFIX + PLUGIN_NAME)[0];
     }
     this.searchParams = new URLSearchParams(window.location.search);
+  }
+
+  private get<T>(
+      url: string,
+      // tslint:disable-next-line:no-any
+      options: {[key: string]: any} = {},
+      notifyError = true,
+      ): Observable<T|null> {
+    return this.httpClient.get<T>(url, options)
+        .pipe(
+            catchError((error: HttpErrorResponse) => {
+              console.log(error);
+              const url = new URL(error.url || '');
+              const errorMessage = 'There was an error in the requested URL ' +
+                  url.pathname + url.search + '.<br><br>' +
+                  '<b>message:</b> ' + error.message + '<br>' +
+                  '<b>status:</b> ' + String(error.status) + '<br>' +
+                  '<b>statusText:</b> ' + error.statusText + '<br>' +
+                  '<b>error:</b> ' + String(error.error);
+              if (notifyError) {
+                this.store.dispatch(setErrorMessageStateAction({errorMessage}));
+              }
+              return of(null);
+            }),
+        );
   }
 
   getData(
@@ -36,14 +66,14 @@ export class DataServiceV2 implements DataServiceV2Interface {
     parameters.forEach((value, key) => {
       params = params.set(key, value);
     });
-    return this.httpClient.get(this.pathPrefix + DATA_API, {params}) as
+    return this.get(this.pathPrefix + DATA_API, {'params': params}) as
         Observable<DataTable>;
   }
 
   getModuleList(sessionId: string): Observable<string> {
-    return this.httpClient.get(this.pathPrefix + HLO_MODULE_LIST_API, {
-      params: new HttpParams().set('run', sessionId),
-      responseType: 'text',
+    return this.get(this.pathPrefix + HLO_MODULE_LIST_API, {
+      'params': new HttpParams().set('run', sessionId),
+      'responseType': 'text',
     }) as Observable<string>;
   }
 

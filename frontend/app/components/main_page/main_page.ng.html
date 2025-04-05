@@ -17,6 +17,7 @@
     <sidenav></sidenav>
   </mat-sidenav>
   <mat-sidenav-content>
+    <diagnostics-view [diagnostics]="diagnostics"></diagnostics-view>
     <div class="progress-container" *ngIf="loading">
       <div class="loading-message">{{loadingMessage}}</div>
       <!-- TODO(go/progressbar-aria): Replace the aria-label with a better description, e.g. "Fetching user data" -->

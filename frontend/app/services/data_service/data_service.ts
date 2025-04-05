@@ -1,12 +1,14 @@
 import {PlatformLocation} from '@angular/common';
-import {HttpClient, HttpParams} from '@angular/common/http';
+import {HttpClient, HttpErrorResponse, HttpParams} from '@angular/common/http';
 import {Injectable} from '@angular/core';
+import {Store} from '@ngrx/store';
 import {API_PREFIX, CAPTURE_PROFILE_API, DATA_API, HOSTS_API, LOCAL_URL, PLUGIN_NAME, RUN_TOOLS_API, RUNS_API} from 'org_xprof/frontend/app/common/constants/constants';
 import {CaptureProfileOptions, CaptureProfileResponse} from 'org_xprof/frontend/app/common/interfaces/capture_profile';
 import {DataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {HostMetadata} from 'org_xprof/frontend/app/common/interfaces/hosts';
+import {setErrorMessageStateAction} from 'org_xprof/frontend/app/store/actions';
 import {Observable, of} from 'rxjs';
-import {delay} from 'rxjs/operators';
+import {catchError, delay} from 'rxjs/operators';
 
 import * as mockData from './mock_data';
 
@@ -22,13 +24,40 @@ export class DataService {
 
   constructor(
       private readonly httpClient: HttpClient,
-      platformLocation: PlatformLocation) {
+      platformLocation: PlatformLocation,
+      private readonly store: Store<{}>,
+  ) {
     this.isLocalDevelopment = platformLocation.pathname === LOCAL_URL;
     if (String(platformLocation.pathname).includes(API_PREFIX + PLUGIN_NAME)) {
       this.pathPrefix =
           String(platformLocation.pathname).split(API_PREFIX + PLUGIN_NAME)[0];
     }
     this.searchParams = new URLSearchParams(window.location.search);
+  }
+
+  private get<T>(
+      url: string,
+      // tslint:disable-next-line:no-any
+      options: {[key: string]: any} = {},
+      notifyError = true,
+      ): Observable<T|null> {
+    return this.httpClient.get<T>(url, options)
+        .pipe(
+            catchError((error: HttpErrorResponse) => {
+              console.log(error);
+              const url = new URL(error.url || '');
+              const errorMessage = 'There was an error in the requested URL ' +
+                  url.pathname + url.search + '.<br><br>' +
+                  '<b>message:</b> ' + error.message + '<br>' +
+                  '<b>status:</b> ' + String(error.status) + '<br>' +
+                  '<b>statusText:</b> ' + error.statusText + '<br>' +
+                  '<b>error:</b> ' + String(error.error);
+              if (notifyError) {
+                this.store.dispatch(setErrorMessageStateAction({errorMessage}));
+              }
+              return of(null);
+            }),
+        );
   }
 
   captureProfile(options: CaptureProfileOptions):
@@ -63,7 +92,7 @@ export class DataService {
     if (this.isLocalDevelopment) {
       return of(mockData.DATA_PLUGIN_PROFILE_RUNS);
     }
-    return this.httpClient.get(this.pathPrefix + RUNS_API);
+    return this.get(this.pathPrefix + RUNS_API);
   }
 
   getRunTools(run: string) {
@@ -71,7 +100,7 @@ export class DataService {
       return of(mockData.DATA_PLUGIN_PROFILE_RUN_TOOLS);
     }
     const params = new HttpParams().set('run', run);
-    return this.httpClient.get(this.pathPrefix + RUN_TOOLS_API, {params});
+    return this.get(this.pathPrefix + RUN_TOOLS_API, {'params': params});
   }
 
   getData(
@@ -111,8 +140,7 @@ export class DataService {
     parameters.forEach((value, key) => {
       params = params.set(key, value);
     });
-    return this.httpClient.get(this.pathPrefix + DATA_API, {params}) as
-        Observable<DataTable>;
+    return this.get(this.pathPrefix + DATA_API, {'params': params});
   }
 
   exportDataAsCSV(run: string, tag: string, host: string) {
