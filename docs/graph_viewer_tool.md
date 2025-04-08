@@ -16,7 +16,7 @@ Graph Viewer can be controlled with the following options:
 Module dropdown menu, from which you choose an HLO module from the available
 list for visualization.
 
-2. An Op Name search box, where you enter the name of an
+2. An Op Name box, where you enter the name of an
 operation to select it as the primary node and visualize its neighbors. Pressing
 enter after typing the op name will visualize the surrounding nodes.
 
