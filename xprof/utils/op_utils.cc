@@ -173,7 +173,7 @@ void DeviceOpMetricsDbBuilder::EnterOp(
         memory_accessed_breakdown,
     int64_t model_flops, absl::string_view long_name) {
   EnterOpMetadata(program_id, name, category, provenance, deduplicated_name,
-                  is_eager);
+                  is_eager, long_name);
   uint64 self_time_ps = time_ps - children_time_ps;
   DCHECK_GE(time_ps, self_time_ps);
   OpMetrics* op_metrics = LookupOrInsertNewOpMetrics(program_id, name);
