@@ -22,6 +22,46 @@ namespace tensorflow {
 namespace profiler {
 namespace {
 
+TEST(HardwareTypeUtilsTest, B200PeakComputTFlops) {
+  DeviceCapabilities device_cap;
+  // For NVIDIA B200, according to:
+  // https://resources.nvidia.com/en-us-blackwell-architecture?ncid=pa-srch-goog-585983-Intel-Brand-Broad
+  // https://nvdam.widen.net/s/wwnsxrhm2w/blackwell-datasheet-3384703
+  device_cap.set_clock_rate_in_ghz(1.830);
+  device_cap.set_num_cores(148);
+  device_cap.set_memory_size_in_bytes(
+      tsl::profiler::GibiToGiga(tsl::profiler::GigaToUni(180)));
+  device_cap.set_memory_bandwidth(tsl::profiler::GigaToUni(7.68 * 1024));
+  device_cap.set_device_vendor("Nvidia");
+  device_cap.mutable_compute_capability()->set_major(10);
+  device_cap.mutable_compute_capability()->set_minor(0);
+
+  // Get target TFLOPS per SM and check.
+  double peak_tflops =
+      GetFlopMaxThroughputPerSM(device_cap) * device_cap.num_cores() / 1000.0;
+  EXPECT_NEAR(peak_tflops, 4438, /*abs_error=*/1.0);
+}
+
+// It should fall back to the highest compute cap less than 10.9.
+// Currently it is 10.0.
+TEST(HardwareTypeUtilsTest, FutureBlackwellPeakComputTFlops) {
+  DeviceCapabilities device_cap;
+  device_cap.set_clock_rate_in_ghz(1.830);
+  device_cap.set_num_cores(148);
+  device_cap.set_memory_size_in_bytes(
+      tsl::profiler::GibiToGiga(tsl::profiler::GigaToUni(180)));
+  device_cap.set_memory_bandwidth(tsl::profiler::GigaToUni(7.68 * 1024));
+  device_cap.set_device_vendor("Nvidia");
+  // Fake compute cap 10.9.
+  device_cap.mutable_compute_capability()->set_major(10);
+  device_cap.mutable_compute_capability()->set_minor(9);
+
+  // Get target TFLOPS per SM and check.
+  double peak_tflops =
+      GetFlopMaxThroughputPerSM(device_cap) * device_cap.num_cores() / 1000.0;
+  EXPECT_NEAR(peak_tflops, 4438, /*abs_error=*/1.0);
+}
+
 TEST(HardwareTypeUtilsTest, H100PeakComputTFlops) {
   DeviceCapabilities device_cap;
   // For NVIDIA H100 PCIe 80 GB, according to
