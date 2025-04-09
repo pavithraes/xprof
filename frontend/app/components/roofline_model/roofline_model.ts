@@ -153,7 +153,8 @@ export class RooflineModel implements OnDestroy {
   /** parse the device information from the original dataset */
   parseDeviceInfoData(dataTableRaw: google.visualization.DataTable) {
     this.deviceIndicators = {
-      hasMergedVmem: !(dataTableRaw.getTableProperty('has_merged_vmem') === '0'),
+      hasMergedVmem:
+          !(dataTableRaw.getTableProperty('has_merged_vmem') === '0'),
       hasCmem: !(dataTableRaw.getTableProperty('has_cmem') === '0'),
       hasMegacore: !(dataTableRaw.getTableProperty('megacore') === '0'),
       isGpu: dataTableRaw.getTableProperty('device_type')
@@ -395,10 +396,10 @@ export class RooflineModel implements OnDestroy {
 
   /** Helper function to add a data row for the scatter chart */
   addSeriesRow(
-    sourceDataTable: google.visualization.DataTable,
-    scatterDataTable: google.visualization.DataTable,
-    rowIndex: number,
-    columnIndex: number,
+      sourceDataTable: google.visualization.DataTable,
+      scatterDataTable: google.visualization.DataTable,
+      rowIndex: number,
+      columnIndex: number,
   ) {
     if (rowIndex < 0 || columnIndex < 0) {
       return;
@@ -428,12 +429,12 @@ export class RooflineModel implements OnDestroy {
 
   /** Helper function to add data rows for a single roofline */
   addRoofline(
-    rooflineName: string,
-    seriesIndex: number,
-    peakFlopRate: number,
-    peakMemoryBw: number,
-    ridgePoint: number,
-    scatterData: google.visualization.DataTable,
+      rooflineName: string,
+      seriesIndex: number,
+      peakFlopRate: number,
+      peakMemoryBw: number,
+      ridgePoint: number,
+      scatterData: google.visualization.DataTable,
   ) {
     if (seriesIndex < 0) {
       return;

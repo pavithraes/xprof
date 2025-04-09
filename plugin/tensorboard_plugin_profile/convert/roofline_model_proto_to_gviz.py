@@ -152,17 +152,17 @@ def get_roofline_model_table_args_for_gpu(roofline_model_db):
     data.append(row)
   custom_properties = {
       "device_type": roofline_model_db.device_type,
-      "has_cmem": roofline_model_db.has_cmem,
-      "has_merged_vmem": roofline_model_db.has_merged_vmem,
-      "peak_flop_rate": roofline_model_db.peak_flop_rate,
-      "peak_hbm_bw": roofline_model_db.peak_hbm_bw,
-      "peak_shml1_write_bw": roofline_model_db.peak_vmem_write_bw,
-      "hbm_ridge_point": ridge_point(
+      "has_cmem": str(int(roofline_model_db.has_cmem)),
+      "has_merged_vmem": str(int(roofline_model_db.has_merged_vmem)),
+      "peak_flop_rate": str(roofline_model_db.peak_flop_rate),
+      "peak_hbm_bw": str(roofline_model_db.peak_hbm_bw),
+      "peak_shml1_write_bw": str(roofline_model_db.peak_vmem_write_bw),
+      "hbm_ridge_point": str(ridge_point(
           roofline_model_db.peak_flop_rate, roofline_model_db.peak_hbm_bw
-      ),
-      "shml1_write_ridge_point": ridge_point(
+      )),
+      "shml1_write_ridge_point": str(ridge_point(
           roofline_model_db.peak_flop_rate, roofline_model_db.peak_vmem_write_bw
-      ),
+      )),
   }
   return (table_description, data, custom_properties)
 
