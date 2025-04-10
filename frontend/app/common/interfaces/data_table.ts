@@ -29,7 +29,7 @@ declare interface GeneralProperty {
 
 /** The base interface for data table without perperty. */
 // We still needs this wrapper over gviz typing because our `p` is optional,
-// which is the contract between Xprof FE and BE (API implementation also has p
+// which is the contract between XProf FE and BE (API implementation also has p
 // as optional)
 // We partially extends the gviz interface to enable that
 export interface SimpleDataTable extends

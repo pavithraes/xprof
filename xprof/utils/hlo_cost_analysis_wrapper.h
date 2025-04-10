@@ -47,7 +47,7 @@ class HloCostAnalysisWrapper {
   // The input is the cost associated with the HLO instruction and the output is
   // the adjusted cost.
   using CostAdjustmentFn = absl::AnyInvocable<int64_t(int64_t)>;
-  // Type for mapping from Xprof memory space to XLA memory space. Used when
+  // Type for mapping from XProf memory space to XLA memory space. Used when
   // constructing the memory accessed breakdown of an HLO instruction.
   using MemorySpaceMap =
       absl::flat_hash_map<PerformanceInfo::MemoryAccessed::MemorySpace,
@@ -78,7 +78,7 @@ class HloCostAnalysisWrapper {
     return ValidHloCost;
   };
 
-  // Returns a mapping from Xprof memory space to XLA memory space.
+  // Returns a mapping from XProf memory space to XLA memory space.
   virtual MemorySpaceMap GetMemorySpaceMapping() const = 0;
 
   // Returns the flops adjustment for the given HLO instruction. (e.g. when

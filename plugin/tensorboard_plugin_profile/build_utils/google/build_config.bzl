@@ -1,6 +1,6 @@
 # Platform-specific build configurations.
 """
-Build macros Xprof uses only in google3.
+Build macros XProf uses only in google3.
 """
 
 load("//dart:dart_proto_library.bzl", "dart_proto_library")

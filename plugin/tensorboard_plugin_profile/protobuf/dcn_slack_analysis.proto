@@ -9,9 +9,9 @@ message OpInstance {
 
 message DcnSlack {
   string rendezvous = 1;
-  // Xprof observed send start time.
+  // XProf observed send start time.
   uint64 send_start_time_us = 2;
-  // Xprof observed recv_done end time.
+  // XProf observed recv_done end time.
   uint64 recv_done_end_time_us = 3;
 
   // Slack is defined as the time the collective has to send and recv data

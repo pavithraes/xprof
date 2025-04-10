@@ -1,7 +1,7 @@
 {
   "name": "xprof",
   "version": "0.0.0-unused",
-  "description": "Xprof TensorFlow Plugin",
+  "description": "XProf Plugin",
   "private": true,
   "directories": {
     "doc": "docs"

@@ -3,7 +3,7 @@ load("@python_deps//:requirements.bzl", "requirement")
 load("@repository_configuration//:repository_config.bzl", "PROFILER_REQUIREMENTS_FILE")
 
 # Description
-# Xprof, ML Performance Toolbox (for TPU, GPU, CPU).
+# XProf, ML Performance Toolbox (for TPU, GPU, CPU).
 
 licenses(["notice"])
 
