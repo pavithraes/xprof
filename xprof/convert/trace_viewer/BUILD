@@ -103,6 +103,17 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "trace_events_util_test",
+    srcs = ["trace_events_util_test.cc"],
+    deps = [
+        ":trace_events_util",
+        "//base:types",
+        "@com_google_googletest//:gtest_main",
+        "@local_xla//xla/tsl/profiler/utils:timespan",
+    ],
+)
+
 cc_library(
     name = "trace_events",
     srcs = ["trace_events.cc"],

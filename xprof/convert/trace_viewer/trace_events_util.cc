@@ -15,6 +15,7 @@ limitations under the License.
 #include "xprof/convert/trace_viewer/trace_events_util.h"
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -54,12 +55,16 @@ std::vector<TraceEventFlow> SplitEventFlow(TraceEventFlow&& flow) {
 }
 
 void ExpandTraceSpan(const tsl::profiler::Timespan& span, Trace* trace) {
-  if (!trace->has_min_timestamp_ps() ||
-      span.begin_ps() < trace->min_timestamp_ps()) {
+  // Given that profiles start at/after t=0, this `max_ts` value is enough to
+  // support a profile length of up to 106 days, which is sufficient.
+  static constexpr uint64_t max_ts = std::numeric_limits<uint64_t>::max() / 2;
+  if (span.begin_ps() <= max_ts &&
+      (!trace->has_min_timestamp_ps() ||
+       span.begin_ps() < trace->min_timestamp_ps())) {
     trace->set_min_timestamp_ps(span.begin_ps());
   }
-  if (!trace->has_max_timestamp_ps() ||
-      span.end_ps() > trace->max_timestamp_ps()) {
+  if (span.end_ps() <= max_ts && (!trace->has_max_timestamp_ps() ||
+                                  span.end_ps() > trace->max_timestamp_ps())) {
     trace->set_max_timestamp_ps(span.end_ps());
   }
 }
