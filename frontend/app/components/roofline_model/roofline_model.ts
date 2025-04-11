@@ -54,6 +54,7 @@ export class RooflineModel implements OnDestroy {
   programLevelAnalysis?: ProgramLevelAnalysis;
   @ViewChild('opLevelAnalysis') opLevelAnalysis?: OperationLevelAnalysis;
 
+  host = '';
   currentRun = '';
   // Device Information section data
   deviceInfoArray: DeviceInfoData[] = [];
@@ -115,15 +116,16 @@ export class RooflineModel implements OnDestroy {
     this.opLevelAnalysis?.resetDashboard();
   }
 
-  update(event: NavigationEvent) {
+  update(event?: NavigationEvent) {
+    this.host = event?.host || this.host || '';
+    this.currentRun = event?.run || this.currentRun || '';
+    if (!this.currentRun || !this.host) return;
+
     setLoadingState(true, this.store, 'Loading roofline model data');
     this.refreshDashboards();
 
     // get tool data
-    this.currentRun = event.run || '';
-    const tag = event.tag || 'roofline_model';
-    const host = event.host || '';
-    this.dataService.getData(this.currentRun, tag, host)
+    this.dataService.getData(this.currentRun, this.tool, this.host)
         .pipe(takeUntil(this.destroyed))
         .subscribe((data) => {
           setLoadingState(false, this.store);
@@ -133,6 +135,13 @@ export class RooflineModel implements OnDestroy {
   }
 
   parseData(data?: RooflineModelData[]) {
+    if (!google?.visualization) {
+      console.log('gviz lib is not loaded yet.');
+      setTimeout(() => {
+        this.parseData(data);
+      }, 100);
+      return;
+    }
     if (data === null || !Array.isArray(data) || data.length < 1) {
       return;
     }
