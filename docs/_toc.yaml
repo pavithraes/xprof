@@ -15,7 +15,7 @@ toc:
 - heading: XProf developer guide
 - title: Getting started
   section:
-  - title: Graph Viewer Tool
+  - title: Graph Viewer
     path: /xprof/graph_viewer
   - title: HLO Op Profile
     path: /xprof/hlo_op_profile
@@ -29,3 +29,5 @@ toc:
     path: /xprof/overview_page
   - title: Trace Viewer
     path: /xprof/trace_viewer
+  - title: Roofline Analysis
+    path: /xprof/roofline_analysis
