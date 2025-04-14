@@ -1,4 +1,4 @@
-import {Component, EventEmitter, Input, Output,} from '@angular/core';
+import {Component, EventEmitter, Input, OnChanges, Output, SimpleChanges} from '@angular/core';
 import {NavigationEvent} from 'org_xprof/frontend/app/common/interfaces/navigation_event';
 
 /** A side navigation component. */
@@ -8,17 +8,20 @@ import {NavigationEvent} from 'org_xprof/frontend/app/common/interfaces/navigati
   templateUrl: './memory_viewer_control.ng.html',
   styleUrls: ['./memory_viewer_control.scss'],
 })
-export class MemoryViewerControl {
+export class MemoryViewerControl implements OnChanges {
   /** The hlo module list. */
   @Input() moduleList: string[] = [];
 
   /** The event when the controls are changed. */
   @Output() readonly changed = new EventEmitter<NavigationEvent>();
 
+  selectedModule = '';
   selectedMemorySpaceColor = '0';
 
-  get selectedModule(): string {
-    return this.moduleList.length ? this.moduleList[0] : '';
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['moduleList'].currentValue.length > 0) {
+      this.selectedModule = this.selectedModule || this.moduleList[0];
+    }
   }
 
   emitUpdateEvent() {
