@@ -187,9 +187,9 @@ http_archive(
         "//third_party:tensorflow.patch",
         "//third_party:tensorflow_add_grpc_cares_darwin_arm64_support.patch",
     ],
-    strip_prefix = "tensorflow-master",
+    strip_prefix = "tensorflow-ec16a806b7397cd9daf3e7d4505b19e8bbffefcc",
     urls = [
-        "https://github.com/tensorflow/tensorflow/archive/master.zip",
+        "https://github.com/tensorflow/tensorflow/archive/ec16a806b7397cd9daf3e7d4505b19e8bbffefcc.zip",
     ],
 )
 
