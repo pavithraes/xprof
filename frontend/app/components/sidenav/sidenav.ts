@@ -151,9 +151,21 @@ export class SideNav implements OnInit, OnDestroy {
   }
 
   getDisplayTagName(tag: string): string {
-    return (tag && tag.length && (tag[tag.length - 1] === '@')) ?
+    const tagName = (tag && tag.length && (tag[tag.length - 1] === '@')) ?
         tag.slice(0, -1) :
         tag || '';
+
+    const toolsDisplayMap = new Map([
+      ['overview_page', 'Overview Page'],
+      ['framework_op_stats', 'Framework Op Stats'],
+      ['memory_profile', 'Memory Profile'], ['pod_viewer', 'Pod Viewer'],
+      ['op_profile', 'HLO Op Profile'], ['memory_viewer', 'Memory Viewer'],
+      ['graph_viewer', 'Graph Viewer'], ['hlo_stats', 'HLO Op Stats'],
+      ['inference_profile', 'Inference Profile'],
+      ['roofline_model', 'Roofline Model'], ['kernel_stats', 'Kernel Stats'],
+      ['trace_viewer', 'Trace Viewer']
+    ]);
+    return toolsDisplayMap.get(tagName) || tagName;
   }
 
   async getToolsForSelectedRun() {
