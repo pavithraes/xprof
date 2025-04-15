@@ -245,6 +245,15 @@ py_library(
     ],
 )
 
+py_test(
+    name = "raw_to_tool_data_test",
+    srcs = ["raw_to_tool_data_test.py"],
+    deps = [
+        ":raw_to_tool_data",
+        "//:expect_tensorflow_installed",
+    ],
+)
+
 py_library(
     name = "inference_stats_proto_to_gviz",
     srcs = ["inference_stats_proto_to_gviz.py"],

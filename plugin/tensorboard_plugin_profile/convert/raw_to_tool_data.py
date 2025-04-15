@@ -107,6 +107,12 @@ def xspace_to_tool_data(
   Returns:
     Returns a string of tool data and the content type for the response.
   """
+  if (tool[-1] == '^'):
+    old_tool = tool
+    tool = tool[:-1]  # Remove the trailing '^'
+    logger.warning(
+        'Received old tool format: %s; mapped to new format: %s', old_tool, tool
+    )
   data = None
   content_type = 'application/json'
   # tqx: gViz output format
