@@ -88,7 +88,10 @@ cc_library(
     copts = tf_profiler_copts(),
     deps = [
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@local_xla//xla/tsl/platform:logging",
         "@local_xla//xla/tsl/platform:macros",
@@ -98,6 +101,7 @@ cc_library(
         "@local_xla//xla/tsl/profiler/utils:xplane_schema",
         "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
+        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:source_info_proto_cc",
     ],
 )
 
@@ -132,9 +136,11 @@ cc_library(
         "@local_tsl//tsl/platform:protobuf",
         "@local_xla//xla/hlo/ir:hlo",
         "@local_xla//xla/tsl/platform:types",
+        "@local_xla//xla/tsl/profiler/convert:xla_op_utils",
         "@local_xla//xla/tsl/profiler/utils:tf_op_utils",
         "@local_xla//xla/tsl/profiler/utils:timespan",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
+        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:source_info_proto_cc",
         "@org_xprof//xprof/convert:op_metrics_db_combiner",
     ],
 )

@@ -84,6 +84,12 @@ TEST(OpMetricsDbTest, FromXEventHandlesMissingOccurrences) {
   stats.AddStatValue(
       *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kBytesAccessed)),
       5);
+  stats.AddStatValue(
+      *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kSourceInfo)),
+      "my_file.py:123");
+  stats.AddStatValue(
+      *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kSourceStack)),
+      "my_file.py:123\nmy_other_file.py:456");
   XEventBuilder event = line.AddEvent(*event_metadata);
   event.SetOffsetPs(0);
   event.SetDurationPs(100);
@@ -110,6 +116,11 @@ TEST(OpMetricsDbTest, FromXEventHandlesMissingOccurrences) {
                 provenance: "tf_op"
                 min_time_ps: 100
                 num_cores: 1
+                source_info {
+                  file_name: "my_file.py"
+                  line_number: 123
+                  stack_frame: "my_file.py:123\nmy_other_file.py:456"
+                }
               )pb"));
 #endif
 }

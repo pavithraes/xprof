@@ -75,6 +75,7 @@ cc_library(
         "@local_xla//xla/tsl/platform:logging",
         "@local_xla//xla/tsl/platform:types",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
+        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:source_info_proto_cc",
         "@org_xprof//xprof/utils:op_metrics_db_utils",
     ],
 )
@@ -920,6 +921,7 @@ cc_library(
         "@org_tensorflow//tensorflow/core/lib/gtl:top_n",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_profile_proto_cc",
+        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:source_info_proto_cc",
         "@org_xprof//xprof/utils:op_metrics_db_utils",
     ],
 )
