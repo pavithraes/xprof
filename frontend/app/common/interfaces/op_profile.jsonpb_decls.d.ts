@@ -1,3 +1,5 @@
+import {SourceInfo} from 'org_xprof/frontend/app/common/interfaces/source_info.jsonpb_decls';
+
 /** Profile is the top-level data that summarizes a program. */
 export interface Profile {
   byCategory?: Node;
@@ -28,6 +30,7 @@ export namespace Node {
     layout?: Node.XLAInstruction.LayoutAnalysis;
     computationPrimitiveSize?: /* uint32 */ number;
     programId?: /* uint64 */ string;
+    sourceInfo?: SourceInfo;
   }
   export namespace XLAInstruction {
     export interface LayoutAnalysis {

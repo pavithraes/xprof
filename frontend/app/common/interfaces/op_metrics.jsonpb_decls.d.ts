@@ -1,5 +1,7 @@
 // DO NOT modify and only change in sync with the proto changes.
 
+import {SourceInfo} from 'org_xprof/frontend/app/common/interfaces/source_info.jsonpb_decls';
+
 /** */
 export type MemBwType =
     'MEM_BW_TYPE_FIRST'|'MEM_BW_TYPE_ALL'|'MEM_BW_TYPE_HBM_RW'|
@@ -100,6 +102,7 @@ export interface OpMetrics {
   numCores?: /* uint32 */ number;
   computationPrimitiveSize?: /* uint32 */ number;
   autotuned?: boolean;
+  sourceInfo?: SourceInfo;
 }
 
 /** */

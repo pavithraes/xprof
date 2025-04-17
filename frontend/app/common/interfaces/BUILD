@@ -36,6 +36,13 @@ genrule(
 )
 
 ts_library(
+    name = "source_info_proto_defs",
+    srcs = [
+        ":source_info.jsonpb_decls.d.ts",
+    ],
+)
+
+ts_library(
     name = "op_metrics_proto_defs",
     srcs = [
         ":op_metrics.jsonpb_decls.d.ts",
