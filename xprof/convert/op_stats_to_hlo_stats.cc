@@ -29,6 +29,7 @@ limitations under the License.
 #include "plugin/tensorboard_plugin_profile/protobuf/hlo_stats.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_metrics.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_stats.pb.h"
+#include "plugin/tensorboard_plugin_profile/protobuf/source_info.pb.h"
 
 namespace tensorflow {
 namespace profiler {
@@ -60,7 +61,13 @@ HloStatsRecord ConvertOpMetricsToHloStatsRecord(const OpMetrics& metrics,
       /*framework_op_name=*/metrics.provenance()));
   record.set_outside_compilation(
       IsOutsideCompilationOp(metrics.provenance(), metrics.long_name()));
+  *record.mutable_source_info() = metrics.source_info();
   return record;
+}
+
+std::string ToSourceTopLine(const std::string& file_name, int line_number) {
+  if (file_name.empty()) return "";
+  return absl::StrCat(file_name, ":", line_number);
 }
 
 }  // namespace
@@ -129,6 +136,8 @@ std::vector<std::vector<std::string>> HloStatsDataTableColumns() {
       {"hlo_rematerialization", "string", "Rematerialization"},
       {"outside_compilation", "string", "Outside Compilation"},
       {"autotuned", "string", "Autotuned"},
+      {"source_info", "string", "Source Info"},
+      {"source_stack", "string", "Source Stack"},
   };
   return kColumns;
 }
@@ -166,6 +175,9 @@ std::unique_ptr<tensorflow::profiler::DataTable> CreateHloStatsDataTable(
     row->AddCell(record.rematerialization() ? "Yes" : "No");
     row->AddCell(record.outside_compilation() ? "Yes" : "No");
     row->AddCell(record.autotuned() ? "Yes" : "No");
+    row->AddCell(ToSourceTopLine(record.source_info().file_name(),
+                                 record.source_info().line_number()));
+    row->AddCell(record.source_info().stack_frame());
   }
   return data_table;
 }

@@ -44,6 +44,7 @@ xprof_proto_library(
 xprof_proto_library(
     name = "hlo_stats_proto",
     srcs = ["hlo_stats.proto"],
+    protodeps = [":source_info_proto"],
 )
 
 xprof_proto_library(

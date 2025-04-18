@@ -118,6 +118,7 @@ cc_library(
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:hlo_stats_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_stats_proto_cc",
+        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:source_info_proto_cc",
     ],
 )
 
