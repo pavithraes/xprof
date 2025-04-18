@@ -137,6 +137,7 @@ cc_library(
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_stats_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:roofline_model_proto_cc",
+        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:source_info_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:steps_db_proto_cc",
         "@org_xprof//xprof/utils:diagnostics",
     ],

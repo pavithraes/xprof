@@ -141,7 +141,10 @@ xprof_proto_library(
 xprof_proto_library(
     name = "roofline_model_proto",
     srcs = ["roofline_model.proto"],
-    protodeps = [":diagnostics_proto"],
+    protodeps = [
+        ":diagnostics_proto",
+        ":source_info_proto",
+    ],
 )
 
 xprof_proto_library(
