@@ -41,6 +41,8 @@ export interface DataServiceV2Interface {
       type: string,
       showMetadata: boolean,
       ): Observable<string|Blob|null>|null;
+
+  setSearchParams(params: URLSearchParams): void;
 }
 
 /** Injection token for the data service interface. */

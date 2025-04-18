@@ -48,11 +48,8 @@ export class OpProfile implements OnDestroy {
   update() {
     setLoadingState(true, this.store, 'Loading op profile data');
     this.throbber.start();
-
     const $data =
         this.dataService.getData(this.sessionId, this.tool, this.host);
-    // TODO(yinzz): May generalize the `getModuleList` data service so it does
-    // not depend on a tools name
     const $moduleList = this.dataService.getModuleList(
         this.sessionId,
     );

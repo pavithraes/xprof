@@ -110,4 +110,8 @@ export class DataServiceV2 implements DataServiceV2Interface {
       ): Observable<string|Blob|null>|null {
     return null;
   }
+
+  setSearchParams(params: URLSearchParams) {
+    this.searchParams = params;
+  }
 }
