@@ -16,14 +16,21 @@ import {setCurrentToolStateAction} from 'org_xprof/frontend/app/store/actions';
 import {ReplaySubject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
-const OP_CATEGORY_ID = 'category';
-const OP_NAME_ID = 'hlo_op_name';
-const PROGRAM_ID = 'program_id';
-const OP_EXPRESSION_ID = 'hlo_op_expression';
-const SELF_TIME_ID = 'total_self_time';
+const AVG_TIME_ID = 'avg_time';
 const HLO_REMAT_ID = 'hlo_rematerialization';
-const OUTSIDE_COMPILATION_ID = 'outside_compilation';
 const MEASURED_FLOP_RATE_ID = 'model_flop_rate';
+const OCCURRENCES_ID = 'occurrences';
+const OP_CATEGORY_ID = 'category';
+const OP_EXPRESSION_ID = 'hlo_op_expression';
+const OP_NAME_ID = 'hlo_op_name';
+const OUTSIDE_COMPILATION_ID = 'outside_compilation';
+const PROGRAM_ID = 'program_id';
+const RANK_ID = 'rank';
+const SELF_TIME_ID = 'total_self_time';
+const SOURCE_INFO_ID = 'source_info';
+const SOURCE_STACK_ID = 'source_stack';
+const TF_OP_NAME_ID = 'tf_op_name';
+const TOTAL_TIME_ID = 'total_time';
 
 /** A Hlo Stats component. */
 @Component({
@@ -94,7 +101,7 @@ export class HloStats extends Dashboard implements OnDestroy {
     },
   };
   showChartSection = true;
-  tableColumnsControl = new FormControl([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  tableColumnsControl = new FormControl<number[]>([]);
   tableColumns: Array<{index: number; label: string}> = [];
 
   constructor(
@@ -180,14 +187,79 @@ export class HloStats extends Dashboard implements OnDestroy {
     return updatedData;
   }
 
+  /**
+   * Merges the source info and stack columns into a single column.
+   *
+   * If any of the following conditions are met, the original data is returned:
+   * - `data.cols` is `null`.
+   * - `data.cols` does not contain a column with ID `SOURCE_INFO_ID`.
+   * - `data.cols` does not contain a column with ID `SOURCE_STACK_ID`.
+   *
+   * If the original data is not returned, then a shallow copy is returned where
+   * the column with ID `SOURCE_STACK_ID` is removed and its content is merged
+   * into the column with ID `SOURCE_INFO_ID`.
+   *
+   * TODO(b/411696636): Simplify the logic after new changes are applied.
+   */
+  private mergeSourceInfoColumns(data: SimpleDataTable): SimpleDataTable {
+    const infoColIdx =
+        data.cols?.findIndex((col) => col.id === SOURCE_INFO_ID) ?? -1;
+    const stackColIdx =
+        data.cols?.findIndex((col) => col.id === SOURCE_STACK_ID) ?? -1;
+
+    if (infoColIdx === -1 || stackColIdx === -1) {
+      return data;
+    }
+
+    function removeSourceStackColumn<T>(array: T[]): T[] {
+      return array.filter((_, idx) => idx !== stackColIdx);
+    }
+
+    function sourceInfoCell(
+        sourceInfo: string,
+        sourceStack: string,
+        ): google.visualization.DataObjectCell {
+      return {
+        v: sourceInfo,
+        // We show the source stack in a tooltip. Also, we assume that neither
+        // `sourceStack` nor `sourceInfo` contains HTML tags. In other words,
+        // we don't need to escape them.
+        f: `<div title="${sourceStack}">${sourceInfo}</div>`,
+      };
+    }
+
+    const updatedData = {
+      ...data,
+      cols: removeSourceStackColumn(data?.cols || []),
+      rows: (data?.rows || []).map((row, index) => {
+        const cells = row.c || [];
+        const sourceInfo = (cells[infoColIdx]?.v as string) || '';
+        const sourceStack = (cells[stackColIdx]?.v as string) || '';
+        return {
+          ...row,
+          c: removeSourceStackColumn([
+            ...cells.slice(0, infoColIdx),
+            sourceInfoCell(sourceInfo, sourceStack),
+            ...cells.slice(infoColIdx + 1),
+          ]),
+        };
+      }),
+    };
+    return updatedData;
+  }
+
   private process(data: SimpleDataTable|null) {
     if (!data) return;
 
-    this.parseData(data);
+    // `mergeSourceInfoColumns` needs to be called before `parseData`, because
+    // it removes a column.
+    const dataWithSourceInfo = this.mergeSourceInfoColumns(data);
+
+    this.parseData(dataWithSourceInfo);
     this.drawFlopRateChart();
     this.updateOpReplicaGroupChart();
 
-    const updatedData = this.addGraphViewerLinkInTableData(data);
+    const updatedData = this.addGraphViewerLinkInTableData(dataWithSourceInfo);
     this.dataInfoForTable = {
       ...this.dataInfoForTable,
       data: updatedData,
@@ -228,17 +300,33 @@ export class HloStats extends Dashboard implements OnDestroy {
   }
 
   processTableColumns(dataTable: google.visualization.DataTable) {
-    const numColumns = dataTable.getNumberOfColumns();
     this.tableColumns = [];
+    const numColumns = dataTable.getNumberOfColumns();
+    const defaultVisibleColumns = [];
+    const defaultVisibleColumnIds = new Set([
+      AVG_TIME_ID,
+      OCCURRENCES_ID,
+      OP_CATEGORY_ID,
+      OP_EXPRESSION_ID,
+      OP_NAME_ID,
+      PROGRAM_ID,
+      RANK_ID,
+      SOURCE_INFO_ID,
+      TF_OP_NAME_ID,
+      TOTAL_TIME_ID,
+    ]);
     for (let i = 0; i < numColumns; i++) {
       this.tableColumns.push({
         index: i,
         label: dataTable.getColumnLabel(i),
       });
+      if (defaultVisibleColumnIds.has(dataTable.getColumnId(i))) {
+        defaultVisibleColumns.push(i);
+      }
     }
-    this.updateTableColumns(
-        this.tableColumnsControl.value || [0, 1, 2, 3, 4, 5, 6, 7, 8],
-    );
+    if (this.tableColumnsControl?.value?.length === 0) {
+      this.tableColumnsControl.setValue(defaultVisibleColumns);
+    }
   }
 
   updateTableColumns(newValue: number[]) {
