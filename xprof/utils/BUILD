@@ -528,3 +528,19 @@ cc_test(
         "@local_xla//xla/tsl/platform:test",
     ],
 )
+
+cc_library(
+    name = "tensorflow_utils",
+    srcs = ["tensorflow_utils.cc"],
+    hdrs = ["tensorflow_utils.h"],
+    visibility = ["//xprof:__subpackages__"],
+    deps = [
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_protobuf//:protobuf",
+        "@local_tsl//tsl/platform:strcat",
+        "@local_xla//xla/tsl/platform:types",
+        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:tensorflow_datatypes_proto_cc",
+    ],
+)
