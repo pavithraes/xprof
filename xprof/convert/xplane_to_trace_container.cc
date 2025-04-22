@@ -129,19 +129,18 @@ SpecialArguments ConvertXStatsToTraceEventArguments(
 void ConvertXLineToTraceEventsContainer(uint32_t device_id,
                                         const XLineVisitor& line,
                                         TraceEventsContainer* container) {
-  uint32_t resource_id = line.DisplayId();
-  Resource* resource = container->MutableResource(resource_id, device_id);
-  resource->set_resource_id(resource_id);
-  resource->set_num_events(line.NumEvents());
-  bool is_counter_line = (line.Name() == tsl::profiler::kCounterEventsLineName);
-  if (is_counter_line) {
-    resource->set_name(std::string(line.GetFirstEvent().Name()));
-  } else {
+  std::optional<uint32_t> resource_id;
+
+  if (line.Name() != tsl::profiler::kCounterEventsLineName) {
+    resource_id = line.DisplayId();
+    Resource* resource = container->MutableResource(*resource_id, device_id);
+    resource->set_resource_id(*resource_id);
     resource->set_name(std::string(line.DisplayName()));
+    resource->set_num_events(line.NumEvents());
   }
 
   RawData raw_data;  // hoisted for performance
-  line.ForEachEvent([device_id, resource_id, &raw_data, is_counter_line,
+  line.ForEachEvent([device_id, resource_id, &raw_data,
                      container](const XEventVisitor& event) {
     int64_t event_type =
         event.Type().value_or(HostEventType::kUnknownHostEventType);
@@ -167,9 +166,9 @@ void ConvertXLineToTraceEventsContainer(uint32_t device_id,
     if (!special_args.step_name.empty()) {
       event_name = special_args.step_name;
     }
-    if (is_counter_line) {
-      container->AddCounterEvent(event_name, resource_id, device_id,
-                                 event.TimestampPs(), raw_data);
+    if (!resource_id) {
+      container->AddCounterEvent(event_name, device_id, event.TimestampPs(),
+                                 raw_data);
     } else if (special_args.flow) {
       tsl::profiler::Timespan span(event.TimestampPs(), event.DurationPs());
       if (special_args.is_async_event) {
@@ -179,13 +178,13 @@ void ConvertXLineToTraceEventsContainer(uint32_t device_id,
             special_args.flow->Category(), &raw_data, special_args.group_id);
       } else {
         container->AddFlowEvent(
-            event_name, resource_id, device_id, span, special_args.flow->Id(),
+            event_name, *resource_id, device_id, span, special_args.flow->Id(),
             FlowEntryTypeFromDirection(special_args.flow->Direction()),
             special_args.flow->Category(), &raw_data, special_args.group_id);
       }
     } else {
       tsl::profiler::Timespan span(event.TimestampPs(), event.DurationPs());
-      container->AddCompleteEvent(event_name, resource_id, device_id, span,
+      container->AddCompleteEvent(event_name, *resource_id, device_id, span,
                                   &raw_data, special_args.group_id);
     }
     // Cleanup hoisted structure for next event.
