@@ -71,6 +71,25 @@ using ::tsl::profiler::StatType;
 using ::tsl::profiler::XPlaneBuilder;
 using ::tsl::profiler::XPlaneVisitor;
 
+// Assigns the latest group_id to ungrouped events.
+// This handles a mix of eager-mode and graph-mode events by propagating the
+// group_id from the most recent graph-mode event to the eager event.
+void ProcessUngroupedEvents(XPlane* plane) {
+  XPlaneBuilder plane_builder(plane);
+  const XStatMetadata* group_id_stat_metadata =
+      plane_builder.GetStatMetadata(GetStatTypeStr(StatType::kGroupId));
+  if (group_id_stat_metadata == nullptr) return;
+  std::optional<int64_t> group_id;
+  for (XEventBuilder& event : GetSortedEvents<XEventBuilder>(plane_builder)) {
+    const XStat* group_id_stat = event.GetStat(*group_id_stat_metadata);
+    if (group_id_stat != nullptr) {
+      group_id = group_id_stat->int64_value();
+    } else if (group_id.has_value()) {
+      event.AddStatValue(*group_id_stat_metadata, *group_id);
+    }
+  }
+}
+
 inline std::string HloModuleEventName(const GpuEventStats& stats) {
   return stats.program_id ? tsl::profiler::HloModuleNameWithProgramId(
                                 stats.hlo_module_name, *stats.program_id)
@@ -620,6 +639,14 @@ void DeriveEventsFromHostTrace(
 
 void GenerateDerivedTimeLines(
     const tsl::profiler::GroupMetadataMap& group_metadata_map, XSpace* space) {
+  std::vector<XPlane*> device_planes =
+      tsl::profiler::FindMutablePlanesWithPrefix(
+          space, tsl::profiler::kGpuPlanePrefix);
+  for (XPlane* plane : device_planes) {
+    // Ensure all GPU events are grouped before deriving other lines.
+    ProcessUngroupedEvents(plane);
+    DeriveStepEventsFromGroups(group_metadata_map, plane);
+  }
   HloModuleMap hlo_module_map;
   {
     HloProtoMap hlo_proto_map;
@@ -653,11 +680,7 @@ void GenerateDerivedTimeLines(
     });
   }
 
-  std::vector<XPlane*> device_planes =
-      tsl::profiler::FindMutablePlanesWithPrefix(
-          space, tsl::profiler::kGpuPlanePrefix);
   for (XPlane* plane : device_planes) {
-    DeriveStepEventsFromGroups(group_metadata_map, plane);
     DeriveEventsFromAnnotations(symbol_resolver, plane, &scope_range_id_tree);
   }
 
