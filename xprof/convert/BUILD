@@ -508,10 +508,13 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
         "@local_xla//xla/tsl/profiler/utils:group_events",
+        "@local_xla//xla/tsl/profiler/utils:timespan",
         "@local_xla//xla/tsl/profiler/utils:xplane_builder",
         "@local_xla//xla/tsl/profiler/utils:xplane_schema",
         "@local_xla//xla/tsl/profiler/utils:xplane_test_utils",
+        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
         "@org_xprof//xprof/utils:event_span",
+        "@org_xprof//xprof/utils:op_metrics_db_utils",
     ],
 )
 
