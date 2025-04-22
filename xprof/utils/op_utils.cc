@@ -83,10 +83,7 @@ void AddFusionChildrenToOpMetricsFromHloInstruction(
       continue;
     OpMetrics* child_op_metrics =
         op_metrics->mutable_children()->add_metrics_db();
-    // DeviceOpMetricsDbBuilder children_db_builder(
-    //     op_metrics->mutable_children());
     EnterOpMetadata(child_op_metrics, child);
-    // children_db_builder.EnterOpMetadata(child_op_metrics, child);
     AddFusionChildrenToOpMetricsFromHloInstruction(child_op_metrics, child);
   }
 }

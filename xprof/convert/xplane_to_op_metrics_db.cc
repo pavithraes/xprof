@@ -299,12 +299,6 @@ void AggregateHloFunc(HLOTracker& current, DeviceOpMetricsDbBuilder& metricDb) {
   if (current.hlo_instruction == nullptr) return;
   auto performance_info_wrapper =
       current.hlo_instruction->GetPerformanceInfoWrapper();
-  auto flops = 0;
-  auto bytes_accessed = 0;
-  if (performance_info_wrapper != nullptr) {
-    flops = performance_info_wrapper->flops();
-    bytes_accessed = performance_info_wrapper->bytes_accessed();
-  }
   metricDb.EnterOp(
       current.program_id, current.hlo_op_name,
       current.hlo_instruction->Category(), current.hlo_instruction->TfOpName(),
