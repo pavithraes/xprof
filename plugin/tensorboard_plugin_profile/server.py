@@ -14,7 +14,9 @@
 # ==============================================================================
 """Utilities to start up a standalone webserver."""
 
+import argparse
 import collections
+import os
 import socket
 import sys
 
@@ -106,30 +108,49 @@ def launch_server(logdir, port):
   run_server(plugin, _get_wildcard_address(port), port)
 
 
-def usage():
-  """Prints the usage instructions for the script."""
-  print("Usage: xprof <logdir> [port]")
-  print("  <logdir>: The directory where profile files will be stored.")
-  print(
-      "  [port]:   The port number to use for the server (optional, default"
-      " 8791)."
+def main() -> int:
+  """Parses command-line arguments and launches the XProf server."""
+  parser = argparse.ArgumentParser(
+      prog="xprof",
+      description="Launch the XProf profiling server.",
+      epilog="Example: xprof ~/jax/profile-logs -p 8080",
   )
-  print("Example:")
-  print("  xprof /var/log/my_app 8080")
-  print("  xprof ~/jax/profile-logs/")
 
+  parser.add_argument(
+      "logdir",
+      metavar="<logdir>",
+      type=str,
+      help="The directory where profile files will be stored.",
+  )
 
-def main():
-  if len(sys.argv) < 2:
-    usage()
-    return -1
-
-  logdir = sys.argv[1]
+  parser.add_argument(
+      "-p",
+      "--port",
+      metavar="<port>",
+      type=int,
+      default=8791,
+      help="The port number for the server (default: %(default)s).",
+  )
 
   try:
-    port = 8791 if len(sys.argv) < 3 else int(sys.argv[2])
-  except ValueError:
-    print("Error: Port must be an integer.")
-    usage()
-    return -1
+    args = parser.parse_args()
+  except SystemExit as e:
+    return e.code
+
+  logdir = args.logdir
+  port = args.port
+
+  print("Attempting to start server:")
+  print(f"  Log Directory: {logdir}")
+  print(f"  Port: {port}")
+
+  if not os.path.isdir(logdir):
+    print(
+        f"Error: Log directory '{logdir}' does not exist or is not a"
+        " directory.",
+        file=sys.stderr,
+    )
+    return 1
+
   launch_server(logdir, port)
+  return 0
