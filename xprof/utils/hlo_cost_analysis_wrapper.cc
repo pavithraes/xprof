@@ -42,7 +42,7 @@ int64_t HloCostAnalysisWrapper::GetDeviceFlops(
   DCHECK(cost_analysis != nullptr) << "Unexpected nullptr cost_analysis";
   int64_t adjusted_flops =
       cost_analysis->flop_count(hlo) - GetDeviceFlopsAdjustment(hlo);
-  LOG_IF(WARNING, adjusted_flops < -1)
+  LOG_IF_EVERY_N(WARNING, adjusted_flops < -1, 1000)
       << "Adjusted flops should be non-negative or -1";
   auto cost_adjustment_fn = GetCostAdjustmentFunction(hlo);
   return cost_adjustment_fn(adjusted_flops);
