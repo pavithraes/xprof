@@ -444,7 +444,7 @@ std::string JoinStackFrames(const std::vector<StackFrameInfo>& stack_frames) {
 std::vector<StackFrameInfo> ExtractStackFrames(
     const StackFrameIndexProto& stack_frame_index, int32_t frame_id) {
   std::vector<StackFrameInfo> result;
-  while (frame_id != 0) {
+  while (frame_id > 0 && frame_id <= stack_frame_index.stack_frames_size()) {
     const StackFrameIndexProto::StackFrame& frame =
         stack_frame_index.stack_frames(frame_id - 1);
     frame_id = frame.parent_frame_id();
@@ -452,13 +452,15 @@ std::vector<StackFrameInfo> ExtractStackFrames(
     int32_t line_number = -1;
     int32_t column_number = -1;
     if (const auto file_location_id = frame.file_location_id();
-        file_location_id != 0) {
+        file_location_id > 0 &&
+        file_location_id <= stack_frame_index.file_locations_size()) {
       const StackFrameIndexProto::FileLocation& file_location =
           stack_frame_index.file_locations(file_location_id - 1);
       line_number = file_location.line();
       column_number = file_location.column();
       if (const auto file_name_id = file_location.file_name_id();
-          file_name_id != 0) {
+          file_name_id > 0 &&
+          file_name_id <= stack_frame_index.file_names_size()) {
         file_name = stack_frame_index.file_names(file_name_id - 1);
       }
     }
