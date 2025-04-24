@@ -240,7 +240,7 @@ def get_step_breakdown_table_args(ipa):
   """
 
   table_description = [
-      ("stepname", "string", "Step Name"),
+      ("stepnum", "number", "Step Number"),
       ("deviceComputeTimeMs", "number", "Device compute"),
       ("deviceToDeviceTimeMs", "number", "Device to device"),
       ("deviceCollectivesTimeMs", "number", "Device collectives"),
@@ -291,7 +291,7 @@ def get_step_breakdown_table_args(ipa):
                    details.device_compute_ms)
 
     row = [
-        details.step_name,
+        details.step_number,
         details.device_compute_ms,
         details.device_to_device_ms,
         details.device_collectives_ms,
