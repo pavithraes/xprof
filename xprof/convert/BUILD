@@ -479,6 +479,7 @@ cc_library(
     hdrs = ["xplane_to_step_events.h"],
     deps = [
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
         "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
         "@local_xla//xla/tsl/platform:types",
@@ -513,6 +514,7 @@ cc_test(
         "@local_xla//xla/tsl/profiler/utils:xplane_schema",
         "@local_xla//xla/tsl/profiler/utils:xplane_test_utils",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
+        "@org_xprof//xprof/utils:derived_timeline",
         "@org_xprof//xprof/utils:event_span",
         "@org_xprof//xprof/utils:op_metrics_db_utils",
     ],

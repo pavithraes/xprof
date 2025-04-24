@@ -18,15 +18,16 @@ limitations under the License.
 #include <cstdint>
 #include <vector>
 
+#include "<gtest/gtest.h>"
 #include "absl/container/flat_hash_map.h"
 #include "xla/tsl/profiler/utils/group_events.h"
 #include "xla/tsl/profiler/utils/timespan.h"
 #include "xla/tsl/profiler/utils/xplane_builder.h"
 #include "xla/tsl/profiler/utils/xplane_schema.h"
 #include "xla/tsl/profiler/utils/xplane_test_utils.h"
-#include "<gtest/gtest.h>"
 #include "tsl/profiler/protobuf/xplane.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_metrics.pb.h"
+#include "xprof/utils/derived_timeline.h"
 #include "xprof/utils/event_span.h"
 #include "xprof/utils/op_metrics_db_utils.h"
 
@@ -98,7 +99,9 @@ TEST(ConvertXPlaneToOpStats, CpuOnlyStepDbTest) {
   CreateXEvent(&device_plane_builder, &stream, "matmul", 50, 40,
                {{StatType::kCorrelationId, kFirstCorrelationId}});
 
-  tsl::profiler::GroupTfEvents(&space);
+  tsl::profiler::EventForest event_forest;
+  tsl::profiler::GroupTfEvents(&space, &event_forest);
+  DeriveStepEventsFromGroups(event_forest.GetGroupMetadataMap(), device_plane);
   StepEvents device_step_events =
       ConvertDeviceTraceXPlaneToStepEvents(*device_plane);
   EXPECT_EQ(device_step_events.size(), 1);
@@ -226,6 +229,71 @@ TEST(ConvertXPlaneToStepEvents, SparseCoreShouldHaveStepMarkers) {
   const OpMetrics& sparse_core_busy_op = op_metrics_db.metrics_db()[0];
   EXPECT_EQ(sparse_core_busy_op.time_ps(), 100);
   EXPECT_EQ(sparse_core_busy_op.self_time_ps(), 90);
+}
+
+TEST(ConvertXPlaneToStepEvents, TpuDevicePlaneNoStepLine) {
+  XPlane raw_plane;
+  XPlaneBuilder plane(&raw_plane);
+  int64_t device_id = 1;
+  plane.SetId(device_id);
+  plane.SetName("/device:TPU:0");
+
+  // Empty step line.
+  XLineBuilder step_line = plane.GetOrCreateLine(0);
+  step_line.SetName(tsl::profiler::kStepLineName);
+
+  // Non-empty op line.
+  XLineBuilder op_line = plane.GetOrCreateLine(1);
+  op_line.SetName(tsl::profiler::kXlaOpLineName);
+  const XStatMetadata& program_id_stat =
+      *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kProgramId));
+  const XStatMetadata& symbol_id_stat =
+      *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kSymbolId));
+  const XStatMetadata& group_id_stat =
+      *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kGroupId));
+  {
+    XEventMetadata* event_metadata =
+        plane.GetOrCreateEventMetadata("op_long_name");
+    event_metadata->set_display_name("op_name");
+    XStatsBuilder<XEventMetadata> stats(event_metadata, &plane);
+    stats.AddStatValue(program_id_stat, 1);
+    stats.AddStatValue(symbol_id_stat, 1);
+    {
+      XEventBuilder event = op_line.AddEvent(*event_metadata);
+      event.SetOffsetPs(0);
+      event.SetDurationPs(50);
+      event.AddStatValue(group_id_stat, 1);
+    }
+    {
+      XEventBuilder event = op_line.AddEvent(*event_metadata);
+      event.SetOffsetPs(100);
+      event.SetDurationPs(50);
+      event.AddStatValue(group_id_stat, 2);
+    }
+  }
+  {
+    XEventMetadata* event_metadata =
+        plane.GetOrCreateEventMetadata("op_long_name2");
+    event_metadata->set_display_name("op_name2");
+    XStatsBuilder<XEventMetadata> stats(event_metadata, &plane);
+    stats.AddStatValue(program_id_stat, 1);
+    stats.AddStatValue(symbol_id_stat, 2);
+    {
+      XEventBuilder event = op_line.AddEvent(*event_metadata);
+      event.SetOffsetPs(50);
+      event.SetDurationPs(50);
+      event.AddStatValue(group_id_stat, 1);
+    }
+    {
+      XEventBuilder event = op_line.AddEvent(*event_metadata);
+      event.SetOffsetPs(150);
+      event.SetDurationPs(50);
+      event.AddStatValue(group_id_stat, 2);
+    }
+  }
+
+  StepEvents step_events = ConvertDeviceTraceXPlaneToStepEvents(raw_plane);
+  EXPECT_EQ(step_events.size(), 0);
 }
 
 }  // namespace

@@ -21,6 +21,7 @@ limitations under the License.
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/check.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_split.h"
@@ -347,50 +348,55 @@ StepEvents ConvertTpuDeviceTraceXLineToStepEvents(const uint64 device_id,
 }
 
 StepEvents ConvertDeviceTraceXPlaneToStepEvents(const XPlane& device_trace) {
-  StepEvents device_step_events;
   XPlaneVisitor plane = tsl::profiler::CreateTfXPlaneVisitor(&device_trace);
   std::optional<int> tpu_core_id = tsl::profiler::GetTensorCoreId(plane.Name());
   std::optional<int> sc_core_id = tsl::profiler::GetSparseCoreId(plane.Name());
+  StepEvents step_markers;
+  StepEvents step_events;
   plane.ForEachLine([&](const XLineVisitor& line) {
     int64_t line_id = line.Id();
     if (line_id == tsl::profiler::kThreadIdStepInfo ||
         (tpu_core_id.has_value() &&
          line.Name() == tsl::profiler::kStepLineName)) {
+      // There should only be a single StepLine per TPU core.
+      DCHECK(step_markers.empty());
       // TODO(b/397774568): Re-add processing of SparseCore steps once the
       // SparseCore OpMetricsDb is implemented.
-      StepEvents step_marker_events = ConvertDeviceStepInfoToStepMarkers(line);
-      UnionCombineStepEvents(step_marker_events, &device_step_events);
+      step_markers = ConvertDeviceStepInfoToStepMarkers(line);
     } else if (tsl::profiler::IsDerivedThreadId(line_id)) {
       return;
     } else {
-      StepEvents stream_step_events;
       if (tpu_core_id.has_value()) {
         if (!tsl::profiler::IsOpLineName(line.Name())) return;
+        // There should only be a single OpLine per TPU core.
+        DCHECK(step_events.empty());
         // In TPU sampling mode, the profiling session could stop in the middle
         //  of a training step. In this case, the "XLA Ops" line will have
         // one more step than the "Step" line. We need to intersect them to get
         // the common step numbers.
-        stream_step_events =
-            ConvertTpuDeviceTraceXLineToStepEvents(plane.Id(), line);
-        IntersectCombineStepEvents(stream_step_events, &device_step_events);
+        step_events = ConvertTpuDeviceTraceXLineToStepEvents(plane.Id(), line);
       } else if (sc_core_id.has_value()) {
         // TODO(b/397774568): Switch to IsOpLineName and remove step marker
         // processing once SparseCore OpMetricsDb is implemented.
         if (line.Name() != tsl::profiler::kSparseCoreStepLineName) return;
-        StepEvents step_marker_events =
-            ConvertDeviceStepInfoToStepMarkers(line);
-        UnionCombineStepEvents(step_marker_events, &device_step_events);
-        stream_step_events = ConvertTpuDeviceTraceXLineToStepEvents(
+        // There should only be a single SparseCore StepLine per SparseCore.
+        DCHECK(step_markers.empty());
+        DCHECK(step_events.empty());
+        step_markers = ConvertDeviceStepInfoToStepMarkers(line);
+        step_events = ConvertTpuDeviceTraceXLineToStepEvents(
             kSparseCoreIndexStart + plane.Id(), line);
-        IntersectCombineStepEvents(stream_step_events, &device_step_events);
       } else {
-        stream_step_events =
+        // There may be multiple streams per GPU device so union the results.
+        StepEvents stream_step_events =
             ConvertDeviceTraceXLineToStepEvents(plane.Id(), line);
-        UnionCombineStepEvents(stream_step_events, &device_step_events);
+        UnionCombineStepEvents(stream_step_events, &step_events);
       }
     }
   });
-  return device_step_events;
+  if (!step_events.empty()) {
+    IntersectCombineStepEvents(step_markers, &step_events);
+  }
+  return step_events;
 }
 
 }  // namespace profiler
