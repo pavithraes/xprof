@@ -17,13 +17,7 @@ limitations under the License.
 
 #include <algorithm>
 #include <cstdint>
-#include <string>
-
-#include "absl/container/flat_hash_set.h"
 #include "xla/tsl/profiler/utils/xplane_visitor.h"
-#include "tensorflow/core/grappler/costs/cost_estimator.h"
-#include "tensorflow/core/grappler/costs/op_level_cost_estimator.h"
-#include "xla/tsl/platform/types.h"
 
 namespace tensorflow {
 namespace profiler {
@@ -34,33 +28,6 @@ using ::tsl::profiler::XEventVisitor;
 // HloCostAnalysis returns -1 if the instruction does not have a cost.
 // Other negative costs could be adjustment for higher precision cost analysis.
 inline int64_t ValidHloCost(int64_t cost) { return cost == -1 ? 0 : cost; }
-
-// This is a wrapper of tensorflow::grappler::OpLevelCostEstimator and use
-// tracing time information to estimate the roof line stats for each traced
-// tensorflow op.
-class TfOpRoofLineCostEstimator
-    : public tensorflow::grappler::OpLevelCostEstimator {
- public:
-  TfOpRoofLineCostEstimator() = default;
-  ~TfOpRoofLineCostEstimator() override;
-
-  grappler::DeviceInfo GetDeviceInfo(
-      const DeviceProperties& device) const override;
-
-  struct OpRoofLineStats {
-    uint64 flops = 0LL;
-    uint64 bytes_accessed = 0LL;
-    bool inaccurate = false;
-  };
-  OpRoofLineStats Predict(const XEventVisitor& event);
-
- private:
-  absl::flat_hash_set<std::string>
-      unsupported_ops_;  // summary for unsupported ops.
-
-  TfOpRoofLineCostEstimator(const TfOpRoofLineCostEstimator&) = delete;
-  void operator=(const TfOpRoofLineCostEstimator&) = delete;
-};
 
 }  // namespace profiler
 }  // namespace tensorflow

@@ -137,23 +137,9 @@ cc_library(
 
 cc_library(
     name = "cost_utils",
-    srcs = ["cost_utils.cc"],
     hdrs = ["cost_utils.h"],
     deps = [
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/strings",
-        "@local_xla//xla/tsl/platform:logging",
-        "@local_xla//xla/tsl/platform:types",
-        "@local_xla//xla/tsl/profiler/utils:tf_op_utils",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
         "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
-        "@org_tensorflow//tensorflow/core:framework",
-        "@org_tensorflow//tensorflow/core:protos_all_cc",
-        "@org_tensorflow//tensorflow/core/grappler/costs:cost_estimator",
-        "@org_tensorflow//tensorflow/core/grappler/costs:op_context",
-        "@org_tensorflow//tensorflow/core/grappler/costs:op_level_cost_estimator",
-        "@org_tensorflow//tensorflow/core/grappler/costs:op_performance_data_cc",
     ],
 )
 

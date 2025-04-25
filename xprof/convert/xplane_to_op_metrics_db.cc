@@ -320,8 +320,8 @@ OpMetricsDb ConvertDeviceTraceXPlaneToOpMetricsDb(
 
   int64_t first_op_offset_ps = tsl::kint64max;
   int64_t last_op_offset_ps = 0;
+  int64_t num_tf_ops = 0;
 
-  TfOpRoofLineCostEstimator op_level_cost_estimator;
   XPlaneVisitor plane = tsl::profiler::CreateTfXPlaneVisitor(&device_trace);
   HLOTracker current;
   plane.ForEachLine([&](const XLineVisitor& line) {
@@ -353,12 +353,8 @@ OpMetricsDb ConvertDeviceTraceXPlaneToOpMetricsDb(
         AggregateHloFunc(current, device_op_metrics_db_builder);
         tsl::profiler::TfOp tf_op =
             tsl::profiler::ParseTfOpFullname(stats.tf_op_fullname);
-        PerformanceInfo perf_info;
         if (tf_op.category != tsl::profiler::Category::kUnknown) {
-          auto costs = op_level_cost_estimator.Predict(event);
-          // NOTE: events are per kernel, but costs are per tf-ops.
-          perf_info.set_flops(costs.flops);
-          perf_info.set_bytes_accessed(costs.bytes_accessed);
+          num_tf_ops++;
         }
         std::string name = absl::StrCat(tf_op.name, "/", event.Name());
         device_op_metrics_db_builder.EnterOp(
@@ -367,10 +363,18 @@ OpMetricsDb ConvertDeviceTraceXPlaneToOpMetricsDb(
             /**category=*/tf_op.type,
             /*provenance=*/stats.tf_op_fullname, "", stats.is_eager,
             /*occurrences=*/1, event.DurationPs(),
-            /*children_time_ps=*/0, perf_info.flops(),
-            perf_info.bytes_accessed());
+            /*children_time_ps=*/0,
+            /*flops=*/0,
+            /*bytes_accessed=*/0);
       }
     });
+    if (num_tf_ops >= 5) {
+      LOG(WARNING)
+          << "TfOpRoofLineCostEstimator has been deprecated, but we"
+          << "detected " << num_tf_ops << " TfOps. If you rely on "
+          << "individual TfOp peak flops and bytes accessed estimates, "
+          << "please open an issue on GitHub at openxla/xprof.";
+    }
     AggregateHloFunc(current, device_op_metrics_db_builder);
   });
   SetTotalTimePs(
