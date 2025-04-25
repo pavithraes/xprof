@@ -22,14 +22,33 @@ limitations under the License.
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
 #include "xla/tsl/platform/statusor.h"
+#include "xla/tsl/profiler/utils/tf_xplane_visitor.h"
 #include "xla/tsl/profiler/utils/xplane_schema.h"
 #include "xla/tsl/profiler/utils/xplane_utils.h"
+#include "xla/tsl/profiler/utils/xplane_visitor.h"
 #include "xprof/convert/repository.h"
 #include "xprof/convert/xplane_to_dcn_collective_stats.h"
-#include "xprof/convert/xplane_to_hlo.h"
 
 namespace tensorflow {
 namespace profiler {
+namespace {
+bool HasHloProtoMetadata(const XSpace& xspace) {
+  std::vector<const XPlane*> planes = tsl::profiler::FindPlanesWithNames(
+      xspace, {tsl::profiler::kMetadataPlaneName});
+  for (const XPlane* raw_plane : planes) {
+    if (raw_plane != nullptr) {
+      tsl::profiler::XPlaneVisitor plane =
+          tsl::profiler::CreateTfXPlaneVisitor(raw_plane);
+      const XStatMetadata* hlo_proto_stat_metadata =
+          plane.GetStatMetadataByType(tsl::profiler::StatType::kHloProto);
+      if (hlo_proto_stat_metadata != nullptr) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+}  // namespace
 
 absl::StatusOr<std::string> GetAvailableToolNames(
     const SessionSnapshot& session_snapshot) {
@@ -50,24 +69,36 @@ absl::StatusOr<std::string> GetAvailableToolNames(
     tools.push_back("hlo_stats");
     tools.push_back("roofline_model");
 
-    TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                        session_snapshot.GetXSpace(0));
+    bool has_kernel_stats = false;
+    bool has_hlo = false;
+    bool has_dcn_collective_stats = false;
 
-    if (!tsl::profiler::FindPlanesWithPrefix(*xspace,
-                                             tsl::profiler::kGpuPlanePrefix)
-             .empty()) {
+    // TODO(b/413686163): Create mechanism to cache the tools list.
+    // Current optimization should benefits most profiles captured in 3P
+    for (int idx = 0; idx < session_snapshot.XSpaceSize(); idx++) {
+      TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
+                          session_snapshot.GetXSpace(idx));
+
+      has_kernel_stats =
+          has_kernel_stats || !tsl::profiler::FindPlanesWithPrefix(
+                                   *xspace, tsl::profiler::kGpuPlanePrefix)
+                                   .empty();
+
+      has_hlo = has_hlo || HasHloProtoMetadata(*xspace);
+
+      has_dcn_collective_stats =
+          has_dcn_collective_stats || HasDcnCollectiveStatsInXSpace(*xspace);
+    }
+
+    if (has_kernel_stats) {
       tools.push_back("kernel_stats");
     }
 
-    TF_ASSIGN_OR_RETURN(bool has_hlo,
-                        ConvertMultiXSpaceToHloProto(session_snapshot));
     if (has_hlo) {
       tools.push_back("memory_viewer");
       tools.push_back("graph_viewer");
     }
 
-    TF_ASSIGN_OR_RETURN(bool has_dcn_collective_stats,
-                        HasDcnCollectiveStatsInMultiXSpace(session_snapshot));
     if (has_dcn_collective_stats) {
       tools.push_back("dcn_collective_stats");
     }

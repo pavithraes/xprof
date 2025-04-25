@@ -35,6 +35,8 @@ absl::StatusOr<bool> ConvertMultiXSpaceToDcnCollectiveStats(
 absl::StatusOr<bool> HasDcnCollectiveStatsInMultiXSpace(
     const SessionSnapshot& session_snapshot);
 
+bool HasDcnCollectiveStatsInXSpace(const XSpace& xspace);
+
 // Gets DcnSlackAnalysis proto for a host.
 absl::StatusOr<DcnSlackAnalysis> GetDcnSlackAnalysisByHostName(
     const SessionSnapshot& session_snapshot, std::string hostname);

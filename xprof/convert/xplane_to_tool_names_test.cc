@@ -26,9 +26,11 @@ limitations under the License.
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
+#include "xla/backends/profiler/cpu/metadata_utils.h"
 #include "xla/tsl/platform/env.h"
 #include "xla/tsl/platform/file_system.h"
 #include "xla/tsl/platform/status.h"
+#include "xla/tsl/profiler/utils/xplane_builder.h"
 #include "xla/tsl/profiler/utils/xplane_schema.h"
 #include "xla/tsl/profiler/utils/xplane_utils.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
@@ -60,33 +62,17 @@ SessionSnapshot CreateSessionSnapshot(std::unique_ptr<XSpace> xspace,
   std::vector<std::string> paths = {path};
 
   if (has_hlo_module) {
-    tsl::Env::Default()
-        ->NewAppendableFile(absl::StrCat(path, "module_name.hlo_proto.pb"),
-                            &xplane_file)
-        .IgnoreError();
-  } else {
-    tsl::Env::Default()
-        ->NewAppendableFile(absl::StrCat(path, "NO_MODULE.hlo_proto.pb"),
-                            &xplane_file)
-        .IgnoreError();
+    XPlane* hlo_module = xspace->add_planes();
+    hlo_module->set_name(tsl::profiler::kMetadataPlaneName);
+    xla::profiler::MetadataXPlaneBuilder builder(hlo_module);
   }
 
   if (has_dcn_collective_stats) {
-    tsl::Env::Default()
-        ->NewAppendableFile(
-            absl::StrCat(path, "hostname.dcn_collective_stats.pb"),
-            &xplane_file)
-        .IgnoreError();
-    tsl::Env::Default()
-        ->NewAppendableFile(
-            absl::StrCat(path, "ALL_HOSTS.dcn_collective_stats.pb"),
-            &xplane_file)
-        .IgnoreError();
-  } else {
-    tsl::Env::Default()
-        ->NewAppendableFile(
-            absl::StrCat(path, "NO_HOST.dcn_collective_stats.pb"), &xplane_file)
-        .IgnoreError();
+    XPlane* host_thread = xspace->add_planes();
+    tsl::profiler::XPlaneBuilder builder(host_thread);
+
+    builder.SetName(tsl::profiler::kHostThreadsPlaneName);
+    builder.GetOrCreateEventMetadata("MegaScale:Megascale Event");
   }
 
   std::vector<std::unique_ptr<XSpace>> xspaces;
@@ -103,6 +89,7 @@ using XPlaneToToolsTest = ::testing::TestWithParam<XPlaneToToolsTestCase>;
 TEST_P(XPlaneToToolsTest, ToolsList) {
   const XPlaneToToolsTestCase& test_case = GetParam();
   auto xspace = std::make_unique<XSpace>();
+
   tsl::profiler::FindOrAddMutablePlaneWithName(xspace.get(),
                                                test_case.plane_name);
 
@@ -132,6 +119,7 @@ TEST_P(XPlaneToToolsTest, ToolsList) {
   };
   expected_tools.insert(expected_tools.end(), test_case.expected_tools.begin(),
                         test_case.expected_tools.end());
+
   EXPECT_THAT(tools, ::testing::UnorderedElementsAreArray(expected_tools));
 }
 

@@ -986,12 +986,13 @@ cc_library(
     deps = [
         ":repository",
         ":xplane_to_dcn_collective_stats",
-        ":xplane_to_hlo",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@local_xla//xla/tsl/platform:statusor",
+        "@local_xla//xla/tsl/profiler/utils:tf_xplane_visitor",
         "@local_xla//xla/tsl/profiler/utils:xplane_schema",
         "@local_xla//xla/tsl/profiler/utils:xplane_utils",
+        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
     ],
 )
 
@@ -1007,8 +1008,10 @@ cc_test(
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@local_xla//xla/backends/profiler/cpu:metadata_utils",
         "@local_xla//xla/tsl/platform:env",
         "@local_xla//xla/tsl/platform:status",
+        "@local_xla//xla/tsl/profiler/utils:xplane_builder",
         "@local_xla//xla/tsl/profiler/utils:xplane_schema",
         "@local_xla//xla/tsl/profiler/utils:xplane_utils",
     ],

@@ -39,19 +39,6 @@ using tsl::uint64;
 
 namespace {
 
-bool HasDcnCollectiveStatsInXSpace(const XSpace& xspace) {
-  if (const tsl::profiler::XPlane* xplane = tsl::profiler::FindPlaneWithName(
-          xspace, tsl::profiler::kHostThreadsPlaneName);
-      xplane != nullptr) {
-    for (const auto& [_, metadata] : xplane->event_metadata()) {
-      if (absl::StartsWith(metadata.name(), "MegaScale:")) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 absl::StatusOr<bool> GetDcnCollectiveStatsFromMultiXSpaceAndSaveToFile(
     const SessionSnapshot& session_snapshot) {
   DcnSlackAnalysisCombiner combiner;
@@ -89,6 +76,19 @@ absl::StatusOr<bool> GetDcnCollectiveStatsFromMultiXSpaceAndSaveToFile(
 }
 
 }  // namespace
+
+bool HasDcnCollectiveStatsInXSpace(const XSpace& xspace) {
+  if (const tsl::profiler::XPlane* xplane = tsl::profiler::FindPlaneWithName(
+          xspace, tsl::profiler::kHostThreadsPlaneName);
+      xplane != nullptr) {
+    for (const auto& [_, metadata] : xplane->event_metadata()) {
+      if (absl::StartsWith(metadata.name(), "MegaScale:")) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 absl::StatusOr<bool> HasDcnCollectiveStatsInMultiXSpace(
     const SessionSnapshot& session_snapshot) {
