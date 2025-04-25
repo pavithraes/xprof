@@ -18,10 +18,10 @@ cc_library(
     deps = [
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/strings",
-        "@local_xla//xla/tsl/platform:macros",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:diagnostics_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_stats_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:steps_db_proto_cc",
+        "@xla//xla/tsl/platform:macros",
     ],
 )
 
@@ -34,11 +34,11 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
-        "@local_xla//xla/tsl/lib/gtl:map_util",
-        "@local_xla//xla/tsl/platform:types",
-        "@local_xla//xla/tsl/profiler/utils:timespan",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:steps_db_proto_cc",
+        "@xla//xla/tsl/lib/gtl:map_util",
+        "@xla//xla/tsl/platform:types",
+        "@xla//xla/tsl/profiler/utils:timespan",
     ],
 )
 
@@ -50,9 +50,9 @@ cc_library(
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/strings",
-        "@local_xla//xla/tsl/profiler/utils:math_utils",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:hardware_types_proto_cc",
+        "@xla//xla/tsl/profiler/utils:math_utils",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
     ],
 )
 
@@ -62,7 +62,7 @@ cc_test(
     deps = [
         ":hardware_type_utils",
         "@com_google_googletest//:gtest_main",
-        "@local_xla//xla/tsl/profiler/utils:math_utils",
+        "@xla//xla/tsl/profiler/utils:math_utils",
     ],
 )
 
@@ -85,15 +85,15 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@local_xla//xla/tsl/platform:logging",
-        "@local_xla//xla/tsl/platform:macros",
-        "@local_xla//xla/tsl/platform:types",
-        "@local_xla//xla/tsl/profiler/utils:math_utils",
-        "@local_xla//xla/tsl/profiler/utils:tf_op_utils",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
-        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:source_info_proto_cc",
+        "@xla//xla/tsl/platform:logging",
+        "@xla//xla/tsl/platform:macros",
+        "@xla//xla/tsl/platform:types",
+        "@xla//xla/tsl/profiler/utils:math_utils",
+        "@xla//xla/tsl/profiler/utils:tf_op_utils",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
+        "@xla//xla/tsl/profiler/utils:xplane_visitor",
     ],
 )
 
@@ -104,12 +104,12 @@ cc_test(
         ":op_metrics_db_utils",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
-        "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
-        "@local_xla//xla/tsl/profiler/utils:tf_xplane_visitor",
-        "@local_xla//xla/tsl/profiler/utils:xplane_builder",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
-        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/profiler/utils:tf_xplane_visitor",
+        "@xla//xla/tsl/profiler/utils:xplane_builder",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
+        "@xla//xla/tsl/profiler/utils:xplane_visitor",
     ],
 )
 
@@ -123,15 +123,15 @@ cc_library(
         ":performance_info_wrapper",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
-        "@local_tsl//tsl/platform:protobuf",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/tsl/platform:types",
-        "@local_xla//xla/tsl/profiler/convert:xla_op_utils",
-        "@local_xla//xla/tsl/profiler/utils:tf_op_utils",
-        "@local_xla//xla/tsl/profiler/utils:timespan",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:source_info_proto_cc",
         "@org_xprof//xprof/convert:op_metrics_db_combiner",
+        "@tsl//tsl/platform:protobuf",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/tsl/platform:types",
+        "@xla//xla/tsl/profiler/convert:xla_op_utils",
+        "@xla//xla/tsl/profiler/utils:tf_op_utils",
+        "@xla//xla/tsl/profiler/utils:timespan",
     ],
 )
 
@@ -139,7 +139,7 @@ cc_library(
     name = "cost_utils",
     hdrs = ["cost_utils.h"],
     deps = [
-        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
+        "@xla//xla/tsl/profiler/utils:xplane_visitor",
     ],
 )
 
@@ -152,13 +152,13 @@ cc_library(
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
-        "@local_xla//xla:shape_util",
-        "@local_xla//xla/tsl/profiler/utils:timespan",
-        "@local_xla//xla/tsl/profiler/utils:trace_utils",
-        "@local_xla//xla/tsl/profiler/utils:xplane_builder",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
-        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla:shape_util",
+        "@xla//xla/tsl/profiler/utils:timespan",
+        "@xla//xla/tsl/profiler/utils:trace_utils",
+        "@xla//xla/tsl/profiler/utils:xplane_builder",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
+        "@xla//xla/tsl/profiler/utils:xplane_visitor",
     ],
 )
 
@@ -177,22 +177,22 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
-        "@local_xla//xla/tsl/lib/gtl:map_util",
-        "@local_xla//xla/tsl/profiler/convert:xla_op_utils",
-        "@local_xla//xla/tsl/profiler/utils:device_utils",
-        "@local_xla//xla/tsl/profiler/utils:group_events",
-        "@local_xla//xla/tsl/profiler/utils:math_utils",
-        "@local_xla//xla/tsl/profiler/utils:tf_op_utils",
-        "@local_xla//xla/tsl/profiler/utils:tf_xplane_visitor",
-        "@local_xla//xla/tsl/profiler/utils:timespan",
-        "@local_xla//xla/tsl/profiler/utils:tpu_xplane_utils",
-        "@local_xla//xla/tsl/profiler/utils:trace_utils",
-        "@local_xla//xla/tsl/profiler/utils:xplane_builder",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
-        "@local_xla//xla/tsl/profiler/utils:xplane_utils",
-        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
-        "@local_xla//xla/tsl/util:stats_calculator_portable",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/lib/gtl:map_util",
+        "@xla//xla/tsl/profiler/convert:xla_op_utils",
+        "@xla//xla/tsl/profiler/utils:device_utils",
+        "@xla//xla/tsl/profiler/utils:group_events",
+        "@xla//xla/tsl/profiler/utils:math_utils",
+        "@xla//xla/tsl/profiler/utils:tf_op_utils",
+        "@xla//xla/tsl/profiler/utils:tf_xplane_visitor",
+        "@xla//xla/tsl/profiler/utils:timespan",
+        "@xla//xla/tsl/profiler/utils:tpu_xplane_utils",
+        "@xla//xla/tsl/profiler/utils:trace_utils",
+        "@xla//xla/tsl/profiler/utils:xplane_builder",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
+        "@xla//xla/tsl/profiler/utils:xplane_utils",
+        "@xla//xla/tsl/profiler/utils:xplane_visitor",
+        "@xla//xla/tsl/util:stats_calculator_portable",
     ],
 )
 
@@ -205,14 +205,14 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
-        "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
-        "@local_xla//xla/tsl/profiler/utils:group_events",
-        "@local_xla//xla/tsl/profiler/utils:tf_xplane_visitor",
-        "@local_xla//xla/tsl/profiler/utils:trace_utils",
-        "@local_xla//xla/tsl/profiler/utils:xplane_builder",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
-        "@local_xla//xla/tsl/profiler/utils:xplane_test_utils",
-        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/profiler/utils:group_events",
+        "@xla//xla/tsl/profiler/utils:tf_xplane_visitor",
+        "@xla//xla/tsl/profiler/utils:trace_utils",
+        "@xla//xla/tsl/profiler/utils:xplane_builder",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
+        "@xla//xla/tsl/profiler/utils:xplane_test_utils",
+        "@xla//xla/tsl/profiler/utils:xplane_visitor",
     ],
 )
 
@@ -227,9 +227,9 @@ cc_library(
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
-        "@local_xla//xla/tsl/platform:logging",
-        "@local_xla//xla/tsl/platform:types",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:kernel_stats_proto_cc",
+        "@xla//xla/tsl/platform:logging",
+        "@xla//xla/tsl/platform:types",
     ],
 )
 
@@ -241,8 +241,8 @@ cc_test(
         "@com_google_absl//absl/strings:string_view",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
-        "@local_xla//xla/backends/profiler/gpu:cupti_buffer_events",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:kernel_stats_proto_cc",
+        "@xla//xla/backends/profiler/gpu:cupti_buffer_events",
     ],
 )
 
@@ -253,13 +253,13 @@ cc_library(
     deps = [
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
-        "@local_xla//xla/tsl/lib/monitoring:collected_metrics",
-        "@local_xla//xla/tsl/lib/monitoring:metric_def",
-        "@local_xla//xla/tsl/lib/monitoring:types",
-        "@local_xla//xla/tsl/platform:types",
-        "@local_xla//xla/tsl/profiler/utils:xplane_builder",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:tfstreamz_proto_cc",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/lib/monitoring:collected_metrics",
+        "@xla//xla/tsl/lib/monitoring:metric_def",
+        "@xla//xla/tsl/lib/monitoring:types",
+        "@xla//xla/tsl/platform:types",
+        "@xla//xla/tsl/profiler/utils:xplane_builder",
     ],
 )
 
@@ -272,11 +272,11 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
-        "@local_xla//xla/tsl/lib/gtl:map_util",
-        "@local_xla//xla/tsl/platform:logging",
-        "@local_xla//xla/tsl/platform:types",
-        "@local_xla//xla/tsl/profiler/utils:timespan",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:steps_db_proto_cc",
+        "@xla//xla/tsl/lib/gtl:map_util",
+        "@xla//xla/tsl/platform:logging",
+        "@xla//xla/tsl/platform:types",
+        "@xla//xla/tsl/profiler/utils:timespan",
     ],
 )
 
@@ -287,7 +287,7 @@ cc_test(
         ":step_intersection",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_googletest//:gtest_main",
-        "@local_xla//xla/tsl/platform:types",
+        "@xla//xla/tsl/platform:types",
     ],
 )
 
@@ -296,12 +296,12 @@ cc_library(
     srcs = ["device_caps_utils.cc"],
     hdrs = ["device_caps_utils.h"],
     deps = [
-        "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
-        "@local_xla//xla/tsl/profiler/utils:tf_xplane_visitor",
-        "@local_xla//xla/tsl/profiler/utils:xplane_builder",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
-        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:hardware_types_proto_cc",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/profiler/utils:tf_xplane_visitor",
+        "@xla//xla/tsl/profiler/utils:xplane_builder",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
+        "@xla//xla/tsl/profiler/utils:xplane_visitor",
     ],
 )
 
@@ -311,8 +311,8 @@ cc_library(
     hdrs = ["gpu_event_stats.h"],
     deps = [
         "@com_google_absl//absl/strings",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
-        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
+        "@xla//xla/tsl/profiler/utils:xplane_visitor",
     ],
 )
 
@@ -327,13 +327,13 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
-        "@local_xla//xla/service:hlo_proto_cc",
-        "@local_xla//xla/tsl/profiler/convert:xla_op_utils",
-        "@local_xla//xla/tsl/profiler/utils:tf_xplane_visitor",
-        "@local_xla//xla/tsl/profiler/utils:xplane_schema",
-        "@local_xla//xla/tsl/profiler/utils:xplane_utils",
-        "@local_xla//xla/tsl/profiler/utils:xplane_visitor",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/service:hlo_proto_cc",
+        "@xla//xla/tsl/profiler/convert:xla_op_utils",
+        "@xla//xla/tsl/profiler/utils:tf_xplane_visitor",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
+        "@xla//xla/tsl/profiler/utils:xplane_utils",
+        "@xla//xla/tsl/profiler/utils:xplane_visitor",
     ],
 )
 
@@ -344,10 +344,10 @@ cc_library(
     deps = [
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status:statusor",
-        "@local_xla//xla:util",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/service:hlo_proto_cc",
-        "@local_xla//xla/tsl/platform:statusor",
+        "@xla//xla:util",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/service:hlo_proto_cc",
+        "@xla//xla/tsl/platform:statusor",
     ],
 )
 
@@ -366,13 +366,13 @@ cc_library(
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@local_tsl//tsl/platform:path",
-        "@local_tsl//tsl/profiler/lib:traceme_encode",
-        "@local_tsl//tsl/profiler/protobuf:xplane_proto_cc",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/service:hlo_cost_analysis",
-        "@local_xla//xla/service:hlo_proto_cc",
-        "@local_xla//xla/tsl/profiler/convert:xla_op_utils",
+        "@tsl//tsl/platform:path",
+        "@tsl//tsl/profiler/lib:traceme_encode",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/service:hlo_cost_analysis",
+        "@xla//xla/service:hlo_proto_cc",
+        "@xla//xla/tsl/profiler/convert:xla_op_utils",
     ],
 )
 
@@ -382,8 +382,8 @@ cc_library(
     deps = [
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/strings",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/tsl/profiler/convert:xla_op_utils",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/tsl/profiler/convert:xla_op_utils",
     ],
 )
 
@@ -395,9 +395,9 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/tests:hlo_test_base",
-        "@local_xla//xla/tsl/platform:statusor",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/tests:hlo_test_base",
+        "@xla//xla/tsl/platform:statusor",
     ],
 )
 
@@ -411,13 +411,13 @@ cc_library(
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:string_view",
-        "@local_xla//xla:shape_util",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/service:hlo_cost_analysis",
-        "@local_xla//xla/service/gpu:cublas_cudnn",
-        "@local_xla//xla/service/gpu/model:gpu_hlo_cost_analysis",
-        "@local_xla//xla/tsl/platform:errors",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
+        "@xla//xla:shape_util",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/service:hlo_cost_analysis",
+        "@xla//xla/service/gpu:cublas_cudnn",
+        "@xla//xla/service/gpu/model:gpu_hlo_cost_analysis",
+        "@xla//xla/tsl/platform:errors",
     ],
 )
 
@@ -441,14 +441,14 @@ cc_test(
         "@com_google_absl//absl/strings:string_view",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
-        "@local_xla//xla:shape_util",
-        "@local_xla//xla:xla_data_proto_cc",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/hlo/testlib:test_helpers",
-        "@local_xla//xla/service:hlo_cost_analysis",
-        "@local_xla//xla/tests:hlo_test_base",
-        "@local_xla//xla/tests:xla_internal_test_main",
-        "@local_xla//xla/tsl/platform:statusor",
+        "@xla//xla:shape_util",
+        "@xla//xla:xla_data_proto_cc",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/hlo/testlib:test_helpers",
+        "@xla//xla/service:hlo_cost_analysis",
+        "@xla//xla/tests:hlo_test_base",
+        "@xla//xla/tests:xla_internal_test_main",
+        "@xla//xla/tsl/platform:statusor",
     ],
 )
 
@@ -462,12 +462,12 @@ cc_library(
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:check",
-        "@local_xla//xla:shape_util",
-        "@local_xla//xla:xla_data_proto_cc",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/service:hlo_cost_analysis",
-        "@local_xla//xla/tsl/profiler/convert:xla_op_utils",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
+        "@xla//xla:shape_util",
+        "@xla//xla:xla_data_proto_cc",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/service:hlo_cost_analysis",
+        "@xla//xla/tsl/profiler/convert:xla_op_utils",
     ],
 )
 
@@ -478,9 +478,9 @@ cc_test(
         ":hlo_cost_analysis_wrapper",
         "@com_google_absl//absl/strings:string_view",
         "@com_google_googletest//:gtest_main",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/hlo/parser:hlo_parser",
-        "@local_xla//xla/tsl/platform:test",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/hlo/parser:hlo_parser",
+        "@xla//xla/tsl/platform:test",
     ],
 )
 
@@ -491,10 +491,10 @@ cc_library(
     deps = [
         ":hlo_cost_analysis_wrapper",
         "@com_google_absl//absl/memory",
-        "@local_tsl//tsl/platform:protobuf",
-        "@local_xla//xla:xla_data_proto_cc",
-        "@local_xla//xla/hlo/ir:hlo",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:op_metrics_proto_cc",
+        "@tsl//tsl/platform:protobuf",
+        "@xla//xla:xla_data_proto_cc",
+        "@xla//xla/hlo/ir:hlo",
     ],
 )
 
@@ -508,10 +508,10 @@ cc_test(
         ":xprof_gpu_cost_analysis",
         "@com_google_absl//absl/strings:string_view",
         "@com_google_googletest//:gtest_main",
-        "@local_tsl//tsl/platform:protobuf",
-        "@local_xla//xla/hlo/ir:hlo",
-        "@local_xla//xla/hlo/parser:hlo_parser",
-        "@local_xla//xla/tsl/platform:test",
+        "@tsl//tsl/platform:protobuf",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/hlo/parser:hlo_parser",
+        "@xla//xla/tsl/platform:test",
     ],
 )
 
@@ -525,8 +525,8 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:string_view",
         "@com_google_protobuf//:protobuf",
-        "@local_tsl//tsl/platform:strcat",
-        "@local_xla//xla/tsl/platform:types",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:tensorflow_datatypes_proto_cc",
+        "@tsl//tsl/platform:strcat",
+        "@xla//xla/tsl/platform:types",
     ],
 )

@@ -177,52 +177,57 @@ load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 sass_repositories()
 
 http_archive(
-    name = "org_tensorflow",
+    name = "xla",
     patch_args = ["-p1"],
     patches = [
-        "//third_party:tensorflow.patch",
-        "//third_party:tensorflow_add_grpc_cares_darwin_arm64_support.patch",
-        "//third_party:tensorflow_rules_closure.patch",
+        "//third_party:xla.patch",
     ],
-    strip_prefix = "tensorflow-2495c486e8711a0e69e8e232a1e9f25c6d78f152",
+    sha256 = "722ef9af3e9084c3c6c549162734cc2343434a27323a8430478a04e6aa7df8e9",
+    strip_prefix = "xla-d1887c9bf970d864ceba39472dc0f3aec2be3612",
     urls = [
-        "https://github.com/tensorflow/tensorflow/archive/2495c486e8711a0e69e8e232a1e9f25c6d78f152.zip",
+        "https://github.com/openxla/xla/archive/d1887c9bf970d864ceba39472dc0f3aec2be3612.zip",
     ],
 )
 
-load(
-    "@org_tensorflow//tensorflow/tools/toolchains/python:python_repo.bzl",
-    "python_repository",
+http_archive(
+    name = "tsl",
+    sha256 = "8cf1e1285c7b1843a7f5f787465c1ef80304b3400ed837870bc76d74ce04f5af",
+    strip_prefix = "tsl-d71df2f7612583617d359c36243695097dd63726",
+    urls = [
+        "https://github.com/google/tsl/archive/d71df2f7612583617d359c36243695097dd63726.zip",
+    ],
 )
+
+load("@xla//tools/toolchains/python:python_repo.bzl", "python_repository")
 
 python_repository(name = "python_version_repo")
 
-# Initialize TensorFlow's external dependencies.
-load("@org_tensorflow//tensorflow:workspace3.bzl", "tf_workspace3")
+# Initialize XLA's external dependencies.
+load("@xla//:workspace3.bzl", "xla_workspace3")
 
-tf_workspace3()
+xla_workspace3()
 
-load("@org_tensorflow//tensorflow:workspace2.bzl", "tf_workspace2")
+load("@xla//:workspace2.bzl", "xla_workspace2")
 
-tf_workspace2()
+xla_workspace2()
 
-load("@org_tensorflow//tensorflow:workspace1.bzl", "tf_workspace1")
+load("@xla//:workspace1.bzl", "xla_workspace1")
 
-tf_workspace1()
+xla_workspace1()
 
-load("@org_tensorflow//tensorflow:workspace0.bzl", "tf_workspace0")
+load("@xla//:workspace0.bzl", "xla_workspace0")
 
-tf_workspace0()
+xla_workspace0()
 
 load(
-    "@local_xla//third_party/py:python_wheel.bzl",
+    "@xla//third_party/py:python_wheel.bzl",
     "python_wheel_version_suffix_repository",
 )
 
 python_wheel_version_suffix_repository(name = "tf_wheel_version_suffix")
 
 load(
-    "@local_xla//third_party/gpus/cuda/hermetic:cuda_json_init_repository.bzl",
+    "@xla//third_party/gpus/cuda/hermetic:cuda_json_init_repository.bzl",
     "cuda_json_init_repository",
 )
 
@@ -234,7 +239,7 @@ load(
     "CUDNN_REDISTRIBUTIONS",
 )
 load(
-    "@local_xla//third_party/gpus/cuda/hermetic:cuda_redist_init_repositories.bzl",
+    "@xla//third_party/gpus/cuda/hermetic:cuda_redist_init_repositories.bzl",
     "cuda_redist_init_repositories",
     "cudnn_redist_init_repository",
 )
@@ -248,21 +253,21 @@ cudnn_redist_init_repository(
 )
 
 load(
-    "@local_xla//third_party/gpus/cuda/hermetic:cuda_configure.bzl",
+    "@xla//third_party/gpus/cuda/hermetic:cuda_configure.bzl",
     "cuda_configure",
 )
 
 cuda_configure(name = "local_config_cuda")
 
 load(
-    "@local_xla//third_party/nccl/hermetic:nccl_redist_init_repository.bzl",
+    "@xla//third_party/nccl/hermetic:nccl_redist_init_repository.bzl",
     "nccl_redist_init_repository",
 )
 
 nccl_redist_init_repository()
 
 load(
-    "@local_xla//third_party/nccl/hermetic:nccl_configure.bzl",
+    "@xla//third_party/nccl/hermetic:nccl_configure.bzl",
     "nccl_configure",
 )
 

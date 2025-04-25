@@ -1,7 +1,8 @@
 # Description:
 #  Protobufs used by TensorBoard profile plugin.
 
-load("@local_xla//xla/tsl/platform:build_config.bzl", xprof_proto_library = "tf_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
+load("@xla//xla/tsl/platform:build_config.bzl", xprof_proto_library = "tf_proto_library")
 
 package(
     default_visibility = ["//visibility:public"],
