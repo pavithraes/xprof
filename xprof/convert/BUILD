@@ -719,6 +719,7 @@ cc_library(
         ":repository",
         ":tool_options",
         ":xplane_to_dcn_collective_stats",
+        ":xplane_to_hlo",
         ":xplane_to_memory_profile",
         ":xplane_to_op_stats",
         ":xplane_to_tf_data_stats",

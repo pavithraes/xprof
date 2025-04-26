@@ -54,6 +54,7 @@ limitations under the License.
 #include "xprof/convert/trace_viewer/trace_events_to_json.h"
 #include "xprof/convert/trace_viewer/trace_viewer_visibility.h"
 #include "xprof/convert/xplane_to_dcn_collective_stats.h"
+#include "xprof/convert/xplane_to_hlo.h"
 #include "xprof/convert/xplane_to_memory_profile.h"
 #include "xprof/convert/xplane_to_op_stats.h"
 #include "xprof/convert/xplane_to_tf_data_stats.h"
@@ -404,6 +405,11 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToToolData(
   } else if (tool_name == "roofline_model") {
     return ConvertMultiXSpacesToRooflineModel(session_snapshot);
   } else if (tool_name == "memory_viewer" || tool_name == "graph_viewer") {
+    TF_ASSIGN_OR_RETURN(bool hlo_proto_status,
+                        ConvertMultiXSpaceToHloProto(session_snapshot));
+    if (!hlo_proto_status) {
+      return absl::NotFoundError("No HLO proto found in XSpace.");
+    }
     return ConvertHloProtoToToolData(session_snapshot, tool_name, options);
   } else if (tool_name == "tool_names") {
     return GetAvailableToolNames(session_snapshot);
