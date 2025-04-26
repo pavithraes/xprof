@@ -90,3 +90,11 @@ build:rbe_linux_cpu --platforms="@ml_build_config_platform//:platform"
 # Python config is the same across all containers because the binary is the same
 build:rbe_linux_cpu --python_path="/usr/bin/python3"
 common:rbe_linux_cpu --remote_instance_name=projects/tensorflow-testing/instances/default_instance
+
+# #############################################################################
+# Cache options below.
+# #############################################################################
+# Public read-only cache
+build:public_cache --remote_cache="https://storage.googleapis.com/xprof-bazel-cache/" --remote_upload_local_results=false
+# Cache pushes are limited to XProf's CI system.
+build:public_cache_push --config=public_cache --remote_upload_local_results=true --google_default_credentials
