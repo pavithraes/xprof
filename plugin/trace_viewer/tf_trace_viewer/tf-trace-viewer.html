@@ -639,6 +639,7 @@ dashboard would integrate trace viewer app using iframe.
       freq = this._tasks[0].sparse_core_freq_hz;
       if (freq === 0) return;
       var subpane = document.getElementById("content");
+      if (!subpane) return;
       var table = subpane.getElementsByTagName("table")[0];
       var rows = table.rows;
       for (var i = 0; i < rows.length; i++) {
