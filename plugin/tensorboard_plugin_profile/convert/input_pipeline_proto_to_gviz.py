@@ -146,6 +146,7 @@ def get_step_breakdown_table_args_for_tpu(ipa):
   step_time_summary = ipa.step_time_summary
   input_percent_summary = ipa.input_percent_summary
   custom_properties = {
+      "hardware_type": ipa.hardware_type,
       "steptime_ms_average": "{:.1f}".format(step_time_summary.average),
       "steptime_ms_standard_deviation": "{:.1f}".format(
           step_time_summary.standard_deviation
