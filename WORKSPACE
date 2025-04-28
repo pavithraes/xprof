@@ -181,6 +181,7 @@ http_archive(
     patch_args = ["-p1"],
     patches = [
         "//third_party:xla.patch",
+        "//third_party:xla_add_grpc_cares_darwin_arm64_support.patch",
     ],
     sha256 = "722ef9af3e9084c3c6c549162734cc2343434a27323a8430478a04e6aa7df8e9",
     strip_prefix = "xla-d1887c9bf970d864ceba39472dc0f3aec2be3612",
