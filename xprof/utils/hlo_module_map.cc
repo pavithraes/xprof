@@ -74,13 +74,14 @@ HloModuleWrapper::HloModuleWrapper(
     : module_(std::move(module)) {
   if (module_ == nullptr) return;
 
-  if (cost_analysis_wrapper &&
-      !tensorflow::profiler::InitializeHloCostAnalysis(
-           *module_, *cost_analysis_wrapper->GetXlaCostAnalysis())
-           .ok()) {
-    LOG(ERROR) << "Failed to initialize xla::HloCostAnalysis for module: "
-               << module_->name();
-    cost_analysis_wrapper.reset();
+  if (cost_analysis_wrapper != nullptr) {
+    absl::Status status = tensorflow::profiler::InitializeHloCostAnalysis(
+        *module_, *cost_analysis_wrapper->GetXlaCostAnalysis());
+    if (!status.ok()) {
+      LOG(ERROR) << "Failed to initialize xla::HloCostAnalysis for module: "
+                 << module_->name() << " with status: " << status;
+      cost_analysis_wrapper.reset();
+    }
   }
 
   // Populate instructions_by_name_ with module.
