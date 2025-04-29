@@ -120,6 +120,8 @@ class DeviceTfOpMetricsDbBuilder : public OpMetricsDbBuilder {
                                     device_op_metrics.self_time_ps());
     tf_op_metrics->set_flops(tf_op_metrics->flops() +
                              device_op_metrics.flops());
+    tf_op_metrics->set_model_flops(tf_op_metrics->model_flops() +
+                                    device_op_metrics.model_flops());
     tf_op_metrics->set_bytes_accessed(tf_op_metrics->bytes_accessed() +
                                       device_op_metrics.bytes_accessed());
   }

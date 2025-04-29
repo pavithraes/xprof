@@ -60,9 +60,11 @@ message TfStatsRecord {
   double host_total_self_time_as_fraction = 12;
   // Cumulative value of host_total_self_time_as_fraction.
   double host_cumulative_total_self_time_as_fraction = 13;
-  // Number of floating-point operations (FLOPs) performed per
-  // second.
+  // Total floating-point operations (FLOPs) performed per second normalized to
+  // the bf16 peak capacity.
   double measured_flop_rate = 14;
+  // Total Floating-point operations for the op per second.
+  double model_flop_rate = 20;
   // Number of bytes (including both read and write) accessed per
   // second.
   double measured_memory_bw = 15;
@@ -77,8 +79,6 @@ message TfStatsRecord {
   // It is 0.0 if this op does not run on a GPU device.
   double gpu_tensorcore_utilization = 19;
 
-  // Total Floating-point operations for the op per second.
-  double model_flop_rate = 20;
   // Number of bytes accessed from HBM (including both read and write) per
   // second.
   double hbm_bw = 21;
