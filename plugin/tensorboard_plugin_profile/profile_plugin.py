@@ -368,6 +368,22 @@ def filenames_to_hosts(filenames: list[str], tool: str) -> list[str]:
   return sorted(hosts)
 
 
+def validate_xplane_asset_paths(asset_paths: List[str]) -> None:
+  """Validates that all xplane asset paths that are provided are valid files.
+
+  Args:
+    asset_paths: A list of asset paths.
+
+  Raises:
+    FileNotFoundError: If any of the xplane asset paths do not exist.
+  """
+  for asset_path in asset_paths:
+    if asset_path.endswith(TOOLS['xplane']) and not epath.Path(
+        asset_path
+    ).exists():
+      raise FileNotFoundError(f'Invalid asset path: {asset_path}')
+
+
 class ProfilePlugin(base_plugin.TBPlugin):
   """Profile Plugin for TensorBoard."""
 
@@ -657,6 +673,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
         asset_paths = [asset_path]
 
       try:
+        validate_xplane_asset_paths(asset_paths)
         data, content_type = convert.xspace_to_tool_data(
             asset_paths, tool, params)
       except AttributeError as e:
@@ -667,6 +684,9 @@ class ProfilePlugin(base_plugin.TBPlugin):
       except ValueError as e:
         logger.warning('XPlane convert to tool data failed as %s', e)
         raise e
+      except FileNotFoundError as e:
+        logger.warning('XPlane convert to tool data failed as %s', e)
+        raise e
       return data, content_type, content_encoding
 
     logger.info('%s does not use xplane', tool)
@@ -675,7 +695,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
   def hlo_module_list_impl(
       self, request: wrappers.Request
   ) -> str:
-    """Returns a string of HLO module names concatened by comma for the given run."""
+    """Returns a string of HLO module names concatenated by comma for the given run."""
     run = request.args.get('run')
     run_dir = self._run_dir(run)
     module_list = []
@@ -714,6 +734,8 @@ class ProfilePlugin(base_plugin.TBPlugin):
     except AttributeError as e:
       return respond(str(e), 'text/plain', code=500)
     except ValueError as e:
+      return respond(str(e), 'text/plain', code=500)
+    except FileNotFoundError as e:
       return respond(str(e), 'text/plain', code=500)
     except IOError as e:
       return respond(str(e), 'text/plain', code=500)

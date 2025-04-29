@@ -260,27 +260,30 @@ class ProfilePluginTest(absltest.TestCase):
     self.multiplexer.Reload()
 
     # Invalid tool/run/host.
-    data, _, _ = self.plugin.data_impl(
-        utils.make_data_request('foo', 'nonono', 'host0'))
+    data, _, _ = self.plugin.data_impl(utils.make_data_request(
+        run='foo', tool='invalid_tool', host='host0'))
     self.assertIsNone(data)
-    data, _, _ = self.plugin.data_impl(
-        utils.make_data_request('foo', 'trace_viewer', ''))
+    data, _, _ = self.plugin.data_impl(utils.make_data_request(
+        run='foo', tool='memory_viewer', host='host0'))
     self.assertIsNone(data)
-    data, _, _ = self.plugin.data_impl(
-        utils.make_data_request('bar', 'unsupported', 'host1'))
+    with self.assertRaises(FileNotFoundError):
+      self.plugin.data_impl(utils.make_data_request(
+          run='foo', tool='trace_viewer', host=''))
+    data, _, _ = self.plugin.data_impl(utils.make_data_request(
+        run='bar', tool='unsupported', host='host1'))
     self.assertIsNone(data)
-    data, _, _ = self.plugin.data_impl(
-        utils.make_data_request('bar', 'trace_viewer', 'host0'))
-    self.assertIsNone(data)
-    data, _, _ = self.plugin.data_impl(
-        utils.make_data_request('qux', 'trace_viewer', 'host'))
-    self.assertIsNone(data)
-    data, _, _ = self.plugin.data_impl(
-        utils.make_data_request('empty', 'trace_viewer', ''))
-    self.assertIsNone(data)
-    data, _, _ = self.plugin.data_impl(
-        utils.make_data_request('a', 'trace_viewer', ''))
-    self.assertIsNone(data)
+    with self.assertRaises(FileNotFoundError):
+      self.plugin.data_impl(utils.make_data_request(
+          run='bar', tool='trace_viewer', host='host0'))
+    with self.assertRaises(FileNotFoundError):
+      self.plugin.data_impl(utils.make_data_request(
+          run='qux', tool='trace_viewer', host='host'))
+    with self.assertRaises(FileNotFoundError):
+      self.plugin.data_impl(utils.make_data_request(
+          run='empty', tool='trace_viewer', host=''))
+    with self.assertRaises(FileNotFoundError):
+      self.plugin.data_impl(utils.make_data_request(
+          run='a', tool='trace_viewer', host=''))
 
   def testActive(self):
 
