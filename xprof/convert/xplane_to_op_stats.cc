@@ -277,12 +277,16 @@ DutyCycleTracker ConstructDutyCycleTracker(XPlaneVisitor& visitor) {
             !(hlo_category_stat &&
               tsl::profiler::IsOffDutyOp(hlo_category_stat->StrOrRefValue())));
       });
-    } else if (line.Name() == tsl::profiler::kSparseCoreOpLineName ||
+    } else if (line.Name() == tsl::profiler::kSparseCoreOpLineName) {
+      line.ForEachEvent([&](const XEventVisitor& event) {
+        //  TODO(b/397774568): Add support for SC off-duty ops.
+        duty_cycle_tracker.AddInterval(event.GetTimespan(), /*is_active=*/true);
+      });
+    } else if (line.Name() == tsl::profiler::kXlaModuleLineName ||
                line.Name() == tsl::profiler::kSparseCoreModuleLineName) {
       line.ForEachEvent([&](const XEventVisitor& event) {
-        duty_cycle_tracker.AddInterval(
-            Timespan(event.OffsetPs(), event.DurationPs()),
-            /*is_active=*/line.Name() == tsl::profiler::kSparseCoreOpLineName);
+        duty_cycle_tracker.AddInterval(event.GetTimespan(),
+                                       /*is_active=*/false);
       });
     }
   });

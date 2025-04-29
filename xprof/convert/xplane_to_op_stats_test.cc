@@ -549,42 +549,35 @@ TEST(ConvertXPlaneToOpStats, TpuMultiDeviceStepDbTest) {
   device_plane_builder2.ReserveLines(1);
 
   // Create 1 step in xplane in TPU ordinal 0.
-  XStatMetadata* kGroupId1 = device_plane_builder1.GetOrCreateStatMetadata(
-      GetStatTypeStr(StatType::kGroupId));
-  XLineBuilder line = device_plane_builder1.GetOrCreateLine(1);
-  line.SetName(kXlaOpLineName);
-  // Step 1
-  XEventMetadata* event_metadata =
-      device_plane_builder1.GetOrCreateEventMetadata(1);
-  event_metadata->set_name("Step 1");
-  XEventBuilder event_builder = line.AddEvent(*event_metadata);
-  event_builder.AddStatValue(*kGroupId1, 1);  // step num
-  event_builder.SetDurationNs(100);
-  event_builder.SetOffsetNs(100);
+  XLineBuilder step_line = device_plane_builder1.GetOrCreateLine(0);
+  step_line.SetName(tsl::profiler::kStepLineName);
+  CreateXEvent(&device_plane_builder1, &step_line, "Step 1", /*offset_ps=*/100,
+               /*duration_ps=*/100000, {{StatType::kGroupId, 1}});
+
+  XLineBuilder op_line = device_plane_builder1.GetOrCreateLine(1);
+  op_line.SetName(kXlaOpLineName);
+  CreateXEvent(&device_plane_builder1, &op_line, "op.1", /*offset_ps=*/110,
+               /*duration_ps=*/10,
+               {{StatType::kHloCategory, tsl::profiler::kHloInfeed},
+                {StatType::kGroupId, 1}});
 
   // Create 2 steps in xplane in TPU ordinal 1.
-  line = device_plane_builder2.GetOrCreateLine(1);
-  line.SetName(kXlaOpLineName);
-  // Step 1
-  XStatMetadata* kGroupId2 = device_plane_builder2.GetOrCreateStatMetadata(
-      GetStatTypeStr(StatType::kGroupId));
-  XEventMetadata* event_metadata2 =
-      device_plane_builder2.GetOrCreateEventMetadata(2);
-  event_metadata2->set_name("Step 1");
-  XEventBuilder event_builder2 = line.AddEvent(*event_metadata2);
-  event_builder2.AddStatValue(*kGroupId2, 1);  // step num
-  event_builder2.SetDurationNs(100);
-  event_builder2.SetOffsetNs(300);
-  // Step 2
-  XStatMetadata* kGroupId3 = device_plane_builder2.GetOrCreateStatMetadata(
-      GetStatTypeStr(StatType::kGroupId));
-  XEventMetadata* event_metadata3 =
-      device_plane_builder2.GetOrCreateEventMetadata(2);
-  event_metadata3->set_name("Step 2");
-  XEventBuilder event_builder3 = line.AddEvent(*event_metadata3);
-  event_builder3.AddStatValue(*kGroupId3, 2);  // step num
-  event_builder3.SetDurationNs(100);
-  event_builder3.SetOffsetNs(300);
+  step_line = device_plane_builder2.GetOrCreateLine(0);
+  step_line.SetName(tsl::profiler::kStepLineName);
+  CreateXEvent(&device_plane_builder2, &step_line, "Step 1", /*offset_ps=*/300,
+               /*duration_ps=*/100, {{StatType::kGroupId, 1}});
+  CreateXEvent(&device_plane_builder2, &step_line, "Step 2", /*offset_ps=*/300,
+               /*duration_ps=*/100, {{StatType::kGroupId, 2}});
+  op_line = device_plane_builder2.GetOrCreateLine(1);
+  op_line.SetName(kXlaOpLineName);
+  CreateXEvent(&device_plane_builder2, &op_line, "op.1", /*offset_ps=*/310,
+               /*duration_ps=*/10,
+               {{StatType::kHloCategory, tsl::profiler::kHloInfeed},
+                {StatType::kGroupId, 1}});
+  CreateXEvent(&device_plane_builder2, &op_line, "op.2", /*offset_ps=*/310,
+               /*duration_ps=*/10,
+               {{StatType::kHloCategory, tsl::profiler::kHloInfeed},
+                {StatType::kGroupId, 2}});
 
   OpStatsOptions options;
   options.generate_op_metrics_db = true;
