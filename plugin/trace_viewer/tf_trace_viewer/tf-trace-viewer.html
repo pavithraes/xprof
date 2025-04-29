@@ -457,33 +457,6 @@ dashboard would integrate trace viewer app using iframe.
   canvas.drawing-container-canvas {
     border-left: 2px dotted #08a;
   }
-
-  tr-ui-a-stack-frame {
-    display: flex;
-    flex-flow: column;
-    align-items: start;
-  }
-
-  .collapsible {
-    color: black;
-    cursor: pointer;
-    padding: 5px;
-    border: none;
-    border-radius: 5px;
-    text-align: left;
-    outline: none;
-    font-size: 12px;
-  }
-
-  .collapsible:hover {
-    background-color: #555;
-    color: white;
-  }
-
-  .collapsible-content {
-    display: none;
-    overflow: hidden;
-  }
 </style>
 <script src="tf-trace-viewer-helper.js"></script>
 <script>
@@ -561,7 +534,6 @@ dashboard would integrate trace viewer app using iframe.
       this._traceViewer.brushingStateController.changeSelectionFromTimeline = async (selection) => {
         await this.onSelectionChange(selection);
         superOnSelectionChange(selection);
-        this._updateSingleEventSubView();
       }
 
       // Override the default behavior for find fitler such that pressing find
@@ -1130,32 +1102,6 @@ dashboard would integrate trace viewer app using iframe.
       findController.filterTextChanged = (keyEvent) => {
         this._callSearchLater(findController, originalSearchBarTextChange, []);
       };
-    },
-
-    _updateSingleEventSubView() {
-      const stackFrame = document.querySelector('tr-ui-a-stack-frame');
-      if (stackFrame) {
-        const child = stackFrame.children[0];
-        stackFrame.removeChild(child);
-        const stack_frame_button = document.createElement('button');
-        stack_frame_button.classList.add('collapsible');
-        stack_frame_button.textContent = 'View Stack Frame';
-        const stack_frame_content = document.createElement('div');
-        stack_frame_content.classList.add('collapsible-content');
-        stack_frame_button.addEventListener("click", function() {
-          this.classList.toggle("active");
-          var content = this.nextElementSibling;
-          if (content.style.display === "block") {
-            content.style.display = "none";
-          } else {
-            content.style.display = "block";
-          }
-        });
-
-        stack_frame_content.appendChild(child);
-        stackFrame.appendChild(stack_frame_button);
-        stackFrame.appendChild(stack_frame_content);
-      }
     },
 
     _maybeFetchEventArgs: async function(event) {
