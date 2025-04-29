@@ -52,6 +52,8 @@ cc_test(
         "@org_xprof//xprof/utils:op_metrics_db_utils",
         "@org_xprof//xprof/utils:xprof_gpu_cost_analysis",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/hlo/parser:hlo_parser",
         "@xla//xla/tsl/platform:types",
         "@xla//xla/tsl/profiler/utils:math_utils",
         "@xla//xla/tsl/profiler/utils:xplane_builder",

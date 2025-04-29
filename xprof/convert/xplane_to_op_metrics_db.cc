@@ -299,17 +299,32 @@ void AggregateHloFunc(HLOTracker& current, DeviceOpMetricsDbBuilder& metricDb) {
   if (current.hlo_instruction == nullptr) return;
   auto performance_info_wrapper =
       current.hlo_instruction->GetPerformanceInfoWrapper();
-  metricDb.EnterOp(
-      current.program_id, current.hlo_op_name,
-      current.hlo_instruction->Category(), current.hlo_instruction->TfOpName(),
-      current.hlo_instruction->DeduplicatedName(), current.is_eager, 1,
-      current.duration, 0, performance_info_wrapper->DeviceFlops(),
-      performance_info_wrapper->bytes_accessed(),
-      ConvertPerformanceInfo(
-          performance_info_wrapper->memory_accessed_breakdown(), 1),
-      performance_info_wrapper->ModelFlops(),
-      current.hlo_instruction->Expression(),
-      current.hlo_instruction->SourceInfo());
+  if (performance_info_wrapper != nullptr) {
+    metricDb.EnterOp(
+        current.program_id, current.hlo_op_name,
+        current.hlo_instruction->Category(),
+        current.hlo_instruction->TfOpName(),
+        current.hlo_instruction->DeduplicatedName(), current.is_eager,
+        /*occurrences=*/1, current.duration, /*children_time_ps=*/0,
+        performance_info_wrapper->DeviceFlops(),
+        performance_info_wrapper->bytes_accessed(),
+        ConvertPerformanceInfo(
+            performance_info_wrapper->memory_accessed_breakdown(),
+            /*occurrences=*/1),
+        performance_info_wrapper->ModelFlops(),
+        current.hlo_instruction->Expression(),
+        current.hlo_instruction->SourceInfo());
+  } else {
+    metricDb.EnterOp(current.program_id, current.hlo_op_name,
+                     current.hlo_instruction->Category(),
+                     current.hlo_instruction->TfOpName(),
+                     current.hlo_instruction->DeduplicatedName(),
+                     current.is_eager, /*occurrences=*/1, current.duration,
+                     /*children_time_ps=*/0, /*flops=*/0, /*bytes_accessed=*/0,
+                     /*bytes_accessed_breakdown=*/{}, /*model_flops=*/0,
+                     current.hlo_instruction->Expression(),
+                     current.hlo_instruction->SourceInfo());
+  }
   current.Reset();
 }
 

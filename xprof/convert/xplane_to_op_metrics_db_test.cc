@@ -17,18 +17,21 @@ limitations under the License.
 
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 
 #include "testing/base/public/gmock.h"
+#include "<gtest/gtest.h>"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "xla/hlo/ir/hlo_module.h"
+#include "xla/hlo/parser/hlo_parser.h"
 #include "xla/tsl/platform/types.h"
 #include "xla/tsl/profiler/utils/math_utils.h"
 #include "xla/tsl/profiler/utils/xplane_builder.h"
 #include "xla/tsl/profiler/utils/xplane_schema.h"
 #include "xla/tsl/profiler/utils/xplane_test_utils.h"
-#include "<gtest/gtest.h>"
 #include "tsl/profiler/protobuf/xplane.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_metrics.pb.h"
 #include "xprof/utils/hlo_cost_analysis_wrapper.h"
@@ -305,6 +308,55 @@ TEST(ConvertXPlaneToOpMetricsDb, HostXPlaneWithXlaOps) {
                                            precision_stats {}
               )pb"));
 #endif
+}
+
+TEST(ConvertXPlaneToOpMetricsDb, DeviceOpMetricsDbWithNullPerformanceInfo) {
+  std::string hlo_string = R"(
+    HloModule TestModule
+
+    fused_computation {
+      param_0 = f32[3,3]{1,0} parameter(0)
+      param_1 = f32[1,1]{1,0} parameter(1)
+      convolution.1 = f32[3,3]{1,0} convolution(param_0, param_1), dim_labels=bf_oi->bf
+      param_2 = f32[3,3]{1,0} parameter(2)
+      ROOT add.1 = f32[3,3]{1,0} add(convolution.1, param_2)
+    }
+
+    ENTRY test {
+      input0 = f32[3,3]{1,0} parameter(0)
+      filter = f32[1,1]{1,0} parameter(1)
+      input1 = f32[3,3]{1,0} parameter(2)
+      ROOT fusion.1 = f32[3,3]{1,0} fusion(input0, filter, input1), kind=kCustom, calls=fused_computation
+    }
+  )";
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<xla::HloModule> hlo_module,
+                       xla::ParseAndReturnUnverifiedModule(hlo_string));
+  HloModuleMap hlo_module_map;
+  hlo_module_map.try_emplace(
+      /*program_id=*/1,
+      HloModuleWrapper(std::move(hlo_module), /*cost_analysis=*/nullptr));
+  XSpace xspace;
+  XPlane* xplane =
+      tsl::profiler::GetOrCreateGpuXPlane(&xspace, /*device_ordinal=*/0);
+  XPlaneBuilder device_plane(xplane);
+  XLineBuilder stream1 = device_plane.GetOrCreateLine(/*line_id=*/10);
+  tsl::profiler::CreateXEvent(
+      &device_plane, &stream1, "Add", /*offset_ps=*/100,
+      /*duration_ps=*/10,
+      {{StatType::kHloOp, "xla::op::add.1"}, {StatType::kProgramId, 1}});
+
+  OpMetricsDb op_metrics =
+      ConvertDeviceTraceXPlaneToOpMetricsDb(*xplane, hlo_module_map);
+
+  EXPECT_EQ(2, op_metrics.metrics_db_size());
+  OpMetrics op = op_metrics.metrics_db().at(0);
+  EXPECT_EQ(op.name(), "add.1");
+  EXPECT_EQ(op.occurrences(), 1);
+  EXPECT_EQ(op.time_ps(), 10);
+  EXPECT_EQ(op.flops(), 0);
+  OpMetrics idle = op_metrics.metrics_db().at(1);
+  EXPECT_EQ(idle.name(), "IDLE");
+  EXPECT_EQ(idle.category(), "IDLE");
 }
 
 }  // namespace
