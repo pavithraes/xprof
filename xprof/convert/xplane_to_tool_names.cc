@@ -63,9 +63,12 @@ absl::StatusOr<std::string> GetAvailableToolNames(
     // tools.push_back("input_pipeline_analyzer");
     tools.push_back("framework_op_stats");
     tools.push_back("memory_profile");
-    tools.push_back("pod_viewer");
+    // TODO(sannidhya): deprecate the pod_viewer.
+    // b/414293137
+    // tools.push_back("pod_viewer");
     tools.push_back("op_profile");
-    tools.push_back("inference_profile");
+    // TODO(b/410070223): Re-enable inference_profile when it is ready.
+    // tools.push_back("inference_profile");
     tools.push_back("hlo_stats");
     tools.push_back("roofline_model");
 

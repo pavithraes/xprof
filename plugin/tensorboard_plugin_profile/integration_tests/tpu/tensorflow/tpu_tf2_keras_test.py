@@ -102,12 +102,10 @@ class TpuKerasTest(absltest.TestCase):
         'overview_page',
         'framework_op_stats',
         'memory_profile',
-        'pod_viewer',
         'op_profile',
         'memory_viewer',
         'graph_viewer',
         'hlo_stats',
-        'inference_profile',
         'roofline_model',
     ]
     expected.sort()
