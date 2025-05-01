@@ -13,6 +13,13 @@ build --noenable_bzlmod
 build:macos --apple_platform_type=macos
 build:macos --copt=-DGRPC_BAZEL_BUILD
 
+# Bazel 7.0.0 no longer supports dynamic symbol lookup on macOS. To resolve
+# undefined symbol errors in macOS arm64 builds, explicitly add the necessary
+# linker flags until dependencies are well defined. See
+# https://github.com/bazelbuild/bazel/issues/19730.
+build:macos --linkopt=-Wl,-undefined,dynamic_lookup
+build:macos --host_linkopt=-Wl,-undefined,dynamic_lookup
+
 build:windows --compiler=clang-cl
 build:windows --copt=/W0
 build:windows --host_copt=/W0
