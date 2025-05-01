@@ -10,9 +10,10 @@ py_library(
     name = "profile_plugin",
     srcs = ["profile_plugin.py"],
     deps = [
-        "//:expect_tensorflow_installed",
         "@org_pocoo_werkzeug",
         "@org_pythonhosted_six",
+        requirement("etils"),
+        requirement("werkzeug"),
         "@org_tensorflow_tensorboard//tensorboard/backend/event_processing:plugin_asset_util",
         "@org_tensorflow_tensorboard//tensorboard/plugins:base_plugin",
         "@org_xprof//plugin/tensorboard_plugin_profile/convert:all_libs",
@@ -31,19 +32,7 @@ py_library(
     deps = [
         ":profile_plugin",
         "@org_pocoo_werkzeug",
-        requirement("absl-py"),
-        "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:protos_all_py",
-        "@org_xprof//plugin/tensorboard_plugin_profile/standalone:tensorboard_shim",
-    ],
-)
-
-py_library(
-    name = "profile_plugin_test_base",
-    srcs = ["profile_plugin_test_base.py"],
-    deps = [
-        ":profile_plugin",
-        ":profile_plugin_test_utils",
-        requirement("absl-py"),
+        requirement("werkzeug"),
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:protos_all_py",
         "@org_xprof//plugin/tensorboard_plugin_profile/standalone:tensorboard_shim",
     ],
@@ -51,11 +40,18 @@ py_library(
 
 py_test(
     name = "profile_plugin_with_tb_test",
-    srcs = ["profile_plugin_with_tb_test.py"],
+    srcs = ["profile_plugin_test.py"],
+    imports = [".."],
+    main = "profile_plugin_test.py",
     deps = [
         ":profile_plugin",
         ":profile_plugin_test_utils",
         requirement("absl-py"),
+        "@org_tensorflow_tensorboard//tensorboard:context",
+        "@org_tensorflow_tensorboard//tensorboard/backend/event_processing:data_provider",
+        "@org_tensorflow_tensorboard//tensorboard/backend/event_processing:event_multiplexer",
+        "@org_tensorflow_tensorboard//tensorboard/backend/event_processing:plugin_asset_util",
+        "@org_tensorflow_tensorboard//tensorboard/plugins:base_plugin",
         "@org_xprof//plugin/tensorboard_plugin_profile/protobuf:protos_all_py",
         "@org_xprof//plugin/tensorboard_plugin_profile/standalone:tensorboard_shim",
     ],
@@ -63,7 +59,9 @@ py_test(
 
 py_test(
     name = "profile_plugin_without_tb_test",
-    srcs = ["profile_plugin_without_tb_test.py"],
+    srcs = ["profile_plugin_test.py"],
+    imports = [".."],
+    main = "profile_plugin_test.py",
     deps = [
         ":profile_plugin",
         ":profile_plugin_test_utils",
@@ -76,7 +74,6 @@ py_test(
 py_library(
     name = "profile_plugin_loader",
     srcs = ["profile_plugin_loader.py"],
-    srcs_version = "PY2AND3",
     deps = [
         ":profile_plugin",
         "@org_xprof//plugin/tensorboard_plugin_profile/standalone:tensorboard_shim",
@@ -86,7 +83,6 @@ py_library(
 py_library(
     name = "server",
     srcs = ["server.py"],
-    srcs_version = "PY2AND3",
     deps = [
         ":profile_plugin_loader",
         "@org_xprof//plugin/tensorboard_plugin_profile/standalone:tensorboard_shim",

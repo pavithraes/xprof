@@ -46,6 +46,12 @@ load("@rules_python//python:pip.bzl", "pip_parse")
 
 pip_parse(
     name = "python_deps",
+    experimental_requirement_cycles = {
+        "fsspec": [
+            "fsspec",
+            "gcsfs",
+        ],
+    },
     python_interpreter_target = interpreter,
     requirements_lock = PROFILER_REQUIREMENTS_FILE,
 )
