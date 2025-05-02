@@ -30,7 +30,6 @@ from tensorboard_plugin_profile.convert import inference_stats_proto_to_gviz
 from tensorboard_plugin_profile.convert import input_pipeline_proto_to_gviz
 from tensorboard_plugin_profile.convert import kernel_stats_proto_to_gviz
 from tensorboard_plugin_profile.convert import overview_page_proto_to_gviz
-from tensorboard_plugin_profile.convert import roofline_model_proto_to_gviz
 from tensorboard_plugin_profile.convert import tf_stats_proto_to_gviz
 from tensorboard_plugin_profile.convert import trace_events_json
 from tensorboard_plugin_profile.protobuf import trace_events_old_pb2
@@ -180,9 +179,9 @@ def xspace_to_tool_data(
     if success:
       data = json_data
   elif tool == 'roofline_model':
-    raw_data, success = xspace_wrapper_func(xspace_paths, tool)
+    json_data, success = xspace_wrapper_func(xspace_paths, tool)
     if success:
-      data = roofline_model_proto_to_gviz.to_json(raw_data)
+      data = json_data
   elif tool == 'graph_viewer':
     options = params.get('graph_viewer_options', {})
     raw_data, success = xspace_wrapper_func(xspace_paths, tool, options)

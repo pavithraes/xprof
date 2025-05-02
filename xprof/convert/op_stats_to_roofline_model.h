@@ -17,8 +17,11 @@ limitations under the License.
 #define XPROF_CONVERT_OP_STATS_TO_ROOFLINE_MODEL_H_
 
 #include <cstdint>
+#include <memory>
+#include <string>
 
 #include "tsl/platform/protobuf.h"
+#include "xprof/convert/data_table_utils.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_metrics.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_stats.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/roofline_model.pb.h"
@@ -91,6 +94,15 @@ inline void AddRooflineModelRecordsPerStep(
             step_info.step_num(), roofline_model_db, include_infeed_outfeed);
   }
 }
+
+std::string RooflineModelToDataTableJson(
+    const RooflineModelDatabase& roofline_model_db);
+
+std::unique_ptr<tensorflow::profiler::DataTable> GenerateDiagnosticsDataTable(
+    const RooflineModelDatabase& roofline_model_db);
+
+std::unique_ptr<tensorflow::profiler::DataTable> GenerateRooflineModelDataTable(
+    const RooflineModelDatabase& roofline_model_db);
 
 }  // namespace profiler
 }  // namespace tensorflow

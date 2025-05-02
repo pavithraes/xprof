@@ -303,7 +303,7 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToRooflineModel(
       ConvertOpStatsToRooflineModel(combined_op_stats, false);
   result.mutable_roofline_model_record()->MergeFrom(
       result_without_infeed_outfeed.roofline_model_record());
-  return result.SerializeAsString();
+  return RooflineModelToDataTableJson(result);
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToOpProfileViewer(

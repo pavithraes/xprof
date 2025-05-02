@@ -530,3 +530,21 @@ cc_library(
         "@xla//xla/tsl/platform:types",
     ],
 )
+
+cc_library(
+    name = "roofline_model_utils",
+    srcs = ["roofline_model_utils.cc"],
+    hdrs = ["roofline_model_utils.h"],
+    deps = [
+        "@xla//xla/tsl/profiler/utils:math_utils",
+    ],
+)
+
+cc_test(
+    name = "roofline_model_utils_test",
+    srcs = ["roofline_model_utils_test.cc"],
+    deps = [
+        ":roofline_model_utils",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

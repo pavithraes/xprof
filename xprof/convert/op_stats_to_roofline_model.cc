@@ -17,28 +17,39 @@ limitations under the License.
 
 #include <algorithm>
 #include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "absl/log/check.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "xla/tsl/profiler/convert/xla_op_utils.h"
 #include "xla/tsl/profiler/utils/math_utils.h"
 #include "tsl/platform/protobuf.h"
+#include "xprof/convert/data_table_utils.h"
 #include "xprof/convert/op_metrics_db_combiner.h"
 #include "xprof/convert/op_metrics_to_record.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/hardware_types.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_metrics.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_stats.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/roofline_model.pb.h"
-#include "plugin/tensorboard_plugin_profile/protobuf/steps_db.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/source_info.pb.h"
+#include "plugin/tensorboard_plugin_profile/protobuf/steps_db.pb.h"
 #include "xprof/utils/diagnostics.h"
+#include "xprof/utils/roofline_model_utils.h"
 
 namespace tensorflow {
 namespace profiler {
 namespace {
 
+using tensorflow::profiler::DataTable;
 using tensorflow::profiler::OpMetrics;
 using tensorflow::profiler::OpMetricsDb;
 using tensorflow::profiler::PerfEnv;
+using ::tensorflow::profiler::RecordType;
+using ::tensorflow::profiler::RooflineModelDatabase;
+using ::tensorflow::profiler::RooflineModelRecord;
 using tensorflow::profiler::roofline_model::RecordType;
 using tensorflow::profiler::roofline_model::RooflineModelDatabase;
 using tensorflow::profiler::roofline_model::RooflineModelRecord;
@@ -263,6 +274,368 @@ RooflineModelDatabase ConvertOpStatsToRooflineModel(
                                  include_infeed_outfeed);
   PopulateStepDiagnostics(op_stats, roofline_model_db.mutable_diagnostics());
   return roofline_model_db;
+}
+
+// Helper function to format source info
+std::string SourceInfoFormattedText(
+    const tensorflow::profiler::SourceInfo& source_info) {
+  if (source_info.file_name().empty() || source_info.line_number() == -1)
+    return "";
+  // `title` attribute is used to show the full stack trace in the tooltip.
+  // We assume that the interpolated strings do not contain any HTML tags. In
+  // other words, we assume that they don't need to be escaped.
+  return absl::StrCat("<div title='", source_info.stack_frame(), "'>",
+                      source_info.file_name(), ":", source_info.line_number(),
+                      "</div>");
+}
+
+// Helper function to get step string
+std::string GetStepString(RecordType record_type, int64_t step_num) {
+  switch (record_type) {
+    case RecordType::INVALID_RECORD_TYPE:
+      return "Invalid";
+    case RecordType::ALL:
+      return "Total";
+    case RecordType::ALL_HW:
+      return "Total (HW)";
+    case RecordType::AVERAGE_STEP:
+      return "Average";
+    case RecordType::PER_STEP:
+      return absl::StrCat(step_num);
+    default:
+      return "Unknown";
+  }
+}
+
+// Function to get roofline model table for GPU
+std::unique_ptr<DataTable> GetRooflineModelDataTableForGpu(
+    const RooflineModelDatabase& roofline_model_db) {
+  std::vector<std::vector<std::string>> kColumns = {
+      {"step", "string", "Step"},
+      {"rank", "number", "Rank"},
+      {"category", "string", "Category"},
+      {"operation", "string", "Operation"},
+      {"occurrences", "number", "# Occurrences"},
+      {"total_time", "number", "Total Time (us)"},
+      {"avg_time", "number", "Avg. time (us)"},
+      {"total_self_time", "number", "Total self time (us)"},
+      {"avg_self_time", "number", "Avg. self time (us)"},
+      {"total_self_time_percent", "number", "Total self time (%)"},
+      {
+          "cumulative_total_self_time_percent",
+          "number",
+          "Cumulative total self time (%)",
+      },
+      {"measured_flop_rate", "number", "Normalized FLOP Rate (GFLOP/s)"},
+      {"model_flop_rate", "number", "Model FLOP Rate (GFLOP/s)"},
+      {"measured_memory_bw", "number", "Memory BW (GiB/s)"},
+      {"hbm_bw", "number", "HBM BW (GiB/s)"},
+      // For nvidia gpu, currently no vmem_read_bw field, and
+      // vmem_write_bw is used for SHM/L1.
+      {"vmem_write_bw", "number", "SHM/L1 BW (GiB/s)"},
+      {"operational_intensity", "number", "Operational Intensity (FLOP/Byte)"},
+      {
+          "hbm_operational_intensity",
+          "number",
+          "HBM Operational Intensity (FLOP/Byte)",
+      },
+      // for nvidia gpu, currently novmem_read_operational_intensity field,
+      // and vmem_write_operational_intensity used for SHM/L1.
+      {
+          "vmem_write_operational_intensity",
+          "number",
+          "SHM/L1 Operational Intensity (FLOP/Byte)",
+      },
+      {
+          "bottleneck_operational_intensity",
+          "number",
+          "Bottleneck Operational Intensity (FLOP/Byte)",
+      },
+      {"bound_by", "string", "Bound by"},
+      {"total_time_per_core", "number", "Total Time per core (us)"},
+      {"total_time_in_percentage", "number", "Total Time (%)"},
+      {"optimal_flop_rate", "number", "Optimal FLOP Rate (GFLOP/s)"},
+      {"roofline_efficiency", "number", "Roofline efficiency (%)"},
+      {"compute_efficiency", "number", "FLOP Rate / Peak (%)"},
+      {
+          "max_mem_bw_utilization",
+          "number",
+          "Max memory (cmem or hbm) bandwidth utilization (%)",
+      },
+      {"include_infeed_outfeed", "boolean", "Include Infeed/Outfeed"},
+      {"hlo_module_id", "string", "Program ID"},
+      {"source_info", "string", "Source Info"},
+  };
+
+  auto data_table = std::make_unique<DataTable>();
+  for (const std::vector<std::string>& col : kColumns) {
+    data_table->AddColumn(TableColumn(col[0], col[1], col[2]));
+  }
+
+  for (const RooflineModelRecord& record :
+       roofline_model_db.roofline_model_record()) {
+    TableRow* row = data_table->AddRow();
+    row->AddCell(GetStepString(record.record_type(), record.step_num()));
+    row->AddCell(record.rank());
+    row->AddCell(record.hlo_category());
+    row->AddCell(record.hlo_name());
+    row->AddCell(record.occurrences());
+    row->AddCell(record.total_time_in_us());
+    row->AddCell(record.avg_time_in_us());
+    row->AddCell(record.total_self_time_in_us());
+    row->AddCell(record.avg_self_time_in_us());
+    row->AddCell(record.total_self_time_as_fraction());
+    row->AddCell(record.cumulative_total_self_time_as_fraction());
+    row->AddCell(record.measured_flop_rate());
+    row->AddCell(record.model_flop_rate());
+    row->AddCell(record.measured_memory_bw());
+    row->AddCell(record.hbm_bw());
+    row->AddCell(record.vmem_write_bw());
+    row->AddCell(record.operational_intensity());
+    row->AddCell(record.hbm_operational_intensity());
+    row->AddCell(record.vmem_write_operational_intensity());
+    row->AddCell(record.bottleneck_operational_intensity());
+    row->AddCell(record.bound_by());
+    row->AddCell(record.total_time_per_core_in_us());
+    row->AddCell(record.total_time_in_percentage());
+    row->AddCell(record.optimal_flop_rate());
+    row->AddCell(record.roofline_efficiency());
+    row->AddCell(record.flop_rate_relative_to_hw_limit());
+    row->AddCell(record.memory_bw_relative_to_hw_limit());
+    row->AddCell(record.include_infeed_outfeed());
+    row->AddCell(absl::StrCat(record.hlo_module_id()));
+    row->AddCell(SourceInfoFormattedText(record.source_info()));
+  }
+
+  std::vector<std::vector<std::string>> kCustomProperties = {
+      {"device_type", roofline_model_db.device_type()},
+      {"peak_flop_rate", absl::StrCat(roofline_model_db.peak_flop_rate())},
+      {"peak_hbm_bw", absl::StrCat(roofline_model_db.peak_hbm_bw())},
+      {"peak_vmem_write_bw",
+       absl::StrCat(roofline_model_db.peak_vmem_write_bw())},
+      {"hbm_ridge_point",
+       absl::StrCat(RidgePoint(roofline_model_db.peak_flop_rate(),
+                               roofline_model_db.peak_hbm_bw()))},
+      {"vmem_write_ridge_point",
+       absl::StrCat(RidgePoint(roofline_model_db.peak_flop_rate(),
+                               roofline_model_db.peak_vmem_write_bw()))}};
+
+  for (const std::vector<std::string>& property : kCustomProperties) {
+    data_table->AddCustomProperty(property[0], property[1]);
+  }
+
+  return data_table;
+}
+
+// Function to get roofline model table
+std::unique_ptr<DataTable> GetRooflineModelDataTable(
+    const RooflineModelDatabase& roofline_model_db) {
+  std::vector<std::vector<std::string>> kColumns = {
+      {"step", "string", "Step"},
+      {"rank", "number", "Rank"},
+      {"category", "string", "Category"},
+      {"operation", "string", "Operation"},
+      {"occurrences", "number", "# Occurrences"},
+      {"total_time", "number", "Total Time (us)"},
+      {"avg_time", "number", "Avg. time (us)"},
+      {"total_self_time", "number", "Total self time (us)"},
+      {"avg_self_time", "number", "Avg. self time (us)"},
+      {"total_self_time_percent", "number", "Total self time (%)"},
+      {
+          "cumulative_total_self_time_percent",
+          "number",
+          "Cumulative total self time (%)",
+      },
+      {"dma_stall_percent", "number", "%time stalled by DMA"},
+      {"measured_flop_rate", "number", "Normalized FLOP Rate (GFLOP/s)"},
+      {"model_flop_rate", "number", "Model FLOP Rate (GFLOP/s)"},
+      {"measured_memory_bw", "number", "Memory BW (GiB/s)"},
+      {"hbm_bw", "number", "HBM BW (GiB/s)"},
+      {"cmem_read_bw", "number", "CMEM Read BW (GiB/s)"},
+      {"cmem_write_bw", "number", "CMEM Write BW (GiB/s)"},
+      {"vmem_read_bw", "number", "VMEM Read BW (GiB/s)"},
+      {"vmem_write_bw", "number", "VMEM Write BW (GiB/s)"},
+      {"operational_intensity", "number", "Operational Intensity (FLOP/Byte)"},
+      {
+          "hbm_operational_intensity",
+          "number",
+          "HBM Operational Intensity (FLOP/Byte)",
+      },
+      {
+          "cmem_read_operational_intensity",
+          "number",
+          "CMEM Read Operational Intensity (FLOP/Byte)",
+      },
+      {
+          "cmem_write_operational_intensity",
+          "number",
+          "CMEM Write Operational Intensity (FLOP/Byte)",
+      },
+      {
+          "vmem_read_operational_intensity",
+          "number",
+          "VMEM Read Operational Intensity (FLOP/Byte)",
+      },
+      {
+          "vmem_write_operational_intensity",
+          "number",
+          "VMEM Write Operational Intensity (FLOP/Byte)",
+      },
+      {
+          "bottleneck_operational_intensity",
+          "number",
+          "Bottleneck Operational Intensity (FLOP/Byte)",
+      },
+      {"bound_by", "string", "Bound by"},
+      {"total_time_per_core", "number", "Total Time per core (us)"},
+      {"total_time_in_percentage", "number", "Total Time (%)"},
+      {"optimal_flop_rate", "number", "Optimal FLOP Rate (GFLOP/s)"},
+      {"roofline_efficiency", "number", "Roofline efficiency (%)"},
+      {"compute_efficiency", "number", "FLOP Rate / Peak (%)"},
+      {
+          "max_mem_bw_utilization",
+          "number",
+          "Max memory (cmem or hbm) bandwidth utilization (%)",
+      },
+      {"include_infeed_outfeed", "boolean", "Include Infeed/Outfeed"},
+      {"hlo_module_id", "string", "Program ID"},
+      {"source_info", "string", "Source Info"},
+  };
+
+  auto data_table = std::make_unique<DataTable>();
+  for (const std::vector<std::string>& col : kColumns) {
+    data_table->AddColumn(TableColumn(col[0], col[1], col[2]));
+  }
+
+  for (const RooflineModelRecord& record :
+       roofline_model_db.roofline_model_record()) {
+    TableRow* row = data_table->AddRow();
+    row->AddCell(GetStepString(record.record_type(), record.step_num()));
+    row->AddCell(record.rank());
+    row->AddCell(record.hlo_category());
+    row->AddCell(record.hlo_name());
+    row->AddCell(record.occurrences());
+    row->AddCell(record.total_time_in_us());
+    row->AddCell(record.avg_time_in_us());
+    row->AddCell(record.total_self_time_in_us());
+    row->AddCell(record.avg_self_time_in_us());
+    row->AddCell(record.total_self_time_as_fraction());
+    row->AddCell(record.cumulative_total_self_time_as_fraction());
+    row->AddCell(record.dma_stall_fraction());
+    row->AddCell(record.measured_flop_rate());
+    row->AddCell(record.model_flop_rate());
+    row->AddCell(record.measured_memory_bw());
+    row->AddCell(record.hbm_bw());
+    row->AddCell(record.cmem_read_bw());
+    row->AddCell(record.cmem_write_bw());
+    row->AddCell(record.vmem_read_bw());
+    row->AddCell(record.vmem_write_bw());
+    row->AddCell(record.operational_intensity());
+    row->AddCell(record.hbm_operational_intensity());
+    row->AddCell(record.cmem_read_operational_intensity());
+    row->AddCell(record.cmem_write_operational_intensity());
+    row->AddCell(record.vmem_read_operational_intensity());
+    row->AddCell(record.vmem_write_operational_intensity());
+    row->AddCell(record.bottleneck_operational_intensity());
+    row->AddCell(record.bound_by());
+    row->AddCell(record.total_time_per_core_in_us());
+    row->AddCell(record.total_time_in_percentage());
+    row->AddCell(record.optimal_flop_rate());
+    row->AddCell(record.roofline_efficiency());
+    row->AddCell(record.flop_rate_relative_to_hw_limit());
+    row->AddCell(record.memory_bw_relative_to_hw_limit());
+    row->AddCell(record.include_infeed_outfeed());
+    row->AddCell(absl::StrCat(record.hlo_module_id()));
+    row->AddCell(SourceInfoFormattedText(record.source_info()));
+  }
+
+  std::vector<std::vector<std::string>> kCustomProperties = {
+      {"device_type", roofline_model_db.device_type()},
+      {"megacore",
+       absl::StrCat(static_cast<int>(roofline_model_db.megacore()))},
+      {"has_cmem",
+       absl::StrCat(static_cast<int>(roofline_model_db.has_cmem()))},
+      {"has_merged_vmem",
+       absl::StrCat(static_cast<int>(roofline_model_db.has_merged_vmem()))},
+      {"peak_flop_rate", absl::StrCat(roofline_model_db.peak_flop_rate())},
+      {"peak_hbm_bw", absl::StrCat(roofline_model_db.peak_hbm_bw())},
+      {"peak_cmem_read_bw",
+       absl::StrCat(roofline_model_db.peak_cmem_read_bw())},
+      {"peak_cmem_write_bw",
+       absl::StrCat(roofline_model_db.peak_cmem_write_bw())},
+      {"peak_vmem_read_bw",
+       absl::StrCat(roofline_model_db.peak_vmem_read_bw())},
+      {"peak_vmem_write_bw",
+       absl::StrCat(roofline_model_db.peak_vmem_write_bw())},
+      {"hbm_ridge_point",
+       absl::StrCat(RidgePoint(roofline_model_db.peak_flop_rate(),
+                               roofline_model_db.peak_hbm_bw()))},
+      {"cmem_read_ridge_point",
+       absl::StrCat(RidgePoint(roofline_model_db.peak_flop_rate(),
+                               roofline_model_db.peak_cmem_read_bw()))},
+      {"cmem_write_ridge_point",
+       absl::StrCat(RidgePoint(roofline_model_db.peak_flop_rate(),
+                               roofline_model_db.peak_cmem_write_bw()))},
+      {"vmem_read_ridge_point",
+       absl::StrCat(RidgePoint(roofline_model_db.peak_flop_rate(),
+                               roofline_model_db.peak_vmem_read_bw()))},
+      {"vmem_write_ridge_point",
+       absl::StrCat(RidgePoint(roofline_model_db.peak_flop_rate(),
+                               roofline_model_db.peak_vmem_write_bw()))},
+  };
+
+  for (const std::vector<std::string>& property : kCustomProperties) {
+    data_table->AddCustomProperty(property[0], property[1]);
+  }
+
+  return data_table;
+}
+
+// Function to generate roofline model table
+std::unique_ptr<DataTable> GenerateRooflineModelDataTable(
+    const RooflineModelDatabase& roofline_model_db) {
+  std::unique_ptr<DataTable> data_table = nullptr;
+  if (absl::StrContains(roofline_model_db.device_type(), "GPU")) {
+    data_table = GetRooflineModelDataTableForGpu(roofline_model_db);
+  } else {
+    data_table = GetRooflineModelDataTable(roofline_model_db);
+  }
+  return data_table;
+}
+
+std::unique_ptr<DataTable> GenerateDiagnosticsDataTable(
+    const RooflineModelDatabase& roofline_model_db) {
+  std::vector<std::vector<std::string>> kColumns = {
+      {"severity", "string", "Severity"}, {"message", "string", "Message"}};
+  auto data_table = std::make_unique<DataTable>();
+  for (const std::vector<std::string>& col : kColumns) {
+    data_table->AddColumn(TableColumn(col[0], col[1], col[2]));
+  }
+  for (const auto& info : roofline_model_db.diagnostics().info()) {
+    TableRow* row = data_table->AddRow();
+    row->AddCell("INFO");
+    row->AddCell(info);
+  }
+  for (const auto& warning : roofline_model_db.diagnostics().warnings()) {
+    TableRow* row = data_table->AddRow();
+    row->AddCell("WARNING");
+    row->AddCell(warning);
+  }
+  for (const auto& error : roofline_model_db.diagnostics().errors()) {
+    TableRow* row = data_table->AddRow();
+    row->AddCell("ERROR");
+    row->AddCell(error);
+  }
+  return data_table;
+}
+
+std::string RooflineModelToDataTableJson(
+    const RooflineModelDatabase& roofline_model_db) {
+  std::string roofline_json =
+      GenerateRooflineModelDataTable(roofline_model_db)->ToJson();
+  std::string diagnostics_json =
+      GenerateDiagnosticsDataTable(roofline_model_db)->ToJson();
+  return absl::StrCat("[", roofline_json, ",", diagnostics_json, "]");
 }
 
 }  // namespace profiler
