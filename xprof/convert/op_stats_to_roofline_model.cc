@@ -375,36 +375,36 @@ std::unique_ptr<DataTable> GetRooflineModelDataTableForGpu(
   for (const RooflineModelRecord& record :
        roofline_model_db.roofline_model_record()) {
     TableRow* row = data_table->AddRow();
-    row->AddCell(GetStepString(record.record_type(), record.step_num()));
-    row->AddCell(record.rank());
-    row->AddCell(record.hlo_category());
-    row->AddCell(record.hlo_name());
-    row->AddCell(record.occurrences());
-    row->AddCell(record.total_time_in_us());
-    row->AddCell(record.avg_time_in_us());
-    row->AddCell(record.total_self_time_in_us());
-    row->AddCell(record.avg_self_time_in_us());
-    row->AddCell(record.total_self_time_as_fraction());
-    row->AddCell(record.cumulative_total_self_time_as_fraction());
-    row->AddCell(record.measured_flop_rate());
-    row->AddCell(record.model_flop_rate());
-    row->AddCell(record.measured_memory_bw());
-    row->AddCell(record.hbm_bw());
-    row->AddCell(record.vmem_write_bw());
-    row->AddCell(record.operational_intensity());
-    row->AddCell(record.hbm_operational_intensity());
-    row->AddCell(record.vmem_write_operational_intensity());
-    row->AddCell(record.bottleneck_operational_intensity());
-    row->AddCell(record.bound_by());
-    row->AddCell(record.total_time_per_core_in_us());
-    row->AddCell(record.total_time_in_percentage());
-    row->AddCell(record.optimal_flop_rate());
-    row->AddCell(record.roofline_efficiency());
-    row->AddCell(record.flop_rate_relative_to_hw_limit());
-    row->AddCell(record.memory_bw_relative_to_hw_limit());
-    row->AddCell(record.include_infeed_outfeed());
-    row->AddCell(absl::StrCat(record.hlo_module_id()));
-    row->AddCell(SourceInfoFormattedText(record.source_info()));
+    row->AddTextCell(GetStepString(record.record_type(), record.step_num()));
+    row->AddNumberCell(record.rank());
+    row->AddTextCell(record.hlo_category());
+    row->AddTextCell(record.hlo_name());
+    row->AddNumberCell(record.occurrences());
+    row->AddNumberCell(record.total_time_in_us());
+    row->AddNumberCell(record.avg_time_in_us());
+    row->AddNumberCell(record.total_self_time_in_us());
+    row->AddNumberCell(record.avg_self_time_in_us());
+    row->AddNumberCell(record.total_self_time_as_fraction());
+    row->AddNumberCell(record.cumulative_total_self_time_as_fraction());
+    row->AddNumberCell(record.measured_flop_rate());
+    row->AddNumberCell(record.model_flop_rate());
+    row->AddNumberCell(record.measured_memory_bw());
+    row->AddNumberCell(record.hbm_bw());
+    row->AddNumberCell(record.vmem_write_bw());
+    row->AddNumberCell(record.operational_intensity());
+    row->AddNumberCell(record.hbm_operational_intensity());
+    row->AddNumberCell(record.vmem_write_operational_intensity());
+    row->AddNumberCell(record.bottleneck_operational_intensity());
+    row->AddTextCell(record.bound_by());
+    row->AddNumberCell(record.total_time_per_core_in_us());
+    row->AddNumberCell(record.total_time_in_percentage());
+    row->AddNumberCell(record.optimal_flop_rate());
+    row->AddNumberCell(record.roofline_efficiency());
+    row->AddNumberCell(record.flop_rate_relative_to_hw_limit());
+    row->AddNumberCell(record.memory_bw_relative_to_hw_limit());
+    row->AddBooleanCell(record.include_infeed_outfeed());
+    row->AddTextCell(absl::StrCat(record.hlo_module_id()));
+    row->AddTextCell(SourceInfoFormattedText(record.source_info()));
   }
 
   std::vector<std::vector<std::string>> kCustomProperties = {
@@ -510,43 +510,43 @@ std::unique_ptr<DataTable> GetRooflineModelDataTable(
   for (const RooflineModelRecord& record :
        roofline_model_db.roofline_model_record()) {
     TableRow* row = data_table->AddRow();
-    row->AddCell(GetStepString(record.record_type(), record.step_num()));
-    row->AddCell(record.rank());
-    row->AddCell(record.hlo_category());
-    row->AddCell(record.hlo_name());
-    row->AddCell(record.occurrences());
-    row->AddCell(record.total_time_in_us());
-    row->AddCell(record.avg_time_in_us());
-    row->AddCell(record.total_self_time_in_us());
-    row->AddCell(record.avg_self_time_in_us());
-    row->AddCell(record.total_self_time_as_fraction());
-    row->AddCell(record.cumulative_total_self_time_as_fraction());
-    row->AddCell(record.dma_stall_fraction());
-    row->AddCell(record.measured_flop_rate());
-    row->AddCell(record.model_flop_rate());
-    row->AddCell(record.measured_memory_bw());
-    row->AddCell(record.hbm_bw());
-    row->AddCell(record.cmem_read_bw());
-    row->AddCell(record.cmem_write_bw());
-    row->AddCell(record.vmem_read_bw());
-    row->AddCell(record.vmem_write_bw());
-    row->AddCell(record.operational_intensity());
-    row->AddCell(record.hbm_operational_intensity());
-    row->AddCell(record.cmem_read_operational_intensity());
-    row->AddCell(record.cmem_write_operational_intensity());
-    row->AddCell(record.vmem_read_operational_intensity());
-    row->AddCell(record.vmem_write_operational_intensity());
-    row->AddCell(record.bottleneck_operational_intensity());
-    row->AddCell(record.bound_by());
-    row->AddCell(record.total_time_per_core_in_us());
-    row->AddCell(record.total_time_in_percentage());
-    row->AddCell(record.optimal_flop_rate());
-    row->AddCell(record.roofline_efficiency());
-    row->AddCell(record.flop_rate_relative_to_hw_limit());
-    row->AddCell(record.memory_bw_relative_to_hw_limit());
-    row->AddCell(record.include_infeed_outfeed());
-    row->AddCell(absl::StrCat(record.hlo_module_id()));
-    row->AddCell(SourceInfoFormattedText(record.source_info()));
+    row->AddTextCell(GetStepString(record.record_type(), record.step_num()));
+    row->AddNumberCell(record.rank());
+    row->AddTextCell(record.hlo_category());
+    row->AddTextCell(record.hlo_name());
+    row->AddNumberCell(record.occurrences());
+    row->AddNumberCell(record.total_time_in_us());
+    row->AddNumberCell(record.avg_time_in_us());
+    row->AddNumberCell(record.total_self_time_in_us());
+    row->AddNumberCell(record.avg_self_time_in_us());
+    row->AddNumberCell(record.total_self_time_as_fraction());
+    row->AddNumberCell(record.cumulative_total_self_time_as_fraction());
+    row->AddNumberCell(record.dma_stall_fraction());
+    row->AddNumberCell(record.measured_flop_rate());
+    row->AddNumberCell(record.model_flop_rate());
+    row->AddNumberCell(record.measured_memory_bw());
+    row->AddNumberCell(record.hbm_bw());
+    row->AddNumberCell(record.cmem_read_bw());
+    row->AddNumberCell(record.cmem_write_bw());
+    row->AddNumberCell(record.vmem_read_bw());
+    row->AddNumberCell(record.vmem_write_bw());
+    row->AddNumberCell(record.operational_intensity());
+    row->AddNumberCell(record.hbm_operational_intensity());
+    row->AddNumberCell(record.cmem_read_operational_intensity());
+    row->AddNumberCell(record.cmem_write_operational_intensity());
+    row->AddNumberCell(record.vmem_read_operational_intensity());
+    row->AddNumberCell(record.vmem_write_operational_intensity());
+    row->AddNumberCell(record.bottleneck_operational_intensity());
+    row->AddTextCell(record.bound_by());
+    row->AddNumberCell(record.total_time_per_core_in_us());
+    row->AddNumberCell(record.total_time_in_percentage());
+    row->AddNumberCell(record.optimal_flop_rate());
+    row->AddNumberCell(record.roofline_efficiency());
+    row->AddNumberCell(record.flop_rate_relative_to_hw_limit());
+    row->AddNumberCell(record.memory_bw_relative_to_hw_limit());
+    row->AddBooleanCell(record.include_infeed_outfeed());
+    row->AddTextCell(absl::StrCat(record.hlo_module_id()));
+    row->AddTextCell(SourceInfoFormattedText(record.source_info()));
   }
 
   std::vector<std::vector<std::string>> kCustomProperties = {
@@ -613,18 +613,18 @@ std::unique_ptr<DataTable> GenerateDiagnosticsDataTable(
   }
   for (const auto& info : roofline_model_db.diagnostics().info()) {
     TableRow* row = data_table->AddRow();
-    row->AddCell("INFO");
-    row->AddCell(info);
+    row->AddTextCell("INFO");
+    row->AddTextCell(info);
   }
   for (const auto& warning : roofline_model_db.diagnostics().warnings()) {
     TableRow* row = data_table->AddRow();
-    row->AddCell("WARNING");
-    row->AddCell(warning);
+    row->AddTextCell("WARNING");
+    row->AddTextCell(warning);
   }
   for (const auto& error : roofline_model_db.diagnostics().errors()) {
     TableRow* row = data_table->AddRow();
-    row->AddCell("ERROR");
-    row->AddCell(error);
+    row->AddTextCell("ERROR");
+    row->AddTextCell(error);
   }
   return data_table;
 }
