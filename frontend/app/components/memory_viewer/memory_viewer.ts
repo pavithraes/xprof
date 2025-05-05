@@ -21,6 +21,9 @@ export class MemoryViewer implements OnDestroy {
   memoryViewerPreprocessResult: MemoryViewerPreprocessResult|null = null;
   currentRun = '';
   currentHost = '';
+  currentModule = '';
+  firstLoadModuleIndex = 0;
+  firstLoadMemorySpaceColor = '0';
 
   /** Handles on-destroy Subject, used to unsubscribe. */
   private readonly destroyed = new ReplaySubject<void>(1);
@@ -43,6 +46,7 @@ export class MemoryViewer implements OnDestroy {
     }));
     let params = new Map<string, string>();
     params = params.set('memory_space', event.memorySpaceColor || '0');
+    params = params.set('module_name', event.moduleName || '');
 
     this.dataService
         .getData(
@@ -61,6 +65,7 @@ export class MemoryViewer implements OnDestroy {
               data as MemoryViewerPreprocessResult | null;
           this.currentRun = event.run || this.currentRun;
           this.currentHost = event.host || this.currentHost;
+          this.currentModule = event.moduleName || this.currentModule;
         });
   }
 

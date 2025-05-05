@@ -92,7 +92,7 @@ export class DataServiceV2 implements DataServiceV2Interface {
   getGraphViewerLink(
       sessionId: string, moduleName: string, opName: string, programId = '') {
     if (moduleName && opName) {
-      return `${window.parent.location.origin}?tool=graph_viewer&host=${
+      return `${window.parent.location.origin}?tool=graph_viewer&module_name=${
           moduleName}&opName=${opName}&run=${sessionId}#profile`;
     }
     return '';

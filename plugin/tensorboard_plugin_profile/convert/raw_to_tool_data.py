@@ -199,7 +199,7 @@ def xspace_to_tool_data(
         'view_memory_allocation_timeline', False
     )
     options = {
-        'module_name': params.get('host'),
+        'module_name': params.get('module_name'),
         'view_memory_allocation_timeline': view_memory_allocation_timeline,
         'memory_space': params.get('memory_space', ''),
     }

@@ -21,13 +21,13 @@ export class MemoryViewerControl implements OnChanges {
   selectedMemorySpaceColor = '';
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['firstLoadSelectedModule'].currentValue !==
-            changes['firstLoadSelectedModule'].previousValue &&
+    if (changes['firstLoadSelectedModule']?.currentValue !==
+            changes['firstLoadSelectedModule']?.previousValue &&
         this.selectedModule === '') {
       this.selectedModule = changes['firstLoadSelectedModule'].currentValue;
     }
-    if (changes['firstLoadSelectedMemorySpaceColor'].currentValue !==
-            changes['firstLoadSelectedMemorySpaceColor'].previousValue &&
+    if (changes['firstLoadSelectedMemorySpaceColor']?.currentValue !==
+            changes['firstLoadSelectedMemorySpaceColor']?.previousValue &&
         this.selectedMemorySpaceColor === '') {
       this.selectedMemorySpaceColor =
           changes['firstLoadSelectedMemorySpaceColor'].currentValue;

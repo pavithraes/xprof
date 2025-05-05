@@ -68,8 +68,7 @@ export class GraphViewer implements OnDestroy {
     this.run = event.run || '';
     this.tag = event.tag || 'graph_viewer';
     this.host = event.host || '';
-    // host equals to module name for graph viewer
-    this.selectedModule = this.host;
+    this.selectedModule = event.moduleName || '';
     this.opName = event.opName || this.opName;
     this.initialParams = this.getParams();
     this.onPlot();

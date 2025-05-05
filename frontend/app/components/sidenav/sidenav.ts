@@ -28,9 +28,11 @@ export class SideNav implements OnInit, OnDestroy {
   runs: string[] = [];
   tags: string[] = [];
   hosts: string[] = [];
+  moduleList: string[] = [];
   selectedRunInternal = '';
   selectedTagInternal = '';
   selectedHostInternal = '';
+  selectedModuleInternal = '';
   navigationParams: {[key: string]: string|boolean} = {};
 
   constructor(
@@ -63,15 +65,8 @@ export class SideNav implements OnInit, OnDestroy {
         });
   }
 
-  // Getter for the text to display on host selector.
-  get hostSelectorDisplayName() {
-    // For HLO tools, user selects HLO modules instead of hosts.
-    for (const hloTool of HLO_TOOLS) {
-      if (this.selectedTag.startsWith(hloTool)) {
-        return 'Modules';
-      }
-    }
-    return 'Hosts';
+  get is_hlo_tool() {
+    return HLO_TOOLS.includes(this.selectedTag);
   }
 
   // Getter for valid run given url router or user selection.
@@ -91,6 +86,12 @@ export class SideNav implements OnInit, OnDestroy {
   get selectedHost() {
     return this.hosts.find(host => host === this.selectedHostInternal) ||
         this.hosts[0] || '';
+  }
+
+  get selectedModule() {
+    return this.moduleList.find(
+               module => module === this.selectedModuleInternal) ||
+        this.moduleList[0] || '';
   }
 
   // https://github.com/angular/angular/issues/11023#issuecomment-752228784
@@ -123,6 +124,7 @@ export class SideNav implements OnInit, OnDestroy {
     const tag = params.get('tool') || params.get('tag') || '';
     const host = params.get('host') || '';
     const opName = params.get('opName') || '';
+    const moduleName = params.get('module_name') || '';
     this.navigationParams['firstLoad'] = true;
     if (opName) {
       this.navigationParams['opName'] = opName;
@@ -134,6 +136,7 @@ export class SideNav implements OnInit, OnDestroy {
     this.selectedRunInternal = run;
     this.selectedTagInternal = tag;
     this.selectedHostInternal = host;
+    this.selectedModuleInternal = moduleName;
     this.update();
   }
 
@@ -142,12 +145,16 @@ export class SideNav implements OnInit, OnDestroy {
   }
 
   getNavigationEvent(): NavigationEvent {
-    return {
+    const navigationEvent: NavigationEvent = {
       run: this.selectedRun,
       tag: this.selectedTag,
       host: this.selectedHost,
       ...this.navigationParams,
     };
+    if (this.is_hlo_tool) {
+      navigationEvent.moduleName = this.selectedModule;
+    }
+    return navigationEvent;
   }
 
   getDisplayTagName(tag: string): string {
@@ -201,6 +208,14 @@ export class SideNav implements OnInit, OnDestroy {
     return hosts;
   }
 
+  async getModuleListForSelectedTag() {
+    if (!this.selectedRun || !this.selectedTag) return [];
+    const response = await firstValueFrom(
+        this.dataService.getModuleList(this.selectedRun, this.selectedTag)
+            .pipe(takeUntil(this.destroyed)));
+    return response.split(',');
+  }
+
   onRunSelectionChange(run: string) {
     this.selectedRunInternal = run;
     this.afterUpdateRun();
@@ -230,13 +245,24 @@ export class SideNav implements OnInit, OnDestroy {
     this.updateHosts();
   }
 
+  // Hosts and ModuleLit used to share the same variable.
+  // Keep them under the same update function as initial step of the separation.
   async updateHosts() {
     this.hosts = await this.getHostsForSelectedTag();
+    if (this.is_hlo_tool) {
+      this.moduleList = await this.getModuleListForSelectedTag();
+    }
+
     this.afterUpdateHost();
   }
 
   onHostSelectionChange(host: string) {
     this.selectedHostInternal = host;
+    this.navigateTools();
+  }
+
+  onModuleSelectionChange(module: string) {
+    this.selectedModuleInternal = module;
     this.navigateTools();
   }
 
@@ -252,19 +278,27 @@ export class SideNav implements OnInit, OnDestroy {
                                 .join('&');
     const toolQueryParamsString =
         toolQueryParams.length ? `&${toolQueryParams}` : '';
+    const moduleNameQuery =
+        this.is_hlo_tool ? `&module_name=${this.selectedModule}` : '';
     const url = `${window.parent.location.origin}?tool=${
         this.selectedTag}&host=${this.selectedHost}&run=${this.selectedRun}${
-        toolQueryParamsString}#profile`;
+        toolQueryParamsString}${moduleNameQuery}#profile`;
     window.parent.history.pushState({}, '', url);
   }
 
   navigateTools() {
     const navigationEvent = this.getNavigationEvent();
     this.communicationService.onNavigateReady(navigationEvent);
-    this.router.navigate([
-      this.selectedTag || 'empty',
-      navigationEvent,
-    ]);
+    this.router.navigate(
+        [
+          this.selectedTag || 'empty',
+          navigationEvent,
+        ],
+        // TODO - b/401596855: Clean up query processing in tools component with
+        // addition of the query params in navigation.
+        {
+          queryParams: navigationEvent,
+        });
     delete this.navigationParams['firstLoad'];
     this.updateUrlHistory();
   }

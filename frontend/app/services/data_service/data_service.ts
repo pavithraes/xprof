@@ -2,7 +2,7 @@ import {PlatformLocation} from '@angular/common';
 import {HttpClient, HttpErrorResponse, HttpParams} from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {Store} from '@ngrx/store';
-import {API_PREFIX, CAPTURE_PROFILE_API, DATA_API, HOSTS_API, LOCAL_URL, PLUGIN_NAME, RUN_TOOLS_API, RUNS_API} from 'org_xprof/frontend/app/common/constants/constants';
+import {API_PREFIX, CAPTURE_PROFILE_API, DATA_API, HLO_MODULE_LIST_API, HOSTS_API, LOCAL_URL, PLUGIN_NAME, RUN_TOOLS_API, RUNS_API} from 'org_xprof/frontend/app/common/constants/constants';
 import {CaptureProfileOptions, CaptureProfileResponse} from 'org_xprof/frontend/app/common/interfaces/capture_profile';
 import {DataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {HostMetadata} from 'org_xprof/frontend/app/common/interfaces/hosts';
@@ -93,6 +93,14 @@ export class DataService {
     const params = new HttpParams().set('run', run).set('tag', tag);
     return this.httpClient.get(this.pathPrefix + HOSTS_API, {params}) as
         Observable<HostMetadata[]>;
+  }
+
+  getModuleList(run: string, tag: string): Observable<string> {
+    const params = new HttpParams().set('run', run).set('tag', tag);
+    return this.httpClient.get(this.pathPrefix + HLO_MODULE_LIST_API, {
+      'params': params,
+      'responseType': 'text',
+    }) as Observable<string>;
   }
 
   getRuns() {

@@ -531,7 +531,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     if not run_dir:
       logger.warning('Cannot find asset directory for: %s', run)
       return []
-    tool_pattern = make_filename('*', tool)
+    tool_pattern = '*.xplane.pb'
     filenames = []
     try:
       path = epath.Path(run_dir)
@@ -591,13 +591,6 @@ class ProfilePlugin(base_plugin.TBPlugin):
     # pytype: enable=wrong-arg-types
     run = request.args.get('run')
     tool = request.args.get('tag')
-    # TODO(b/382737556) Migrate to the hlo_module_list_route instead.
-    if (tool in HLO_TOOLS):
-      module_list = [
-          {'hostname': module_name}
-          for module_name in self.hlo_module_list_impl(request).split(',')
-      ]
-      return respond(module_list, 'application/json')
     hosts = self.host_impl(run, tool, request)
     return respond(hosts, 'application/json')
 
@@ -607,7 +600,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
       self, request: wrappers.Request
   ) -> wrappers.Response:
     module_names_str = self.hlo_module_list_impl(request)
-    return respond(module_names_str, 'application/text')
+    return respond(module_names_str, 'text/plain')
 
   def data_impl(
       self, request: wrappers.Request
@@ -624,20 +617,21 @@ class ProfilePlugin(base_plugin.TBPlugin):
     run = request.args.get('run')
     tool = request.args.get('tag')
     host = request.args.get('host')
+    module_name = request.args.get('module_name')
     tqx = request.args.get('tqx')
     graph_viewer_options = self._get_graph_viewer_options(request)
     # Host param is used by HLO tools to identify the module.
     params = {
         'graph_viewer_options': graph_viewer_options,
         'tqx': tqx,
-        'host': host
+        'host': host,
+        'module_name': module_name
     }
     run_dir = self._run_dir(run)
     content_type = 'application/json'
 
     if tool not in TOOLS and not use_xplane(tool):
       return None, content_type, None
-
     if tool == 'memory_viewer' and request.args.get(
         'view_memory_allocation_timeline'
     ):
