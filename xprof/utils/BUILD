@@ -177,6 +177,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
+        "@org_xprof//xprof/convert:xprof_thread_pool_executor",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
         "@xla//xla/tsl/lib/gtl:map_util",
         "@xla//xla/tsl/profiler/convert:xla_op_utils",
@@ -199,6 +200,10 @@ cc_library(
 cc_test(
     name = "derived_timeline_test",
     srcs = ["derived_timeline_test.cc"],
+    tags = [
+        "asan",
+        "tsan",
+    ],
     deps = [
         ":derived_timeline",
         "@com_google_absl//absl/log",

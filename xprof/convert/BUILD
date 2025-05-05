@@ -385,6 +385,25 @@ cc_library(
 )
 
 cc_library(
+    name = "executor_interface",
+    hdrs = ["executor.h"],
+    deps = [
+    ],
+)
+
+cc_library(
+    name = "xprof_thread_pool_executor",
+    srcs = ["xprof_thread_pool_executor.cc"],
+    hdrs = ["xprof_thread_pool_executor.h"],
+    deps = [
+        ":executor_interface",
+        "@com_google_absl//absl/log",
+        "@tsl//tsl/platform:platform_port",
+        "@xla//xla/tsl/platform:env",
+    ],
+)
+
+cc_library(
     name = "xplane_to_op_stats",
     srcs = ["xplane_to_op_stats.cc"],
     hdrs = ["xplane_to_op_stats.h"],
@@ -392,12 +411,15 @@ cc_library(
     deps = [
         ":duty_cycle_combiner",
         ":duty_cycle_tracker",
+        ":executor_interface",
         ":op_metrics_db_combiner",
         ":step_events_to_steps_db",
         ":xplane_to_kernel_stats_db",
         ":xplane_to_op_metrics_db",
         ":xplane_to_step_events",
         ":xplane_to_tf_functions",
+        ":xprof_thread_pool_executor",
+        "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:check",
@@ -453,6 +475,10 @@ cc_test(
     name = "xplane_to_op_stats_test",
     size = "small",
     srcs = ["xplane_to_op_stats_test.cc"],
+    tags = [
+        "asan",
+        "tsan",
+    ],
     deps = [
         ":duty_cycle_tracker",
         ":multi_xplanes_to_op_stats",

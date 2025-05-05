@@ -17,11 +17,14 @@ limitations under the License.
 
 #include <sys/types.h>
 
+#include <cstddef>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
 #include <vector>
 
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
@@ -44,6 +47,7 @@ limitations under the License.
 #include "xprof/convert/xplane_to_op_metrics_db.h"
 #include "xprof/convert/xplane_to_step_events.h"
 #include "xprof/convert/xplane_to_tf_functions.h"
+#include "xprof/convert/xprof_thread_pool_executor.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/diagnostics.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/hardware_types.pb.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_metrics.pb.h"
@@ -332,88 +336,182 @@ OpStats ConvertXSpaceToOpStats(const XSpace& space,
     }
     ProcessHloModuleMapFromXSpace(hlo_module_map, &space, create_cost_analysis);
   }
-  for (const XPlane* device_trace : device_planes) {
+  {
+    auto executor =
+        std::make_unique<XprofThreadPoolExecutor>("op_stats_threads");
+
+    // OpMetricDb Generation.
+    std::vector<OpMetricsDb> all_op_metrics_dbs;
+
+    // Ensure op_metrics threads are joined and results combined when the
+    // function exits.
+    auto op_metrics_cleanup =
+        absl::MakeCleanup([&all_op_metrics_dbs, &op_metrics_db_combiner]() {
+          for (auto& op_metrics_db : all_op_metrics_dbs) {
+            op_metrics_db_combiner.Combine(op_metrics_db);
+          }
+        });
+
     if (options.generate_op_metrics_db) {
-      if (!op_stats.has_perf_env()) {
-        *op_stats.mutable_perf_env() = GetPerfEnvFromXPlane(*device_trace);
+      all_op_metrics_dbs.resize(device_planes.size());  // Resize here
+
+      if (!device_planes.empty() && !op_stats.has_perf_env()) {
+        *op_stats.mutable_perf_env() = GetPerfEnvFromXPlane(*device_planes[0]);
       }
-      if (!is_tpu) {
-        OpMetricsDb device_op_metrics_db =
-            ConvertDeviceTraceXPlaneToOpMetricsDb(*device_trace,
-                                                  hlo_module_map);
-        op_metrics_db_combiner.Combine(device_op_metrics_db);
-      } else {
-        // TODO(b/397774568): Remove this once the SparseCore OpMetricsDb is
-        // implemented.
-        if (!tsl::profiler::GetSparseCoreId(device_trace->name()).has_value()) {
-          OpMetricsDb device_op_metrics_db =
-              ConvertTpuDeviceTraceXPlaneToOpMetricsDb(*device_trace);
-          UpdateOpMetricsDbFromHloModuleMap(device_op_metrics_db,
-                                            hlo_module_map);
-          op_metrics_db_combiner.Combine(device_op_metrics_db);
-        }
-      }
-    }
-    if (options.generate_step_db) {
-      StepEvents device_step_events =
-          ConvertDeviceTraceXPlaneToStepEvents(*device_trace);
-      if (is_tpu) {
-        // In TPU, we take the intersection of step events across cores as well
-        // as hosts.see b/158249775 and cl/331842545.
-        IntersectCombineStepEvents(device_step_events, &step_events);
-      } else {
-        UnionCombineStepEvents(device_step_events, &step_events);
-      }
-    }
-    if (options.generate_kernel_stats_db) {
-      ConvertDeviceTraceXPlaneToKernelReports(
-          *device_trace,
-          // TODO(cleanup): Move this to xplane_to_kernel_stats_db.cc
-          [&](const GpuEventStats& stats, KernelReport* kernel) {
-            if (!stats.IsXlaOp()) return;
-            const HloInstructionWrapper* hlo_instruction = GetHloInstruction(
-                hlo_module_map, stats.program_id, stats.hlo_op_names.back());
-            if (hlo_instruction != nullptr) {
-              kernel->set_op_name(std::string(hlo_instruction->TfOpName()));
-              bool tc_eligible = IsOpTensorCoreEligible(kernel->op_name());
-              if (VLOG_IS_ON(1) && !tc_eligible &&
-                  kernel->is_kernel_using_tensor_core()) {
-                VLOG(1) << "Detected new Op using TensorCores: "
-                        << kernel->op_name() << std::endl;
-              }
-              kernel->set_is_op_tensor_core_eligible(
-                  tc_eligible || kernel->is_op_tensor_core_eligible());
+      for (size_t i = 0; i < device_planes.size(); ++i) {
+        const XPlane* device_plane = device_planes[i];
+        OpMetricsDb& op_metrics_db = all_op_metrics_dbs[i];
+        executor->Execute([device_plane, &hlo_module_map, is_tpu,
+                           &op_metrics_db]() {
+          if (!is_tpu) {
+            op_metrics_db = ConvertDeviceTraceXPlaneToOpMetricsDb(
+                *device_plane, hlo_module_map);
+          } else {
+            // TODO(b/397774568): Remove this once the SparseCore
+            // OpMetricsDb is implemented.
+            if (!tsl::profiler::GetSparseCoreId(device_plane->name())
+                     .has_value()) {
+              op_metrics_db =
+                  ConvertTpuDeviceTraceXPlaneToOpMetricsDb(*device_plane);
+              UpdateOpMetricsDbFromHloModuleMap(op_metrics_db, hlo_module_map);
             }
-          },
-          &reports);
-    }
-    XPlaneVisitor visitor = tsl::profiler::CreateTfXPlaneVisitor(device_trace);
-    DutyCycleTracker duty_cycle_tracker = ConstructDutyCycleTracker(visitor);
-    if (std::optional<XStatVisitor> core_details_stat =
-            visitor.GetStat(StatType::kCoreDetails)) {
-      CoreDetails core_details;
-      absl::string_view core_details_bytes = core_details_stat->BytesValue();
-      if (core_details.ParseFromArray(core_details_bytes.data(),
-                                      core_details_bytes.size())) {
-        core_details.set_hostname(hostname);
-        // This is a backfill for XPlanes that were create before this field was
-        // added.
-        core_details.set_is_sparse_core(
-            tsl::profiler::GetSparseCoreId(device_trace->name()).has_value());
-        core_id_to_details_map[device_trace->id()] = core_details;
+          }
+        });
       }
     }
-    if (core_id_to_details_map.contains(device_trace->id())) {
-      CoreDetails& core_details = core_id_to_details_map[device_trace->id()];
-      duty_cycle_combiner.CombineCore(duty_cycle_tracker,
-                                      core_details.local_chip_id());
-    } else {
-      LOG(WARNING) << "No CoreDetails found for TPU device plane: "
-                   << device_trace->name();
-      duty_cycle_combiner.CombineChip(duty_cycle_tracker);
+
+    // StepDb Generation.
+    std::vector<StepEvents> all_step_events;
+
+    // Ensure step_events threads are joined and results combined when the
+    // function exits.
+    auto step_events_cleanup =
+        absl::MakeCleanup([&all_step_events, &step_events, is_tpu]() {
+          for (auto& device_step_events : all_step_events) {
+            if (is_tpu) {
+              // In TPU, we take the intersection of step events across cores
+              // as well as hosts.see b/158249775 and cl/331842545.
+              IntersectCombineStepEvents(device_step_events, &step_events);
+            } else {
+              UnionCombineStepEvents(device_step_events, &step_events);
+            }
+          }
+        });
+    if (options.generate_step_db) {
+      all_step_events.resize(device_planes.size());
+      for (size_t i = 0; i < device_planes.size(); ++i) {
+        const XPlane* device_trace = device_planes[i];
+        auto& current_step_events = all_step_events[i];
+        executor->Execute([device_trace, &current_step_events]() {
+          current_step_events =
+              ConvertDeviceTraceXPlaneToStepEvents(*device_trace);
+        });
+      }
     }
+    std::vector<KernelReportMap> kernel_reports;
+    // Ensure step_events threads are joined and results combined when the
+    // function exits.
+    auto kernel_reports_cleanup =
+        absl::MakeCleanup([&kernel_reports, &reports]() {
+          for (auto& kernel_report : kernel_reports) {
+            for (auto& kernel_report_entry : kernel_report) {
+              InsertOrUpdateKernelReport(kernel_report_entry.first,
+                                         kernel_report_entry.second, &reports);
+            }
+          }
+        });
+    if (options.generate_kernel_stats_db) {
+      kernel_reports.resize(device_planes.size());
+      for (size_t i = 0; i < device_planes.size(); ++i) {
+        const XPlane* device_trace = device_planes[i];
+        KernelReportMap& current_report = kernel_reports[i];
+        executor->Execute([device_trace, &hlo_module_map, &current_report]() {
+          ConvertDeviceTraceXPlaneToKernelReports(
+              *device_trace,
+              // TODO(cleanup): Move this to xplane_to_kernel_stats_db.cc
+              [&](const GpuEventStats& stats, KernelReport* kernel) {
+                if (!stats.IsXlaOp()) return;
+                const HloInstructionWrapper* hlo_instruction =
+                    GetHloInstruction(hlo_module_map, stats.program_id,
+                                      stats.hlo_op_names.back());
+                if (hlo_instruction != nullptr) {
+                  kernel->set_op_name(std::string(hlo_instruction->TfOpName()));
+                  bool tc_eligible = IsOpTensorCoreEligible(kernel->op_name());
+                  if (VLOG_IS_ON(1) && !tc_eligible &&
+                      kernel->is_kernel_using_tensor_core()) {
+                    VLOG(1) << "Detected new Op using TensorCores: "
+                            << kernel->op_name() << std::endl;
+                  }
+                  kernel->set_is_op_tensor_core_eligible(
+                      tc_eligible || kernel->is_op_tensor_core_eligible());
+                }
+              },
+              &current_report);  // Write to the thread-local report map
+        });
+      }
+    }
+
+    // Device Trace generation.
+    struct DeviceTraceResult {
+      DutyCycleTracker duty_cycle_tracker;
+      std::optional<CoreDetails> core_details;
+    };
+    std::vector<DeviceTraceResult> device_trace_results;
+
+    // Ensure device_trace threads are joined and results processed when the
+    // function exits.
+    auto device_trace_cleanup =
+        absl::MakeCleanup([&device_trace_results, &device_planes,
+                           &core_id_to_details_map, &duty_cycle_combiner]() {
+          for (size_t i = 0; i < device_planes.size(); ++i) {
+            const XPlane* device_trace = device_planes[i];
+            const auto& result = device_trace_results[i];
+            if (result.core_details.has_value()) {
+              core_id_to_details_map[device_trace->id()] = *result.core_details;
+              duty_cycle_combiner.CombineCore(
+                  result.duty_cycle_tracker,
+                  result.core_details->local_chip_id());
+            } else {
+              LOG(WARNING) << "No CoreDetails found for TPU device plane: "
+                           << device_trace->name();
+              duty_cycle_combiner.CombineChip(result.duty_cycle_tracker);
+            }
+          }
+        });
+    device_trace_results.resize(device_planes.size());
+    for (size_t i = 0; i < device_planes.size(); ++i) {
+      const XPlane* device_trace = device_planes[i];
+      auto& device_trace_result = device_trace_results[i];
+      executor->Execute([device_trace, &hostname, &device_trace_result]() {
+        XPlaneVisitor visitor =
+            tsl::profiler::CreateTfXPlaneVisitor(device_trace);
+        DutyCycleTracker duty_cycle_tracker =
+            ConstructDutyCycleTracker(visitor);
+        std::optional<CoreDetails> core_details;
+        if (std::optional<XStatVisitor> core_details_stat =
+                visitor.GetStat(StatType::kCoreDetails)) {
+          core_details.emplace();
+          absl::string_view core_details_bytes =
+              core_details_stat->BytesValue();
+          if (core_details->ParseFromArray(core_details_bytes.data(),
+                                           core_details_bytes.size())) {
+            core_details->set_hostname(hostname);
+            core_details->set_is_sparse_core(
+                tsl::profiler::GetSparseCoreId(device_trace->name())
+                    .has_value());
+          } else {
+            core_details.reset();
+          }
+        }
+        device_trace_result = {duty_cycle_tracker, core_details};
+      });
+    }
+    // All event generation should end in this block before we start combining
+    executor->JoinAll();  // Wait for all scheduled tasks to complete.
+                          // The cleanup blocks will execute after this step.
   }
 
+  // Start combining data.
   if (is_tpu) {
     OpMetricsDb& op_metrics_db = *op_stats.mutable_device_op_metrics_db();
     op_metrics_db.set_idle_time_ps(duty_cycle_combiner.GetTotalIdleTimePs());

@@ -17,6 +17,7 @@ limitations under the License.
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -46,6 +47,7 @@ limitations under the License.
 #include "xla/tsl/profiler/utils/xplane_visitor.h"
 #include "xla/tsl/util/stats_calculator.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
+#include "xprof/convert/xprof_thread_pool_executor.h"
 #include "xprof/utils/gpu_event_stats.h"
 #include "xprof/utils/hlo_module_map.h"
 #include "xprof/utils/hlo_proto_map.h"
@@ -642,11 +644,18 @@ void GenerateDerivedTimeLines(
   std::vector<XPlane*> device_planes =
       tsl::profiler::FindMutablePlanesWithPrefix(
           space, tsl::profiler::kGpuPlanePrefix);
+  auto executor = std::make_unique<XprofThreadPoolExecutor>(
+      "derived_timeline_trace_events", device_planes.size());
   for (XPlane* plane : device_planes) {
-    // Ensure all GPU events are grouped before deriving other lines.
-    ProcessUngroupedEvents(plane);
-    DeriveStepEventsFromGroups(group_metadata_map, plane);
+    // Use Execute instead of Schedule
+    executor->Execute([group_metadata_map, plane]() {
+      // Ensure all GPU events are grouped before deriving other lines.
+      ProcessUngroupedEvents(plane);
+      DeriveStepEventsFromGroups(group_metadata_map, plane);
+    });
   }
+  // Use JoinAll instead of deleting the raw pointer
+  executor->JoinAll();
   HloModuleMap hlo_module_map;
   {
     HloProtoMap hlo_proto_map;
