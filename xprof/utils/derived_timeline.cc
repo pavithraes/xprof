@@ -82,7 +82,8 @@ void ProcessUngroupedEvents(XPlane* plane) {
       plane_builder.GetStatMetadata(GetStatTypeStr(StatType::kGroupId));
   if (group_id_stat_metadata == nullptr) return;
   std::optional<int64_t> group_id;
-  for (XEventBuilder& event : GetSortedEvents<XEventBuilder>(plane_builder)) {
+  for (XEventBuilder& event :
+       tsl::profiler::GetSortedEvents<XEventBuilder>(plane_builder)) {
     const XStat* group_id_stat = event.GetStat(*group_id_stat_metadata);
     if (group_id_stat != nullptr) {
       group_id = group_id_stat->int64_value();
@@ -212,7 +213,8 @@ std::vector<int64_t> DeriveEventsFromAnnotationsForLines(
   // instead of being allocated and deallocated for each iteration.
   std::vector<std::optional<int64_t>> level_range_ids;
   for (const XEventVisitor& event :
-       GetSortedEvents<XEventVisitor>(plane_visitor, false, line_ids)) {
+       tsl::profiler::GetSortedEvents<XEventVisitor>(plane_visitor, false,
+                                                     line_ids)) {
     GpuEventStats stats(&event);
     // For HLO/TF op lines, only use kernel events (i.e. excluding memcpy or
     // allocation events). Also CudaGraph executions are also treated as
@@ -500,7 +502,7 @@ void DeriveStepEventsFromGroups(
                             tsl::profiler::kStepLineName, start_timestamp_ns,
                             {});
   for (const XEventVisitor& event_visitor :
-       GetSortedEvents<XEventVisitor>(plane_visitor)) {
+       tsl::profiler::GetSortedEvents<XEventVisitor>(plane_visitor)) {
     std::optional<XStatVisitor> group_id_stat =
         event_visitor.GetStat(StatType::kGroupId, *group_id_stat_metadata);
     if (group_id_stat.has_value()) {
@@ -725,7 +727,7 @@ void DeriveLinesFromStats(XPlane* device_trace) {
                                                          start_timestamp_ns);
 
   for (const XEventVisitor& event :
-       GetSortedEvents<XEventVisitor>(plane_visitor, true)) {
+       tsl::profiler::GetSortedEvents<XEventVisitor>(plane_visitor, true)) {
     tsl::profiler::Timespan event_span = event.GetTimespan();
     std::optional<absl::string_view> tf_op_name;
     std::optional<absl::string_view> source_info;
