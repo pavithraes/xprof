@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, Input} from '@angular/core';
 import {Store} from '@ngrx/store';
 import {SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {getKernelStatsDataState} from 'org_xprof/frontend/app/store/common_data_store/selectors';
@@ -13,6 +13,9 @@ import {getKernelStatsDataState} from 'org_xprof/frontend/app/store/common_data_
 export class KernelStats {
   data: SimpleDataTable|null = null;
   hasDataRow = false;
+  @Input() sessionId = '';
+  @Input() tool = '';
+  @Input() host = '';
 
   constructor(store: Store<{}>) {
     store.select(getKernelStatsDataState)

@@ -14,11 +14,15 @@ import {FrameworkOpStatsModule} from './framework_op_stats_module';
 @Component({
   standalone: false,
   selector: 'framework-op-stats-adapter',
-  template: '<framework-op-stats></framework-op-stats>',
+  template:
+      '<framework-op-stats [sessionId]="sessionId" [tool]="tool" [host]="host"></framework-op-stats>',
 })
 export class FrameworkOpStatsAdapter implements OnDestroy {
   /** Handles on-destroy Subject, used to unsubscribe. */
   private readonly destroyed = new ReplaySubject<void>(1);
+  sessionId = '';
+  tool = '';
+  host = '';
 
   constructor(route: ActivatedRoute, private readonly store: Store<{}>) {
     route.params.pipe(takeUntil(this.destroyed)).subscribe((params) => {
@@ -33,6 +37,9 @@ export class FrameworkOpStatsAdapter implements OnDestroy {
       tag: event.tag || 'framework_op_stats',
       host: event.host || '',
     };
+    this.sessionId = params.run;
+    this.tool = params.tag;
+    this.host = params.host;
     this.store.dispatch(setDataRequestStateAction(
         {dataRequest: {type: DataRequestType.TENSORFLOW_STATS, params}}));
   }

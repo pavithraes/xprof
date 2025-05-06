@@ -13,11 +13,15 @@ import {KernelStatsModule} from './kernel_stats_module';
 @Component({
   standalone: false,
   selector: 'kernel-stats-adapter',
-  template: '<kernel-stats></kernel-stats>',
+  template:
+      '<kernel-stats [sessionId]="sessionId" [tool]="tool" [host]="host"></kernel-stats>',
 })
 export class KernelStatsAdapter implements OnDestroy {
   /** Handles on-destroy Subject, used to unsubscribe. */
   private readonly destroyed = new ReplaySubject<void>(1);
+  sessionId = '';
+  tool = '';
+  host = '';
 
   constructor(route: ActivatedRoute, private readonly store: Store<{}>) {
     route.params.pipe(takeUntil(this.destroyed)).subscribe((params) => {
@@ -31,6 +35,9 @@ export class KernelStatsAdapter implements OnDestroy {
       tag: event.tag || 'kernel_stats',
       host: event.host || '',
     };
+    this.sessionId = params.run;
+    this.tool = params.tag;
+    this.host = params.host;
     this.store.dispatch(setDataRequestStateAction(
         {dataRequest: {type: DataRequestType.KERNEL_STATS, params}}));
   }

@@ -24,13 +24,6 @@ export class DataDispatcher extends DataDispatcherBase {
     this.store.dispatch(this.getActions(dataRequest));
   }
 
-  override exportAsCsv(tool: string) {
-    if (!!tool && tool === this.params.tag) {
-      this.dataService.exportDataAsCSV(
-          this.params.run, this.params.tag, this.params.host);
-    }
-  }
-
   // tslint:disable-next-line:no-any
   override load(dataRequest: DataRequest): Observable<any> {
     const run = dataRequest.params.run || '';

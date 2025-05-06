@@ -141,4 +141,13 @@ export class DataServiceV2 implements DataServiceV2Interface {
   setSearchParams(params: URLSearchParams) {
     this.searchParams = params;
   }
+
+  exportDataAsCSV(sessionId: string, tool: string, host: string) {
+    const params = new HttpParams()
+                       .set('run', sessionId)
+                       .set('tag', tool)
+                       .set('host', host)
+                       .set('tqx', 'out:csv;');
+    window.open( this.pathPrefix + DATA_API + '?' + params.toString(), '_blank');
+  }
 }
