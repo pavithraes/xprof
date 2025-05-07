@@ -342,13 +342,16 @@ export class RooflineModel implements OnDestroy {
     }
   }
 
-  /** Helper function to get operation name from op graph viewer link
-   * eg: <a href="/graph_viewer/...">op_name</a>
+  /**
+   * Helper function to get operation name.
+   * It can be either:
+   * (1) graph viewer link that encoded with the operation name
+   * (2) direct operation name if the crosslink is not implemented
    */
-  getOpName(opGraphLinkStr: string) {
+  getOpName(operationValueOrLink: string) {
     const regex = '<a .*>(.*?)</a>';
-    const match = opGraphLinkStr.match(regex);
-    const opName = match?.[1] || '';
+    const match = operationValueOrLink.match(regex);
+    const opName = match?.[1] || operationValueOrLink;
     return this.truncateOperationName(opName);
   }
 
