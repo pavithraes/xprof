@@ -741,15 +741,15 @@ dashboard would integrate trace viewer app using iframe.
     },
 
     onSelectionChange: async function(events) {
-      if (this._eventDetails) {
-        this._eventDetails.innerHTML = '<div id="event-details" ' +
-            'style="display: block;"></div>';
-      }
       if (events === undefined) return;
       if (events.length != 1) return;
 
       for (const event of events) {  // only loop once.
         await this._maybeFetchEventArgs(event);
+        if (this._eventDetails) {
+          this._eventDetails.innerHTML = '<div id="event-details" ' +
+              'style="display: block;"></div>';
+        }
         var currentThread = event.parentContainer;
         var currentProcess = currentThread.parent;
         var hloOp;
