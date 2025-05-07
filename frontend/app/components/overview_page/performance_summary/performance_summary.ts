@@ -167,7 +167,7 @@ const TPU_SUMMARY_INFO: SummaryInfoConfig[] = [
     valueKey: 'memory_bw_utilization_relative_to_hw_limit',
   },
   {
-    title: 'Firmeware Power Metrics (Power/Timescale)',
+    title: 'Firmware Power Metrics (Power/Timescale)',
     tooltip:
         'Max power consumption of different components/rails with different timescale.',
     childrenInfoConfig: [
@@ -208,7 +208,7 @@ const TPU_SUMMARY_INFO: SummaryInfoConfig[] = [
   {
     title: 'SPI Sampler Power Metrics',
     tooltip:
-        'Avg/Max power consumption of different components/rails, including max of moving average of window size of 100us/1ms/10ms.',
+        'Avg/Max power consumption of different components/rails, including max of moving average of window size of 100us/1ms/10ms/1s.',
     getChildValues: (props) =>
         (((props as GeneralProps)['power_metrics']))?.split('##') || [],
   },
