@@ -24,10 +24,11 @@ xprof_ng_module(
         "@org_xprof//frontend/app/common/utils",
         "@org_xprof//frontend/app/components/chart/table",
         "@org_xprof//frontend/app/components/controls/category_filter",
+        "@org_xprof//frontend/app/components/controls/export_as_csv",
         "@org_xprof//frontend/app/components/controls/string_filter",
         "@org_xprof//frontend/app/components/roofline_model/operation_level_analysis",
         "@org_xprof//frontend/app/components/roofline_model/program_level_analysis",
-        "@org_xprof//frontend/app/services/data_service",
+        "@org_xprof//frontend/app/services/data_service_v2:data_service_v2_interface",
         "@org_xprof//frontend/app/store",
     ],
 )

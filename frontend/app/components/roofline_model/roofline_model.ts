@@ -1,11 +1,10 @@
-import {Component, OnDestroy, ViewChild} from '@angular/core';
-import {ActivatedRoute} from '@angular/router';
+import {Component, inject, OnDestroy, ViewChild} from '@angular/core';
+import {ActivatedRoute, Params} from '@angular/router';
 import {Store} from '@ngrx/store';
 import {DEVICE_INFO, NUMERIC_DATA_FORMAT, PIE_CHART_PALETTE, ROOFLINE_STYLES, SCATTER_CHART_AXIS, SCATTER_CHART_OPTIONS,} from 'org_xprof/frontend/app/common/constants/roofline_model_constants';
-import {NavigationEvent} from 'org_xprof/frontend/app/common/interfaces/navigation_event';
 import {RooflineModelData} from 'org_xprof/frontend/app/common/interfaces/roofline_model';
 import {setLoadingState} from 'org_xprof/frontend/app/common/utils/utils';
-import {DataService} from 'org_xprof/frontend/app/services/data_service/data_service';
+import {DATA_SERVICE_INTERFACE_TOKEN, DataServiceV2Interface} from 'org_xprof/frontend/app/services/data_service_v2/data_service_v2_interface';
 import {setCurrentToolStateAction} from 'org_xprof/frontend/app/store/actions';
 import {ReplaySubject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
@@ -46,7 +45,11 @@ const NVIDIA_GPU_TYPE_PREFIX = 'Nvidia GPU';
   styleUrls: ['./roofline_model.scss'],
 })
 export class RooflineModel implements OnDestroy {
-  readonly tool = 'roofline_model';
+  sessionId = '';
+  tool = 'roofline_model';
+
+  private readonly dataService: DataServiceV2Interface =
+      inject(DATA_SERVICE_INTERFACE_TOKEN);
 
   /** Handles on-destroy Subject, used to unsubscribe. */
   private readonly destroyed = new ReplaySubject<void>(1);
@@ -55,7 +58,6 @@ export class RooflineModel implements OnDestroy {
   @ViewChild('opLevelAnalysis') opLevelAnalysis?: OperationLevelAnalysis;
 
   host = '';
-  currentRun = '';
   // Device Information section data
   deviceInfoArray: DeviceInfoData[] = [];
   // Some critical indicators
@@ -96,12 +98,12 @@ export class RooflineModel implements OnDestroy {
   selectedOpName = '';
 
   constructor(
-    route: ActivatedRoute,
-    private readonly dataService: DataService,
-    private readonly store: Store<{}>,
+      route: ActivatedRoute,
+      private readonly store: Store<{}>,
   ) {
     route.params.pipe(takeUntil(this.destroyed)).subscribe((params) => {
-      this.update(params as NavigationEvent);
+      this.processQuery(params);
+      this.update();
     });
     this.store.dispatch(setCurrentToolStateAction({currentTool: this.tool}));
   }
@@ -116,20 +118,26 @@ export class RooflineModel implements OnDestroy {
     this.opLevelAnalysis?.resetDashboard();
   }
 
-  update(event?: NavigationEvent) {
-    this.host = event?.host || this.host || '';
-    this.currentRun = event?.run || this.currentRun || '';
-    if (!this.currentRun || !this.host) return;
+  processQuery(params: Params) {
+    this.sessionId = params['run'] || params['sessionId'] || this.sessionId;
+    this.tool = params['tag'] || params['tool'] || this.tool;
+    this.host = params['host'] || this.host;
+  }
+
+  update() {
 
     setLoadingState(true, this.store, 'Loading roofline model data');
     this.refreshDashboards();
 
     // get tool data
-    this.dataService.getData(this.currentRun, this.tool, this.host)
+    this.dataService.getData(this.sessionId, this.tool, this.host)
         .pipe(takeUntil(this.destroyed))
         .subscribe((data) => {
           setLoadingState(false, this.store);
           this.parseData(data as RooflineModelData[]);
+          // TODO(muditgokhale): Add support for roofline model link from trace
+          // viewer in 3P. Merge parseUrlParams with processQuery method once
+          // done.
           this.parseUrlParams();
         });
   }
@@ -251,8 +259,31 @@ export class RooflineModel implements OnDestroy {
     // TODO(b/359276801) Enable injecting Graph Viewer crosslink after
     // dispatching host list to global store, so we can infer module name from
     // program_id given the module list (aka host list in graph viewer)
-    this.dataTableOp = gViewOp.toDataTable();
+    const dataTableOp = gViewOp.toDataTable();
+    this.dataTableOp =
+        this.injectGraphViewerLinksForOpTable(dataTableOp) || null;
     this.formatTableData(this.dataTableOp);
+  }
+
+  injectGraphViewerLinksForOpTable(
+      dataTableOp: google.visualization.DataTable,
+  ) {
+    if (!dataTableOp) return;
+
+    const operationIndex = dataTableOp.getColumnIndex('operation');
+    const programIdIndex =
+        this.dataTableProgram!.getColumnIndex('hlo_module_id');
+    const numRows = dataTableOp.getNumberOfRows();
+    if (!operationIndex || !programIdIndex || !numRows) return;
+    for (let i = 0; i < numRows; ++i) {
+      const opName = dataTableOp.getValue(i, operationIndex);
+      const programId = dataTableOp.getValue(i, programIdIndex);
+      if (!programId || programId === '0' || !opName) continue;
+      const hyperlinkValue =
+          this.dataService.getGraphViewerLink(this.sessionId, '', programId, opName);
+      dataTableOp.setCell(i, operationIndex, hyperlinkValue);
+    }
+    return dataTableOp;
   }
 
   /** Get the index array of columns that is visible on the table view */
