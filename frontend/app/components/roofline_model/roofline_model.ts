@@ -279,8 +279,11 @@ export class RooflineModel implements OnDestroy {
       const opName = dataTableOp.getValue(i, operationIndex);
       const programId = dataTableOp.getValue(i, programIdIndex);
       if (!programId || programId === '0' || !opName) continue;
-      const hyperlinkValue =
-          this.dataService.getGraphViewerLink(this.sessionId, '', programId, opName);
+      const graphViewerLink = this.dataService.getGraphViewerLink(
+          this.sessionId, '', opName, programId);
+      const hyperlinkValue = graphViewerLink ?
+          `<a href="${graphViewerLink}" target="_blank">${opName}</a>` :
+          opName;
       dataTableOp.setCell(i, operationIndex, hyperlinkValue);
     }
     return dataTableOp;
