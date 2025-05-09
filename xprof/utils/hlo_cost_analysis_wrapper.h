@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -25,12 +26,17 @@ limitations under the License.
 #include "xla/hlo/ir/hlo_instruction.h"
 #include "xla/service/hlo_cost_analysis.h"
 #include "plugin/tensorboard_plugin_profile/protobuf/op_metrics.pb.h"
+#include "xprof/utils/function_registry.h"
 #include "xprof/utils/cost_utils.h"
 
 namespace tensorflow {
 namespace profiler {
 
 using ::tensorflow::profiler::ValidHloCost;
+
+struct CostAnalysisConfig {
+  virtual ~CostAnalysisConfig() = default;
+};
 
 // Returns the input bitwidths of the given HLO instruction.
 std::vector<uint32_t> GetInputBitwidths(const xla::HloInstruction& hlo);
@@ -86,6 +92,28 @@ class HloCostAnalysisWrapper {
   virtual int64_t GetDeviceFlopsAdjustment(
       const xla::HloInstruction& hlo) const = 0;
 };
+using HloCostAnalysisWrapperRegistry = FunctionRegistry<
+        std::string, std::unique_ptr<HloCostAnalysisWrapper>(
+                         const CostAnalysisConfig* cost_analysis_config)>;
+
+// Returns the HloCostAnalysisWrapperRegistry, which is used to register and
+// create HloCostAnalysisWrapper instances for different device types.
+//
+// To register a new HloCostAnalysisWrapper, create a .cc file and use the
+// following code:
+//   const auto kUnused = GetHloCostAnalysisWrapperRegistry().Register(
+//      "function_name_to_be_registered",
+//      [](const CostAnalysisConfig* config) {
+//        return std::make_unique<MyHloCostAnalysisWrapper>(config);
+//      });
+//
+// To create a HloCostAnalysisWrapper, use the following code:
+//   auto creator =
+//   GetHloCostAnalysisWrapperRegistry().Get("function_name_to_be_registered");
+//   if (creator) {
+//     std::unique_ptr<HloCostAnalysisWrapper> wrapper = creator(config);
+//   }
+HloCostAnalysisWrapperRegistry& GetHloCostAnalysisWrapperRegistry();
 
 }  // namespace profiler
 }  // namespace tensorflow

@@ -12,6 +12,18 @@ package_group(
 )
 
 cc_library(
+    name = "xprof_gpu_cost_analysis_registration",
+    srcs = ["xprof_gpu_cost_analysis_registration.cc"],
+    deps = [
+        ":function_registry",
+        ":hlo_cost_analysis_wrapper",
+        ":xprof_gpu_cost_analysis",
+        ":xprof_gpu_cost_analysis_types",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "diagnostics",
     srcs = ["diagnostics.cc"],
     hdrs = ["diagnostics.h"],
@@ -463,6 +475,8 @@ cc_library(
     hdrs = ["hlo_cost_analysis_wrapper.h"],
     deps = [
         ":cost_utils",
+        ":function_registry",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log",
@@ -472,7 +486,6 @@ cc_library(
         "@xla//xla:xla_data_proto_cc",
         "@xla//xla/hlo/ir:hlo",
         "@xla//xla/service:hlo_cost_analysis",
-        "@xla//xla/tsl/profiler/convert:xla_op_utils",
     ],
 )
 
@@ -551,5 +564,54 @@ cc_test(
     deps = [
         ":roofline_model_utils",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "function_registry",
+    hdrs = ["function_registry.h"],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+cc_test(
+    name = "function_registry_test",
+    srcs = ["function_registry_test.cc"],
+    deps = [
+        ":function_registry",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "xprof_gpu_cost_analysis_types",
+    hdrs = ["xprof_gpu_cost_analysis_types.h"],
+    deps = [
+        ":hlo_cost_analysis_wrapper",
+        "@com_google_absl//absl/strings:string_view",
+        "@xla//xla/service:hlo_cost_analysis",
+    ],
+)
+
+cc_test(
+    name = "xprof_gpu_cost_analysis_registration_test",
+    srcs = ["xprof_gpu_cost_analysis_registration_test.cc"],
+    deps = [
+        "hlo_cost_analysis_wrapper",
+        ":hlo_module_map",
+        ":xprof_gpu_cost_analysis_registration",
+        ":xprof_gpu_cost_analysis_types",
+        "@com_google_googletest//:gtest_main",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/hlo/parser:hlo_parser",
+        "@xla//xla/tests:hlo_test_base",
     ],
 )
