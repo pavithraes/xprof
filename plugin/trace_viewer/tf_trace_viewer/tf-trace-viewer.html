@@ -733,7 +733,7 @@ dashboard would integrate trace viewer app using iframe.
       toolLink.searchParams.set('run', currentRun);
       if (toolName === 'graph_viewer') {
         const {hloOp, hloModule} = params;
-        toolLink.searchParams.set('opName', hloOp);
+        toolLink.searchParams.set('node_name', hloOp);
         toolLink.searchParams.set('module_name', hloModule !== 'default' ? hloModule : undefined);
       }
       toolLinkElement.innerHTML = `${toolLabel}: <a href="${toolLink.href}" target="_blank">${text}</a>`;

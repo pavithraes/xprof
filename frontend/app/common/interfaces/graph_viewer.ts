@@ -7,6 +7,8 @@ export declare interface GraphConfigInput {
   mergeFusion: boolean;
   programId?: string;
   graphType?: string;
+  symbolId?: string;
+  symbolType?: string;
 }
 
 /** The query parameter object for route navigation and xhr */
@@ -20,6 +22,7 @@ export declare interface GraphViewerQueryParams {
   graph_type?: string;
   symbol_id?: string;
   symbol_type?: string;
+  show_me_graph?: boolean;
 }
 
 /** The interface for graph type object for selection */

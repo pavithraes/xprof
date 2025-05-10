@@ -1,16 +1,42 @@
 <mat-sidenav-container>
   <mat-sidenav mode="side" opened>
     <div class="item-container">
-      <graph-config [initialInputs]="initialParams" [moduleList]="moduleList" [isHloOssTool]="true" (plot)="onSearchGraph($event)"></graph-config>
+      <graph-config
+        [initialInputs]="initialParams"
+        [moduleList]="moduleList"
+        [graphTypes]="graphTypes"
+        (plot)="onSearchGraph($event)"
+        (updateSelectedModule)="onModuleSelectionChange($event)"
+      ></graph-config>
+      <div class="hlo-download">
+        <download-hlo
+          [moduleName]="selectedModule"
+          [showMetadata]="showMetadata"
+        ></download-hlo>
+      </div>
+    </div>
+    <op-details [sessionId]="sessionId"></op-details>
+    <div class="progress-container-op-details" *ngIf="loadingOpProfile">
+      <mat-spinner class="loading-spinner" color="primary" mode="indeterminate" diameter="20"></mat-spinner>
+      <div class="loading-message">Preparing Op Details ...</div>
     </div>
   </mat-sidenav>
   <mat-sidenav-content>
     <diagnostics-view [diagnostics]="diagnostics"></diagnostics-view>
-    <div class="progress-container" *ngIf="loadingGraphHtml">
-      <div class="loading-message">Loading graph viewer data</div>
+    <div class="progress-container" *ngIf="loadingGraph">
+      <div class="loading-message">Loading graph...</div>
       <!-- TODO(go/progressbar-aria): Replace the aria-label with a better description, e.g. "Fetching user data" -->
       <mat-progress-bar color="primary" mode="indeterminate" aria-label="Loading"></mat-progress-bar>
     </div>
-    <iframe #iframe id="graph-html" [src]="graphvizUri | safe"></iframe>
+    <div class="hlo-text-view-container">
+      <hlo-text-view
+        [sessionId]="sessionId"
+        [moduleName]="selectedModule"
+        [showMetadata]="showMetadata"
+      ></hlo-text-view>
+    </div>
+    <div *ngIf="!showMeGraph" class="graph-container">
+      <iframe #iframe id="graph-html"></iframe>
+    </div>
   </mat-sidenav-content>
 </mat-sidenav-container>

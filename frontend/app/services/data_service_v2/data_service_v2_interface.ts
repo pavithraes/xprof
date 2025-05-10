@@ -4,6 +4,7 @@
 
 import {InjectionToken} from '@angular/core';
 import {DataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
+import {GraphTypeObject} from 'org_xprof/frontend/app/common/interfaces/graph_viewer';
 import {OpProfileData, OpProfileSummary} from 'org_xprof/frontend/app/components/op_profile/op_profile_data';
 import {Observable} from 'rxjs';
 
@@ -28,6 +29,30 @@ export interface DataServiceV2Interface {
       programId: string,
       ): string;
 
+  getGraphTypes(sessionId: string): Observable<GraphTypeObject[]>;
+  getGraphOpStyles(sessionId: string): Observable<string>;
+  getGraphVizUri(sessionId: string, params: Map<string, string>): string;
+  getGraphvizUrl(
+      sessionId: string,
+      opName: string,
+      moduleName: string,
+      graphWidth: number,
+      showMetadata: boolean,
+      mergeFusion: boolean,
+      graphType: string,
+      ): Observable<string>;
+  getMeGraphJson(sessionId: string, params: Map<string, string>):
+      Observable<string>;
+
+  getTags(sessionId: string): Observable<string[]>;
+
+  // host is needed to fetch the corresponding <host>.xplane.pb data
+  // params: op_profile_limit to control the numbe of op displayed in each layer
+  // of the op tree on UI
+  getOpProfileData(
+      sessionId: string, host: string,
+      params: Map<string, string>): Observable<DataTable|null>;
+
   getOpProfileSummary(data: OpProfileData): OpProfileSummary[];
 
   getCustomCallTextLink(
@@ -44,6 +69,7 @@ export interface DataServiceV2Interface {
       ): Observable<string|Blob|null>;
 
   setSearchParams(params: URLSearchParams): void;
+  getSearchParams(): URLSearchParams;
 
   exportDataAsCSV(sessionId: string, tool: string, host: string): void;
 }

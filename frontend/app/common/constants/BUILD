@@ -3,6 +3,11 @@ load("@npm//@bazel/concatjs:index.bzl", "ts_library")
 package(default_visibility = ["//frontend:internal"])
 
 ts_library(
+    name = "colors",
+    srcs = ["colors.ts"],
+)
+
+ts_library(
     name = "constants",
     srcs = [
         "constants.ts",

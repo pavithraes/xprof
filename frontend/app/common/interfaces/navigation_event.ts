@@ -7,8 +7,11 @@ export declare interface NavigationEvent {
   host?: string;
   // Graph Viewer crosslink params
   opName?: string;
+  moduleName?: string;
+  programId?: string;
+  graphType?: string;
+  // Memory viewer params
+  memorySpaceColor?: string;
   // Navigation controlling params
   firstLoad?: boolean;
-  moduleName?: string;
-  memorySpaceColor?: string;
 }

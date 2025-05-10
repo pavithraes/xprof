@@ -2,7 +2,7 @@ import {PlatformLocation} from '@angular/common';
 import {HttpClient, HttpErrorResponse, HttpParams} from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {Store} from '@ngrx/store';
-import {API_PREFIX, DATA_API, HLO_MODULE_LIST_API, LOCAL_URL, PLUGIN_NAME} from 'org_xprof/frontend/app/common/constants/constants';
+import {API_PREFIX, DATA_API, GRAPH_TYPE_DEFAULT, GRAPHVIZ_PAN_ZOOM_CONTROL, HLO_MODULE_LIST_API, LOCAL_URL, PLUGIN_NAME} from 'org_xprof/frontend/app/common/constants/constants';
 import {FileExtensionType} from 'org_xprof/frontend/app/common/constants/enums';
 import {DataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import * as utils from 'org_xprof/frontend/app/common/utils/utils';
@@ -57,7 +57,7 @@ export class DataServiceV2 implements DataServiceV2Interface {
         );
   }
 
-  getHttpParams(): HttpParams {
+  private getHttpParams(): HttpParams {
     let params = new HttpParams();
     if (this.searchParams) {
       this.searchParams.forEach((value, key) => {
@@ -82,8 +82,10 @@ export class DataServiceV2 implements DataServiceV2Interface {
   }
 
   getModuleList(sessionId: string): Observable<string> {
+    let params = this.getHttpParams();
+    params = params.set('run', sessionId);
     return this.get(this.pathPrefix + HLO_MODULE_LIST_API, {
-      'params': new HttpParams().set('run', sessionId),
+      'params': params,
       'responseType': 'text',
     }) as Observable<string>;
   }
@@ -93,11 +95,78 @@ export class DataServiceV2 implements DataServiceV2Interface {
       sessionId: string, moduleName: string, opName: string, programId = '') {
     if (moduleName && opName) {
       return `${window.parent.location.origin}?tool=graph_viewer&module_name=${
-          moduleName}&opName=${opName}&run=${sessionId}#profile`;
+          moduleName}&node_name=${opName}&run=${sessionId}#profile`;
     }
     return '';
   }
 
+  getGraphTypes(sessionId: string) {
+    const types = [
+      {
+        value: GRAPH_TYPE_DEFAULT,
+        label: 'Hlo Graph',
+      },
+    ];
+    return of(types);
+  }
+
+  // Not implemented.
+  getGraphOpStyles(sessionId: string): Observable<string> {
+    return of('');
+  }
+
+  getGraphVizUri(sessionId: string, params: Map<string, string>): string {
+    const searchParams = new URLSearchParams();
+    searchParams.set('run', sessionId);
+    searchParams.set('tag', 'graph_viewer');
+    for (const [key, value] of params.entries()) {
+      searchParams.set(key, value.toString());
+    }
+    searchParams.set('format', 'html');
+    searchParams.set('type', 'graph');
+    return `${window.origin}/${this.pathPrefix}/${DATA_API}?${
+        searchParams.toString()}${GRAPHVIZ_PAN_ZOOM_CONTROL}`;
+  }
+
+  // Not implemented.
+  getGraphvizUrl(
+      sessionId: string,
+      opName: string,
+      moduleName: string,
+      graphWidth: number,
+      showMetadata: boolean,
+      mergeFusion: boolean,
+      graphType: string,
+      ): Observable<string> {
+    return of('');
+  }
+
+  getMeGraphJson(sessionId: string, params: Map<string, string>) {
+    const queryPrams = new HttpParams();
+    queryPrams.set('run', sessionId);
+    queryPrams.set('tag', 'graph_viewer');
+    queryPrams.set('module_name', params.get('module_name') || '');
+    queryPrams.set('program_id', params.get('program_id') || '');
+    queryPrams.set('node_name', params.get('node_name') || '');
+    queryPrams.set('graph_width', params.get('graph_width') || '');
+    queryPrams.set('type', 'me_graph');
+    return this.get(
+               this.pathPrefix + DATA_API,
+               {'params': queryPrams, 'responseType': 'text'}) as
+        Observable<string>;
+  }
+
+  // Not implemented.
+  getTags(sessionId: string): Observable<string[]> {
+    return of([]);
+  }
+
+  getOpProfileData(
+      sessionId: string, host: string,
+      params: Map<string, string>): Observable<DataTable|null> {
+    return this.getData(sessionId, 'op_profile', host, params) as
+        Observable<DataTable>;
+  }
   getOpProfileSummary(data: OpProfileData): OpProfileSummary[] {
     return [
       {
@@ -140,6 +209,10 @@ export class DataServiceV2 implements DataServiceV2Interface {
 
   setSearchParams(params: URLSearchParams) {
     this.searchParams = params;
+  }
+
+  getSearchParams(): URLSearchParams {
+    return this.searchParams || new URLSearchParams();
   }
 
   exportDataAsCSV(sessionId: string, tool: string, host: string) {

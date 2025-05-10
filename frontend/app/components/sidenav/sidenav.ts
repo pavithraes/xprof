@@ -4,7 +4,7 @@ import {Store} from '@ngrx/store';
 import {DEFAULT_HOST, HLO_TOOLS} from 'org_xprof/frontend/app/common/constants/constants';
 import {NavigationEvent} from 'org_xprof/frontend/app/common/interfaces/navigation_event';
 import {RunToolsMap} from 'org_xprof/frontend/app/common/interfaces/tool';
-import {CommunicationService, type ToolQueryParams} from 'org_xprof/frontend/app/services/communication_service/communication_service';
+import {CommunicationService} from 'org_xprof/frontend/app/services/communication_service/communication_service';
 import {DataService} from 'org_xprof/frontend/app/services/data_service/data_service';
 import {setCurrentRunAction, updateRunToolsMapAction} from 'org_xprof/frontend/app/store/actions';
 import {getCurrentRun, getRunToolsMap} from 'org_xprof/frontend/app/store/selectors';
@@ -55,14 +55,6 @@ export class SideNav implements OnInit, OnDestroy {
         this.selectedRunInternal = run;
       }
     });
-    this.communicationService.toolQueryParamsChange.subscribe(
-        (queryParams: ToolQueryParams) => {
-          this.navigationParams = {
-            ...this.navigationParams,
-            ...queryParams,
-          };
-          this.updateUrlHistory();
-        });
   }
 
   get is_hlo_tool() {
@@ -123,7 +115,7 @@ export class SideNav implements OnInit, OnDestroy {
     const run = params.get('run') || '';
     const tag = params.get('tool') || params.get('tag') || '';
     const host = params.get('host') || '';
-    const opName = params.get('opName') || '';
+    const opName = params.get('node_name') || params.get('opName') || '';
     const moduleName = params.get('module_name') || '';
     this.navigationParams['firstLoad'] = true;
     if (opName) {
@@ -271,6 +263,7 @@ export class SideNav implements OnInit, OnDestroy {
   }
 
   updateUrlHistory() {
+    // TODO(xprof): change to camel case when constructing url
     const toolQueryParams = Object.keys(this.navigationParams)
                                 .map(key => {
                                   return `${key}=${this.navigationParams[key]}`;
