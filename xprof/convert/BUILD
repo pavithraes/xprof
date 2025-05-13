@@ -1005,6 +1005,7 @@ cc_test(
     srcs = ["repository_test.cc"],
     deps = [
         ":repository",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
         "@xla//xla/tsl/platform:errors",
