@@ -1463,6 +1463,20 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "model_tracker",
+    srcs = ["model_tracker.cc"],
+    hdrs = ["model_tracker.h"],
+    deps = [
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
+        "@org_xprof//xprof/utils:hlo_module_map",
+        "@xla//xla/service:hlo_proto_cc",
+        "@xla//xla/tsl/profiler/convert:xla_op_utils",
+        "@xla//xla/tsl/profiler/utils:tf_op_utils",
+    ],
+)
+
 cc_test(
     name = "data_table_utils_test",
     srcs = ["data_table_utils_test.cc"],
