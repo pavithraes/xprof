@@ -523,6 +523,7 @@ std::string WrapDotInHtml(std::string dot, absl::string_view layout_engine) {
       container.innerHTML = `${svg}<style>${css_data}</style>`;
       const panZoom = svgPanZoom(container.children[0], {
         zoomEnabled: true,
+        dblClickZoomEnabled: false,
         controlIconsEnabled: true,
         maxZoom: 200,
         minZoom: 0,
