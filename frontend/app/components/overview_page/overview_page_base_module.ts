@@ -27,12 +27,12 @@ export class OverviewPageBase {
   @Input() inferenceLatencyData: SimpleDataTable|null = null;
 
   get hasInferenceLatencyData(): boolean {
-    // Assumption: is inference session if hasInferenceLatencyData is not empty
-    return !!this.inferenceLatencyData?.rows?.length;
+    return !this.hasStepTimeGraphData &&
+        !!this.inferenceLatencyData?.rows?.length;
   }
 
   get hasStepTimeGraphData(): boolean {
-    return !!this.inputPipelineAnalysis?.rows?.length;
+    return !!this.runEnvironment?.p?.['is_training'];
   }
 }
 

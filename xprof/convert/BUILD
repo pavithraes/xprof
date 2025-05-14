@@ -411,7 +411,7 @@ cc_library(
     deps = [
         ":duty_cycle_combiner",
         ":duty_cycle_tracker",
-        ":executor_interface",
+        ":model_tracker",
         ":op_metrics_db_combiner",
         ":step_events_to_steps_db",
         ":xplane_to_kernel_stats_db",
