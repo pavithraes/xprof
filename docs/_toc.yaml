@@ -17,6 +17,8 @@ toc:
   path: /xprof
 - title: Tool Documentation
   section:
+  - title: XProf
+    path: /xprof/index
   - title: Overview Page
     path: /xprof/overview_page
   - title: Graph Viewer
