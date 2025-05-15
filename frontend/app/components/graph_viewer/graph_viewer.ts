@@ -48,7 +48,7 @@ export class GraphViewer implements OnDestroy {
   selectedModule = '';
   opName = '';
   programId = '';
-  graphWidth = 3;
+  graphWidth = 1;
   graphType = GRAPH_TYPE_DEFAULT;
   symbolId = '';
   symbolType = '';
@@ -104,7 +104,7 @@ export class GraphViewer implements OnDestroy {
     this.opName = params['node_name'] || params['opName'] || '';
     this.selectedModule = params['module_name'] || '';
     this.programId = params['program_id'] || params['programId'] || '';
-    this.graphWidth = Number(params['graph_width']) || 3;
+    this.graphWidth = Number(params['graph_width']) || 1;
     this.showMetadata = params['show_metadata'] === 'true';
     this.mergeFusion = params['merge_fusion'] === 'true';
     this.graphType =
