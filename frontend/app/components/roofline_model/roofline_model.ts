@@ -169,15 +169,19 @@ export class RooflineModel implements OnDestroy {
 
   /** parse the device information from the original dataset */
   parseDeviceInfoData(dataTableRaw: google.visualization.DataTable) {
+    // TODO(b/401596855): Update this to be truthy/falthy check instead of
+    // string comparison.
     this.deviceIndicators = {
       hasMergedVmem:
+          dataTableRaw.getTableProperties().hasOwnProperty('has_merged_vmem') &&
           !(dataTableRaw.getTableProperty('has_merged_vmem') === '0'),
-      hasCmem: !(dataTableRaw.getTableProperty('has_cmem') === '0'),
-      hasMegacore: !(dataTableRaw.getTableProperty('megacore') === '0'),
+      hasCmem: dataTableRaw.getTableProperties().hasOwnProperty('has_cmem') &&
+          !(dataTableRaw.getTableProperty('has_cmem') === '0'),
+      hasMegacore:
+          dataTableRaw.getTableProperties().hasOwnProperty('megacore') &&
+          !(dataTableRaw.getTableProperty('megacore') === '0'),
       isGpu: dataTableRaw.getTableProperty('device_type')
-                 .startsWith(
-                     NVIDIA_GPU_TYPE_PREFIX,
-                     ),
+                 .startsWith(NVIDIA_GPU_TYPE_PREFIX),
     };
 
     this.deviceInfoArray = DEVICE_INFO.reduce(
