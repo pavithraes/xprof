@@ -2,6 +2,7 @@
  * @fileoverview Data service interface meant to accommodate different implementations
  */
 
+import {HttpParams} from '@angular/common/http';
 import {InjectionToken} from '@angular/core';
 import {DataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {GraphTypeObject} from 'org_xprof/frontend/app/common/interfaces/graph_viewer';
@@ -73,6 +74,8 @@ export interface DataServiceV2Interface {
   getSearchParams(): URLSearchParams;
 
   exportDataAsCSV(sessionId: string, tool: string, host: string): void;
+
+  getHttpParams(sessionId: string, tool: string): HttpParams;
 }
 
 /** Injection token for the data service interface. */
