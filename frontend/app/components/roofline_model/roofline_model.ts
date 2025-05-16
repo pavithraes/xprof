@@ -82,6 +82,10 @@ export class RooflineModel implements OnDestroy {
   readonly scatterChartOptionsProgram:
       google.visualization.ScatterChartOptions = {
     ...SCATTER_CHART_OPTIONS,
+    tooltip: {
+      ...(SCATTER_CHART_OPTIONS.tooltip || {}),
+      trigger: 'selection',
+    },
     series: [],
   };
   readonly programLevelAgg = ['Total', 'Total (HW)', 'Average', 'Step'];
@@ -92,6 +96,10 @@ export class RooflineModel implements OnDestroy {
   scatterDataOp?: google.visualization.DataTable | null = null;
   readonly scatterChartOptionsOp: google.visualization.ScatterChartOptions = {
     ...SCATTER_CHART_OPTIONS,
+    tooltip: {
+      ...(SCATTER_CHART_OPTIONS.tooltip || {}),
+      trigger: 'selection',
+    },
     series: [],
   };
   // Prepopulated op name from url
