@@ -1,4 +1,4 @@
-load("//defs:defs.bzl", "if_oss", "tf_profiler_alias")
+load("//defs:backend_defs.bzl", "if_oss", "tf_profiler_alias")
 
 package(
     # copybara:uncomment default_applicable_licenses = ["@org_tensorflow//tensorflow:license"],
