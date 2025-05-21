@@ -55,6 +55,7 @@ limitations under the License.
 #include "xprof/convert/trace_viewer/trace_viewer_visibility.h"
 #include "xprof/convert/xplane_to_dcn_collective_stats.h"
 #include "xprof/convert/xplane_to_hlo.h"
+#include "xprof/convert/xplane_to_kernel_stats_db.h"
 #include "xprof/convert/xplane_to_memory_profile.h"
 #include "xprof/convert/xplane_to_op_stats.h"
 #include "xprof/convert/xplane_to_tf_data_stats.h"
@@ -217,7 +218,7 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToKernelStats(
   OpStats combined_op_stats;
   TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
       session_snapshot, &combined_op_stats));
-  return combined_op_stats.kernel_stats_db().SerializeAsString();
+  return KernelStatsToDataTableJson(combined_op_stats.kernel_stats_db());
 }
 
 absl::StatusOr<std::string> ConvertXSpaceToMemoryProfile(

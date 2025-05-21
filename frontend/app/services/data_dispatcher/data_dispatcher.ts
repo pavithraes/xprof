@@ -46,7 +46,7 @@ export class DataDispatcher extends DataDispatcherBase {
   // tslint:disable-next-line:no-any
   override parseData(dataRequest: DataRequest, data: any) {
     if (dataRequest.type === DataRequestType.KERNEL_STATS) {
-      data = (data || [{}])[0];
+      data = (data || {});
     }
     this.store.dispatch(this.getActions(dataRequest, data));
   }
