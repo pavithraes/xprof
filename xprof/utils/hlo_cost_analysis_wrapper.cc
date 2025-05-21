@@ -19,7 +19,6 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
-#include "absl/base/no_destructor.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "xla/hlo/ir/hlo_instruction.h"
@@ -31,7 +30,10 @@ namespace tensorflow {
 namespace profiler {
 
 HloCostAnalysisWrapperRegistry& GetHloCostAnalysisWrapperRegistry() {
-  static absl::NoDestructor<HloCostAnalysisWrapperRegistry> registry;
+  // XLA uses old absl that doesn't have absl::NoDestructor, so have to use
+  // new instead to prevent the destructor from being called.
+  static HloCostAnalysisWrapperRegistry* registry =
+      new HloCostAnalysisWrapperRegistry();
   return *registry;
 }
 

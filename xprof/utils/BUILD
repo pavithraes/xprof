@@ -476,7 +476,6 @@ cc_library(
     deps = [
         ":cost_utils",
         ":function_registry",
-        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log",
