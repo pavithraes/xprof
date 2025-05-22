@@ -170,40 +170,8 @@ const TPU_SUMMARY_INFO: SummaryInfoConfig[] = [
     title: 'Firmware Power Metrics (Power/Timescale)',
     tooltip:
         'Max power consumption of different components/rails with different timescale.',
-    childrenInfoConfig: [
-      {
-        title: 'Max VDD Core FW PowerMeter PL1',
-        valueKey: 'fw_max_vdd_core_pl1_power_watts',
-      },
-      {
-        title: 'Max VDD Core FW PowerMeter PL2',
-        valueKey: 'fw_max_vdd_core_pl2_power_watts',
-      },
-      {
-        title: 'Max VDD Core FW PowerMeter PL3',
-        valueKey: 'fw_max_vdd_core_pl3_power_watts',
-      },
-      {
-        title: 'Max VDD Core FW PowerMeter PL4',
-        valueKey: 'fw_max_vdd_core_pl4_power_watts',
-      },
-      {
-        title: 'Max HBM FW PowerMeter PL1',
-        valueKey: 'fw_max_hbm_pl1_power_watts',
-      },
-      {
-        title: 'Max HBM FW PowerMeter PL2',
-        valueKey: 'fw_max_hbm_pl2_power_watts',
-      },
-      {
-        title: 'Max HBM FW PowerMeter PL3',
-        valueKey: 'fw_max_hbm_pl3_power_watts',
-      },
-      {
-        title: 'Max HBM FW PowerMeter PL4',
-        valueKey: 'fw_max_hbm_pl4_power_watts',
-      },
-    ]
+    getChildValues: (props) =>
+        (((props as GeneralProps)['fw_power_metrics']))?.split('##') || [],
   },
   {
     title: 'SPI Sampler Power Metrics',
@@ -212,7 +180,7 @@ const TPU_SUMMARY_INFO: SummaryInfoConfig[] = [
     description:
         'HBM: HBM SPI Sampler PowerMeter; Core: VDD Core SPI Sampler PowerMeter',
     getChildValues: (props) =>
-        (((props as GeneralProps)['power_metrics']))?.split('##') || [],
+        (((props as GeneralProps)['spi_power_metrics']))?.split('##') || [],
   },
 ];
 
