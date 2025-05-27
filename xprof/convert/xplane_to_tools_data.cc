@@ -415,9 +415,8 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToToolData(
     // TODO - b/378923777: Create only when needed.
     TF_ASSIGN_OR_RETURN(bool hlo_proto_status,
                         ConvertMultiXSpaceToHloProto(session_snapshot));
-    if (!hlo_proto_status) {
-      return absl::NotFoundError("No HLO proto found in XSpace.");
-    }
+    LOG_IF(WARNING, !hlo_proto_status)
+        << "No HLO proto found in XSpace.";
     return GetAvailableToolNames(session_snapshot);
   } else if (tool_name == "_xplane.pb") {  // internal test only.
     return PreprocessXSpace(session_snapshot);
