@@ -93,12 +93,11 @@ export const DEVICE_INFO = [
     context: '',
     display: true,
   },
-  // peak_flop_rate is in GFLOP/s in the dataset, so convert it to TFLOP/s
   {
     id: 'peak_flop_rate',
     label: 'Peak FLOP Rate per TensorCore',
     type: 'number',
-    unit: 'TFLOP/s',
+    unit: 'GFLOP/s',
     display: true,
   },
   {

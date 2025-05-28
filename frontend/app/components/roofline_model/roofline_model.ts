@@ -231,14 +231,7 @@ export class RooflineModel implements OnDestroy {
             curInfo.value = this.deviceIndicators.hasMegacore ? 'Yes' : 'No';
           }
         }
-        let value = this.dataTableRaw!.getTableProperty(cur.id);
-
-        // convert peak_flop_rate from GFLOP/s to TFLOP/s
-        // Note: The unit in the dataset is GFLOP/s.
-        if (cur.id === 'peak_flop_rate' && value !== undefined) {
-          value = Number((value / 1000).toFixed(2));
-        }
-
+        const value = this.dataTableRaw!.getTableProperty(cur.id);
         acc.push({
           // convert numeric value to numbers, as some ridge numbers will be
           // used as axis values in chart
