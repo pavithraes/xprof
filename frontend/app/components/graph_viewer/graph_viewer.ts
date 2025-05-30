@@ -102,7 +102,7 @@ export class GraphViewer implements OnDestroy {
     this.showMeGraph = params['show_me_graph'] === 'true';
     // Plot the graph if node_name (op name) is provided in URL.
     this.opName = params['node_name'] || params['opName'] || '';
-    this.selectedModule = params['module_name'] || '';
+    this.selectedModule = params['module_name'] || params['moduleName'] || '';
     this.programId = params['program_id'] || params['programId'] || '';
     this.graphWidth = Number(params['graph_width']) || 1;
     this.showMetadata = params['show_metadata'] === 'true';
