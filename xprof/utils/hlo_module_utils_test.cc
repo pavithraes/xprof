@@ -81,18 +81,18 @@ TEST_F(HloModuleUtilsTest, TestGetLocationStack) {
   TF_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<xla::HloModule> module_with_stack_frames,
       GetModuleWithStackFrames());
-  auto root_instruction =
+  const auto* root_instruction =
       module_with_stack_frames->entry_computation()->root_instruction();
-  EXPECT_EQ(GetOpLocationStack(1, root_instruction), "main.py:10:5\n");
+  EXPECT_EQ(GetOpLocationStack(1, *root_instruction), "main.py:10:5\n");
 }
 
 TEST_F(HloModuleUtilsTest, TestGetSourceInfo) {
   TF_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<xla::HloModule> module_with_stack_frames,
       GetModuleWithStackFrames());
-  auto root_instruction =
+  const auto* root_instruction =
       module_with_stack_frames->entry_computation()->root_instruction();
-  auto source_info = GetSourceInfo(root_instruction);
+  auto source_info = GetSourceInfo(*root_instruction);
   EXPECT_EQ(source_info.source_file, "main.py");
   EXPECT_EQ(source_info.source_line, 10);
   EXPECT_EQ(source_info.stack_frame, "main.py:10:5\n");

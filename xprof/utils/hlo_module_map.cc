@@ -52,8 +52,8 @@ HloInstructionWrapper::HloInstructionWrapper(
       tf_op_name_(tsl::profiler::TfOpFullname(Metadata().op_type(),
                                               Metadata().op_name())),
       category_(instr_->ToCategory()),
-      expression_(UncachedExpression(instr_, false, kMaxHlolNameSize)),
-      deduplicated_name_(instr_->metadata().deduplicated_name()){
+      expression_(UncachedExpression(*instr_, false, kMaxHlolNameSize)),
+      deduplicated_name_(instr_->metadata().deduplicated_name()) {
   if (cost_analysis != nullptr) {
     performance_info_wrapper_ =
         tensorflow::profiler::PerformanceInfoWrapper::Create(cost_analysis,

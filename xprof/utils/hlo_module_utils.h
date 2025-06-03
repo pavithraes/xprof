@@ -33,7 +33,7 @@ namespace tensorflow {
 namespace profiler {
 
 // Sometimes HLO produce a huge string (>100MB). Limit the name size to 1MB.
-static constexpr size_t kMaxHlolNameSize = 1000000;
+static constexpr size_t kMaxHlolNameSize = 1'000'000;
 
 inline const xla::HloInstruction* FindInstruction(const xla::HloModule& module,
                                                   std::string node_name) {
@@ -65,19 +65,19 @@ inline const xla::HloComputation* FindComputation(
   return nullptr;
 }
 
-inline std::string UncachedExpression(const xla::HloInstruction* instr,
+inline std::string UncachedExpression(const xla::HloInstruction& instr,
                                       bool skip_expression, size_t max_size) {
   if (skip_expression) {
     return "";
   }
-  static const auto* hlo_print_options =
+  static const auto* const hlo_print_options =
       new xla::HloPrintOptions(xla::HloPrintOptions()
                                    .set_print_metadata(false)
                                    .set_print_backend_config(false)
                                    .set_print_infeed_outfeed_config(false)
                                    .set_print_operand_shape(true)
                                    .set_print_large_constants(false));
-  std::string expression = instr->ToString(*hlo_print_options);
+  std::string expression = instr.ToString(*hlo_print_options);
   if (expression.size() > max_size) {
     expression.resize(max_size);
   }
@@ -85,9 +85,9 @@ inline std::string UncachedExpression(const xla::HloInstruction* instr,
 }
 
 inline std::string GetOpLocationStack(int32_t frame_id,
-                                      const xla::HloInstruction* instr) {
+                                      const xla::HloInstruction& instr) {
   std::string stack_lines;
-  xla::HloModule* hlo_module = instr->GetModule();
+  xla::HloModule* hlo_module = instr.GetModule();
   while (frame_id != 0) {
     xla::HloModule::StackFrame frame = hlo_module->get_stack_frame(frame_id);
     if (frame.empty()) {
@@ -99,19 +99,18 @@ inline std::string GetOpLocationStack(int32_t frame_id,
   }
 
   return stack_lines;
-};
+}
 
 inline tsl::profiler::OpSourceInfo GetSourceInfo(
-    const xla::HloInstruction* instr) {
-  if (int32_t stack_frame_id = instr->metadata().stack_frame_id();
-      stack_frame_id != 0) {
-    return {.source_file = instr->metadata().source_file(),
-            .source_line = instr->metadata().source_line(),
-            .stack_frame = GetOpLocationStack(stack_frame_id, instr)};
-  }
-  return {.source_file = instr->metadata().source_file(),
-          .source_line = instr->metadata().source_line()};
-};
+    const xla::HloInstruction& instr) {
+  const auto stack_frame_id = instr.metadata().stack_frame_id();
+  return {.source_file = instr.metadata().source_file(),
+          .source_line = instr.metadata().source_line(),
+          .stack_frame = stack_frame_id != 0
+                             ? GetOpLocationStack(stack_frame_id, instr)
+                             : ""};
+}
+
 }  // namespace profiler
 }  // namespace tensorflow
 

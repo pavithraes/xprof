@@ -128,11 +128,11 @@ class HloInstructionWrapper : public HloInstructionInterface {
   }
 
   std::string OpLocationStack(int32_t frame_id) const override {
-    return GetOpLocationStack(frame_id, instr_);
+    return GetOpLocationStack(frame_id, *instr_);
   }
 
   tsl::profiler::OpSourceInfo SourceInfo() const override {
-    return GetSourceInfo(instr_);
+    return GetSourceInfo(*instr_);
   }
 
   const ::tensorflow::profiler::PerformanceInfoWrapper*
