@@ -54,7 +54,6 @@ xprof_ng_module(
         "@npm//rxjs",
         "@org_xprof//frontend/app/common/interfaces",
         "@org_xprof//frontend/app/common/utils",
-        "@org_xprof//frontend/app/components/overview_page/recommendation_result_view",
         "@org_xprof//frontend/app/services/data_service",
         "@org_xprof//frontend/app/store",
     ],
