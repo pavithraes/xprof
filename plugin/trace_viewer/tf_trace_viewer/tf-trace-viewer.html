@@ -546,6 +546,9 @@ dashboard would integrate trace viewer app using iframe.
       _canvasLeft: {type: Number, value: 0},
       _canvasWidth: {type: Number, value: 0},
       _canvasDrag: {type: Boolean, value: false},
+      // Store the async track's state to keep persistent per model import.
+      // Hashmap from async track name to expanded boolean.
+      _asyncTrackState: {type: Object, value: new Map()},
     },
 
     ready: function() {
@@ -1454,6 +1457,25 @@ dashboard would integrate trace viewer app using iframe.
       }
     },
 
+    _memorizeAsyncTrackState: function() {
+      const asyncTracks = document.getElementsByClassName('async-slice-group-track');
+      for(let i = 0; i < asyncTracks.length; ++i) {
+        const name = asyncTracks[i].heading || '';
+        const isExpanded = !!asyncTracks[i].expanded;
+        this._asyncTrackState.set(name, isExpanded);
+      }
+    },
+
+    _restoreAsyncTrackState: function() {
+      const asyncTracks = document.getElementsByClassName('async-slice-group-track');
+      for(let i = 0; i < asyncTracks.length; ++i) {
+        const name = asyncTracks[i].heading || '';
+        if (name && this._asyncTrackState.has(name)) {
+          asyncTracks[i].expanded = this._asyncTrackState.get(name);
+        }
+      }
+    },
+
     _addDragEventListeners: function() {
       // These are all the left side panel process headers (e.g., XLA Ops, Framework Ops, etc.)
       const processes = document.getElementsByTagName('tr-ui-b-heading');
@@ -1713,12 +1735,14 @@ dashboard would integrate trace viewer app using iframe.
         if (!this._model /* first load */) {
           this._collapseBigProcessTracks(jsonData);
         }
+        this._memorizeAsyncTrackState();
         this._updateModel(jsonData, replaceModel);
         if (!this._isOss) {
           this._addUpdateModelLatency(performance.now() - startUpdateModel);
         }
         startUpdateView = performance.now();
         await this._updateView(requestedRange);
+        this._restoreAsyncTrackState();
         if (!this._isOss) {
           this._addUpdateViewLatency(performance.now() - startUpdateView);
         }
