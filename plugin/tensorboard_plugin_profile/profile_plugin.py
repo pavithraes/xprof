@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import collections
 from collections.abc import Callable, Iterator
 import gzip
 import json
@@ -25,7 +26,7 @@ import logging
 import os
 import re
 import threading
-from typing import Any, List, TypedDict
+from typing import Any, List, Optional, TypedDict
 
 from etils import epath
 import six
@@ -160,7 +161,7 @@ def make_filename(host: str, tool: str) -> str:
   return filename + TOOLS[tool]
 
 
-def _parse_filename(filename: str) -> tuple[str | None, str | None]:
+def _parse_filename(filename: str) -> tuple[Optional[str], Optional[str]]:
   """Returns the host and tool encoded in a filename in the run directory.
 
   Args:
@@ -243,7 +244,7 @@ def respond(
     body: Any,
     content_type: str,
     code: int = 200,
-    content_encoding: tuple[str, str] | None = None,
+    content_encoding: Optional[tuple[str, str]] = None,
 ) -> wrappers.Response:
   """Create a Werkzeug response, handling JSON serialization and CSP.
 
@@ -497,7 +498,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     runs = self.runs_imp(request)
     return respond(runs, 'application/json')
 
-  def runs_imp(self, request: wrappers.Request | None = None) -> list[str]:
+  def runs_imp(self, request: Optional[wrappers.Request] = None) -> list[str]:
     """Returns a list all runs for the profile plugin.
 
     Args:
@@ -515,7 +516,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     return respond(run_tools, 'application/json')
 
   def run_tools_imp(
-      self, run, request: wrappers.Request | None = None
+      self, run, request: Optional[wrappers.Request] = None
   ) -> list[str]:
     """Returns a list of tools given a single run.
 
@@ -544,7 +545,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     return [{'hostname': host} for host in filenames_to_hosts(filenames, tool)]
 
   def host_impl(
-      self, run: str, tool: str, request: wrappers.Request | None = None
+      self, run: str, tool: str, request: Optional[wrappers.Request] = None
   ) -> List[HostMetadata]:
     """Returns available hosts and their metadata for the run and tool in the log directory.
 
@@ -605,7 +606,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
 
   def data_impl(
       self, request: wrappers.Request
-  ) -> tuple[str | None, str, str | None]:
+  ) -> tuple[Optional[str], str, Optional[str]]:
     """Retrieves and processes the tool data for a run and a host.
 
     Args:
@@ -939,6 +940,22 @@ class ProfilePlugin(base_plugin.TBPlugin):
         "run1", "train/run1", "train/run2", "validation/run1",
         "new_job/tensorboard/run1"
     """
+    def find_all_subdirectories(top_path: epath.Path) -> Iterator[epath.Path]:
+      if not top_path.is_dir():
+        return
+
+      dirs_to_visit = collections.deque([top_path])
+
+      while dirs_to_visit:
+        current_dir = dirs_to_visit.popleft()
+        yield current_dir
+
+        try:
+          for path in current_dir.iterdir():
+            if path.is_dir():
+              dirs_to_visit.append(path)
+        except (IOError, OSError) as e:
+          print(f'Warning: Could not list directory {current_dir}: {e}')
 
     # Create a background context; we may not be in a request.
     ctx = tb_context.RequestContext()
@@ -974,9 +991,9 @@ class ProfilePlugin(base_plugin.TBPlugin):
     logdir_path = epath.Path(self.logdir)
     if '.' not in tb_runs and logdir_path.is_dir():
       tb_runs.add('.')
-      for cur_dir, subdirs, _ in logdir_path.walk():
-        for subdir in subdirs:
-          tb_runs.add(str(cur_dir.relative_to(logdir_path).joinpath(subdir)))
+      for path in find_all_subdirectories(logdir_path):
+        relative_path = path.relative_to(logdir_path)
+        tb_runs.add(str(relative_path))
     tb_run_names_to_dirs = {
         run: _tb_run_directory(self.logdir, run) for run in tb_runs
     }
