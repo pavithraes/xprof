@@ -61,6 +61,7 @@ export interface DataServiceV2Interface {
       sessionId: string,
       moduleName: string,
       opName: string,
+      programId: string,
       ): string;
 
   downloadHloProto(

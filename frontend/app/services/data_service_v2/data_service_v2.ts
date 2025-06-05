@@ -184,7 +184,8 @@ export class DataServiceV2 implements DataServiceV2Interface {
     ];
   }
 
-  getCustomCallTextLink(sessionId: string, moduleName: string, opName: string) {
+  getCustomCallTextLink(
+      sessionId: string, moduleName: string, opName: string, programId = '') {
     return '';
   }
 

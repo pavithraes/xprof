@@ -138,12 +138,19 @@ export class OpDetails {
   }
 
   get isValidCustomCall() {
-    return this.getCustomCallTextLink() !== '';
+    return this.deviceType === 'TPU' && this.getCustomCallTextLink() !== '';
   }
 
   getCustomCallTextLink() {
-    return this.dataService.getCustomCallTextLink(
-        this.sessionId, this.selectedModuleName, this.selectedOpName);
+    if (this.selectedModuleName) {
+      return this.dataService.getCustomCallTextLink(
+          this.sessionId, this.selectedModuleName, this.selectedOpName, '');
+    }
+    if (this.programId) {
+      return this.dataService.getCustomCallTextLink(
+          this.sessionId, '', this.selectedOpName, this.programId);
+    }
+    return '';
   }
 
   dimensionColor(dimension?: Node.XLAInstruction.LayoutAnalysis.Dimension):
