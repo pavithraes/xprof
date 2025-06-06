@@ -95,6 +95,8 @@ absl::StatusOr<std::string> ConvertHloProtoToGraphViewer(
     return ConvertHloProtoToGraph(hlo_proto, params.node_name,
                                   params.graph_width, params.render_options,
                                   params.format);
+  } else if (params.type == kAdjacentNodes) {
+    return GetAdjacentNodes(hlo_proto, params.node_name);
   } else {
     // All other types are string view types
     return ConvertHloProtoToStringView(hlo_proto, params.type, params.verbose,

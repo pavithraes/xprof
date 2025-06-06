@@ -106,6 +106,16 @@ TEST(GraphViewerParamsTest, LongTxtType) {
   EXPECT_EQ(params2.show_metadata, true);
 }
 
+TEST(GraphViewerParamsTest, AdjNodesType) {
+  ToolOptions options1;
+  options1["type"] = "adj_nodes";
+  options1["node_name"] = "fusion.111";
+  TF_ASSERT_OK_AND_ASSIGN(GraphViewerParams params1,
+                          ParseGraphViewerParams(options1));
+  EXPECT_EQ(params1.type, "adj_nodes");
+  EXPECT_EQ(params1.node_name, "fusion.111");
+}
+
 TEST(GraphViewerParamsTest, OtherTypes) {
   ToolOptions options1;
   EXPECT_THAT(ParseGraphViewerParams(options1),

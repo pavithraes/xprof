@@ -27,6 +27,7 @@ limitations under the License.
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
@@ -35,9 +36,10 @@ limitations under the License.
 #include "xla/hlo/ir/hlo_print_options.h"
 #include "xla/tsl/platform/statusor.h"
 #ifdef PLATFORM_GOOGLE
-#include "nlohmann/json.hpp"
 #include "tensorflow/compiler/mlir/lite/experimental/google/tooling/hlo_adapter/direct_hlo_to_json_graph_convert.h"
 #endif  // PLATFORM_GOOGLE
+#include "nlohmann/json_fwd.hpp"
+#include "nlohmann/json.hpp"
 #include "xla/hlo/ir/hlo_computation.h"
 #include "xla/hlo/ir/hlo_instruction.h"
 #include "xla/hlo/ir/hlo_module.h"
@@ -297,8 +299,8 @@ absl::StatusOr<GraphViewerParams> ParseGraphViewerParams(
     return InvalidArgument("Graph viewer must provide a type option.");
   }
   auto valid_types = {
-      kGraphTypeName,     kJsonTypeName,     kProtoTypeName,
-      kProtoTextTypeName, kShortTxtTypeName, kLongTxtTypeName,
+      kGraphTypeName,    kJsonTypeName,    kProtoTypeName, kProtoTextTypeName,
+      kShortTxtTypeName, kLongTxtTypeName, kAdjacentNodes,
   };
   if (std::find(valid_types.begin(), valid_types.end(), type.value()) ==
       valid_types.end()) {
@@ -324,12 +326,19 @@ absl::StatusOr<GraphViewerParams> ParseGraphViewerParams(
         options, "format", kDefaultFormatString));
 
     return params;
+  } else if (type == kAdjacentNodes) {
+    params.type = type.value();
+    if (std::optional<std::string> node_name =
+            GetParam<std::string>(options, "node_name")) {
+      params.node_name = node_name.value();
+    }
+    return params;
   }
 
   // For txt type.
   params.type = type.value();
   params.show_metadata =
-  GetParamWithDefault(options, "show_metadata", kDefaultShowMetadata);
+      GetParamWithDefault(options, "show_metadata", kDefaultShowMetadata);
   params.verbose = type == kLongTxtTypeName;
   return params;
 }
@@ -346,6 +355,58 @@ xla::RenderedGraphFormat GetRenderFormat(const std::string& format_string) {
                << ", fallback to default url";
     return xla::RenderedGraphFormat::kUrl;
   }
+}
+
+absl::StatusOr<std::string> GetAdjacentNodes(const HloProto& hlo_proto,
+                                             const std::string& node_name) {
+  if (node_name.empty()) {
+    return absl::InvalidArgumentError("node_name should not be empty");
+  }
+  TF_ASSIGN_OR_RETURN(std::unique_ptr<HloModule> hlo_module,
+                      ConvertHloProtoToModule(hlo_proto));
+  const xla::HloInstruction* hlo_instruction =
+      FindInstruction(*hlo_module, node_name);
+  const xla::HloComputation* hlo_computation =
+      FindComputation(*hlo_module, node_name);
+  nlohmann::json json;
+  // Recursively seeking for first visible operands and users in trace viewer or
+  // graph viewer.
+  std::function<void(std::vector<std::string>&, const xla::HloInstruction*)>
+      find_operands = [&](std::vector<std::string>& operand_names,
+                             const xla::HloInstruction* hlo_instruction) {
+        for (const auto& operand : hlo_instruction->operands()) {
+          if (absl::StartsWith(operand->name(), "get-tuple-element")) {
+            find_operands(operand_names, operand);
+            continue;
+          }
+          operand_names.push_back(absl::StrCat(operand->name()));
+        }
+      };
+  std::function<void(std::vector<std::string>&, const xla::HloInstruction*)>
+      find_users = [&](std::vector<std::string>& user_names,
+                          const xla::HloInstruction* hlo_instruction) {
+        for (const auto& user : hlo_instruction->users()) {
+          if (absl::StartsWith(user->name(), "get-tuple-element")) {
+            find_users(user_names, user);
+            continue;
+          }
+          user_names.push_back(absl::StrCat(user->name()));
+        }
+      };
+  if (hlo_instruction) {
+    std::vector<std::string> operand_names;
+    std::vector<std::string> user_names;
+    find_operands(operand_names, hlo_instruction);
+    find_users(user_names, hlo_instruction);
+    json["operand_names"] = operand_names;
+    json["consumer_names"] = user_names;
+    return json.dump();
+  } else if (hlo_computation) {
+    return absl::UnimplementedError(
+        "GetAdjacentNodes is not implemented for HloComputation.");
+  }
+  return absl::InvalidArgumentError(absl::StrCat(
+      "Couldn't find HloInstruction or HloComputation named ", node_name, "."));
 }
 
 absl::StatusOr<std::string> ConvertHloProtoToGraph(
@@ -367,7 +428,6 @@ absl::StatusOr<std::string> ConvertHloProtoToMeGraph(
 absl::StatusOr<std::string> PrintJson(const xla::HloProto& proto) {
   return absl::UnimplementedError("Not implemented");
 }
-
 
 absl::StatusOr<std::string> PrintPbTxt(const xla::HloProto& hlo_proto) {
   google::protobuf::TextFormat::Printer printer;

@@ -663,6 +663,9 @@ dashboard would integrate trace viewer app using iframe.
 
     _sessionId: string = '',
     _devices: null,
+    // Map cache of hlo module name, to hlo op name, to the adj nodes.
+    _hloAdjNodesMap: new Map(),
+    _selectedSingleEvent: null,
 
 
     _convertTimeToCycles: function(e) {
@@ -743,11 +746,26 @@ dashboard would integrate trace viewer app using iframe.
       this._eventDetails.appendChild(toolLinkElement);
     },
 
+    addHloGraphInfo: async function(hloOp, hloModule) {
+      const hloGraphInfoNodeElement = document.createElement('div');
+      hloGraphInfoNodeElement.innerHTML = `Context for Hlo Op Event (${hloOp}): loading...`;
+      this._eventDetails.appendChild(hloGraphInfoNodeElement);
+      const adjNodesInfo  = await this._maybeFetchAdjacentEvents(hloOp, hloModule);
+      hloGraphInfoNodeElement.innerHTML = `
+        <div style="display:flex;"><div style="width:100px;">operands:</div> <div style="width:80%;">${adjNodesInfo['operand_names'].join(',')}</div></div>
+        <div style="display:flex;"><div style="width:100px;">consumers:</div> <div style="width:80%;">${adjNodesInfo['consumer_names'].join(',')}</div></div>
+      `;
+    },
+
+    // Custom on selection event handler for single event selection.
     onSelectionChange: async function(events) {
       if (events === undefined) return;
       if (events.length != 1) return;
 
       for (const event of events) {  // only loop once.
+        // Don't need to repopulate the details for the same event selection.
+        if (this._selectedSingleEvent == event) return;
+
         await this._maybeFetchEventArgs(event);
         if (this._eventDetails) {
           this._eventDetails.innerHTML = '<div id="event-details" ' +
@@ -871,6 +889,11 @@ dashboard would integrate trace viewer app using iframe.
                 event.args['group_id'];
           this._eventDetails.appendChild(traceViewerStepLinkElement);
         }
+        // Plot the hlo graph context for the selected hlo op event.
+        if (xla_ops){
+          this.addHloGraphInfo(hloOp, hloModule, event);
+        }
+        this._selectedSingleEvent = event;
       }
     },
 
@@ -1172,6 +1195,49 @@ dashboard would integrate trace viewer app using iframe.
         stackFrame.appendChild(stack_frame_button);
         stackFrame.appendChild(stack_frame_content);
       }
+    },
+
+    _maybeFetchAdjacentEvents: async function(nodeName, moduleName) {
+      if (!this._hloAdjNodesMap.has(moduleName)) {
+        this._hloAdjNodesMap.set(moduleName, new Map());
+      }
+      if (this._hloAdjNodesMap.get(moduleName).has(nodeName)) return this._hloAdjNodesMap.get(moduleName).get(nodeName);
+
+      let requestUrl;
+      if (this._sessionId) {
+        requestURL = new URL(`/graph_viewer.json?session_id=${this._sessionId}`, window.location.origin);
+        requestURL.searchParams.set('node_name', nodeName);
+        requestURL.searchParams.set('module_name', moduleName);
+      } else {
+        requestURL = new URL(`/data/plugin/profile/data`, window.location?.origin);
+        requestURL.hash = 'profile';
+        requestURL.searchParams.set('tag', 'graph_viewer');
+        const traceViewerLink = new URL(window.location.origin + this.traceDataUrl);
+        const currentRun = traceViewerLink.searchParams.get('run');
+        requestURL.searchParams.set('run', currentRun);
+        requestURL.searchParams.set('node_name', nodeName);
+        requestURL.searchParams.set('module_name', moduleName);
+      }
+      requestURL.searchParams.set('type', 'adj_nodes');
+      const jsonString = await new Promise(function(resolve, reject) {
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', requestURL);
+          xhr.onload = function() {
+            var contentType = this.getResponseHeader('Content-Type');
+            if (this.status !== 200 || !contentType.startsWith('text/plain')) {
+              var msg = requestURL + ' could not be loaded.';
+              msg = msg + ': ' + xhr.statusText;
+              reject(msg);
+            }
+            resolve(xhr.response);
+          };
+          xhr.onerror = function() {
+            reject(`Cannot fetch graph dot with uri ${requestURL}: ${xhr.statusText}`);
+          };
+          xhr.send();
+        });
+      this._hloAdjNodesMap.get(moduleName).set(nodeName,JSON.parse(jsonString));
+      return this._hloAdjNodesMap.get(moduleName).get(nodeName);
     },
 
     _maybeFetchEventArgs: async function(event) {
