@@ -67,8 +67,8 @@ nightly package.
 To install the nightly version of profiler:
 
 ```
-$ pip uninstall tensorboard-plugin-profile
-$ pip install tbp-nightly
+$ pip uninstall xprof
+$ pip install xprof-nightly
 ```
 
 Without TensorBoard:
