@@ -75,7 +75,8 @@ export class DataServiceV2 implements DataServiceV2Interface {
 
   getData(
       sessionId: string, tool: string, host: string,
-      parameters: Map<string, string> = new Map()): Observable<DataTable|null> {
+      parameters: Map<string, string> = new Map()):
+      Observable<DataTable|DataTable[]|null> {
     let params = new HttpParams()
                      .set('run', sessionId)
                      .set('tag', tool)
