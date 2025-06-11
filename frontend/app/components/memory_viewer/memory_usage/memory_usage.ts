@@ -14,11 +14,9 @@ interface MemoryUsageBytes {
 export class MemoryUsage {
   private nColor: number;
 
-  totalBufferAllocationBytes: number;
   peakHeapSizeBytes: number;
   paddingOverhead: number;
-  hloTempSizeWithoutFragmentationBytes: number;
-  hloTempSizeWithFragmentationBytes: number;
+  hloTempSizeBytes: number;
   hloTempFragmentation: number;
   totalArgumentSizeBytes: number;
   peakLogicalBuffers: number[];
@@ -51,11 +49,9 @@ export class MemoryUsage {
       currentModule: string|null) {
     this.nColor = 0;
 
-    this.totalBufferAllocationBytes = 0;
     this.peakHeapSizeBytes = 0;
     this.paddingOverhead = 0;
-    this.hloTempSizeWithoutFragmentationBytes = 0;
-    this.hloTempSizeWithFragmentationBytes = 0;
+    this.hloTempSizeBytes = 0;
     this.hloTempFragmentation = 0;
     this.totalArgumentSizeBytes = 0;
     this.peakLogicalBuffers = [];
@@ -106,22 +102,19 @@ export class MemoryUsage {
               currentRun}&tag=memory_viewer&module_name=${
               currentModule}&view_memory_allocation_timeline=true`;
     }
-    this.totalBufferAllocationBytes =
+    this.peakHeapSizeBytes =
         (preprocess.totalBufferAllocationMib || 0) * 1024 * 1024;
-    this.peakHeapSizeBytes = (preprocess.peakHeapMib || 0) * 1024 * 1024;
-    this.paddingOverhead = this.peakHeapSizeBytes -
+    this.paddingOverhead = (preprocess.peakHeapMib || 0) * 1024 * 1024 -
         (preprocess.peakUnpaddedHeapMib || 0) * 1024 * 1024;
     this.totalArgumentSizeBytes =
         (preprocess.entryComputationParametersMib || 0) * 1024 * 1024;
-    this.hloTempSizeWithoutFragmentationBytes = this.peakHeapSizeBytes -
-        (preprocess.indefiniteBufferAllocationMib || 0) * 1024 * 1024;
-    this.hloTempSizeWithFragmentationBytes = this.totalBufferAllocationBytes -
+    this.hloTempSizeBytes = this.peakHeapSizeBytes -
         (preprocess.indefiniteBufferAllocationMib || 0) * 1024 * 1024;
     const fragmentationSizeBytes =
-        this.totalBufferAllocationBytes - this.peakHeapSizeBytes;
-    if (this.hloTempSizeWithFragmentationBytes) {
+        this.peakHeapSizeBytes - (preprocess.peakHeapMib || 0) * 1024 * 1024;
+    if (this.hloTempSizeBytes) {
       this.hloTempFragmentation =
-          fragmentationSizeBytes / this.hloTempSizeWithFragmentationBytes;
+          fragmentationSizeBytes / this.hloTempSizeBytes;
     }
 
     this.peakHeapSizePosition = (preprocess.peakHeapSizePosition || 0);
