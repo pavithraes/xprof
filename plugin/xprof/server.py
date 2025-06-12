@@ -113,14 +113,30 @@ def main() -> int:
   parser = argparse.ArgumentParser(
       prog="xprof",
       description="Launch the XProf profiling server.",
-      epilog="Example: xprof ~/jax/profile-logs -p 8080",
+      formatter_class=argparse.RawDescriptionHelpFormatter,
+      epilog="Examples:\n"
+      "\txprof ~/jax/profile-logs -p 8080\n"
+      "\txprof --logdir ~/jax/profile-logs -p 8080",
   )
 
-  parser.add_argument(
-      "logdir",
+  logdir_group = parser.add_mutually_exclusive_group(required=True)
+
+  logdir_group.add_argument(
+      "-l",
+      "--logdir",
+      dest="logdir_opt",
       metavar="<logdir>",
       type=str,
       help="The directory where profile files will be stored.",
+  )
+
+  logdir_group.add_argument(
+      "logdir_pos",
+      nargs="?",
+      metavar="logdir",
+      type=str,
+      default=None,
+      help="Positional argument for the profile log directory.",
   )
 
   parser.add_argument(
@@ -137,7 +153,7 @@ def main() -> int:
   except SystemExit as e:
     return e.code
 
-  logdir = args.logdir
+  logdir = args.logdir_opt or args.logdir_pos
   port = args.port
 
   print("Attempting to start XProf server:")
