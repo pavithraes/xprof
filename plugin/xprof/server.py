@@ -118,7 +118,6 @@ def main() -> int:
 
   parser.add_argument(
       "logdir",
-      "--logdir",
       metavar="<logdir>",
       type=str,
       help="The directory where profile files will be stored.",
