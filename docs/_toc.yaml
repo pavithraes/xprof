@@ -13,7 +13,7 @@
 
 toc:
 - heading: XProf developer guide
-- title: Getting started
+- title: Tool Documentation
   section:
   - title: Graph Viewer
     path: /xprof/graph_viewer
@@ -35,5 +35,10 @@ toc:
     path: /xprof/framework_op_stats
   - title: GPU Kernel Stats
     path: /xprof/gpu_kernel_stats
-  - title: DCN Collective Stats
-    path: /xprof/dcn_collective_stats
+  - title: Megascale Stats
+    path: /xprof/megascale_stats
+- title: Demo Notebook
+  section:
+  - title: XProf Demo
+    path: /xprof/xprof_demo
+

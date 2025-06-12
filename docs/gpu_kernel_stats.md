@@ -33,8 +33,8 @@ The table includes the following information for each kernel-op pair:
     gridDim.x, gridDim.y, gridDim.z.
 *   Theoretical occupancy: The theoretical
     [occupancy](https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy)
-    of the GPU expressed as a percentage. This indicates the ability of the
-    shared memory to hide latencies.
+    of the GPU expressed as a percentage. This is an indication of the ability
+    to hide memory latency.
 *   Kernel uses Tensor Core: A heuristic indicating whether the kernel itself
     contains Tensor Core instructions, based on the presence of common Tensor
     Core instructions.
