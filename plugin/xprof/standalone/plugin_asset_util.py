@@ -19,6 +19,8 @@ import urllib.parse
 import fsspec
 
 _PLUGINS_DIR = "plugins"
+# In the future, if S3 support is needed, "s3://" can be added here.
+_PROTOCOL_PREFIXES = ("gs://",)
 
 
 def get_fs_protocol(path):
@@ -67,15 +69,31 @@ def walk_with_fsspec(top):
     return
 
 
+def _reconstruct_path(base_path: str, item_path: str) -> str:
+  """Prepends a protocol to the item path if the base path has one.
+
+  This handles inconsistencies in fsspec's listdir output:
+  - GCS: returns paths without the 'gs://' protocol.
+  - Local: returns absolute paths.
+  This function reconstructs the full path by adding the protocol if needed.
+
+  Args:
+    base_path: The base path that may have a protocol (e.g., 'gs://...').
+    item_path: The path to an item, which may be missing the protocol.
+
+  Returns:
+    The item path, with the protocol prepended if necessary.
+  """
+  prefix = next((p for p in _PROTOCOL_PREFIXES if base_path.startswith(p)), "")
+  return prefix + item_path
+
+
 def iterate_directory_with_fsspec(plugin_dir):
   """Replaces upath.UPath(plugin_dir).iterdir() with fsspec."""
   try:
     fs = get_fs_protocol(plugin_dir)
     for item in fs.listdir(plugin_dir):
-      full_path = os.path.join(
-          plugin_dir, item["name"]
-      )  # construct the full path
-      yield full_path
+      yield _reconstruct_path(plugin_dir, item["name"])
   except FileNotFoundError:
     # Handle cases where the directory doesn't exist.
     print(f"Directory not found: {plugin_dir}")

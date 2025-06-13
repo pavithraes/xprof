@@ -17,10 +17,11 @@
 import collections
 import logging
 import os
-import pathlib
 import re
 from typing import Iterator
 import urllib.parse
+
+from etils import epath
 
 from xprof.standalone import plugin_asset_util
 
@@ -121,7 +122,7 @@ class EventMultiplexer:
     return self
 
   def AddRunsFromDirectory(self, path: str, name: str = None):
-    path = str(pathlib.Path(path).expanduser())
+    path = str(epath.Path(path).expanduser())
     logger.info("Starting AddRunsFromDirectory: %s", path)
     for subdir in GetLogdirSubdirectories(path):
       logger.info("Adding run from directory %s", subdir)

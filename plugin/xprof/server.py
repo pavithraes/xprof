@@ -16,11 +16,11 @@
 
 import argparse
 import collections
-import os
 import socket
 import sys
 
 from cheroot import wsgi
+from etils import epath
 from xprof.profile_plugin_loader import ProfilePluginLoader
 from xprof.standalone.base_plugin import TBContext
 from xprof.standalone.plugin_event_multiplexer import DataProvider
@@ -160,7 +160,7 @@ def main() -> int:
   print(f"  Log Directory: {logdir}")
   print(f"  Port: {port}")
 
-  if not os.path.isdir(logdir):
+  if not epath.Path(logdir).exists():
     print(
         f"Error: Log directory '{logdir}' does not exist or is not a"
         " directory.",
