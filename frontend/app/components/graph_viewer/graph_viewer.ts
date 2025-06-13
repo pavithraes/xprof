@@ -344,7 +344,11 @@ export class GraphViewer implements OnDestroy {
       ): Node|null|undefined {
     if (!children) return null;
     for (const node of children) {
-      if (node.name === name || node.name === `${name} and its duplicate(s)`) {
+      // Only looking for xla instruction node, as that is what's visualized in
+      // the grpah. Assumptions: only instruction node has xla field.
+      if (node.xla &&
+          (node.name === name ||
+           node.name === `${name} and its duplicate(s)`)) {
         return node;
       }
       const findChildren = this.findNode(node.children, name);
