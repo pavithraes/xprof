@@ -36,7 +36,7 @@ export class GraphConfig implements OnDestroy, OnChanges {
   get params() {
     const params: GraphConfigInput = {
       selectedModule: this.selectedModule,
-      opName: this.opName,
+      opName: this.opName.trim(),
       graphWidth: this.graphWidth,
       showMetadata: this.showMetadata,
       mergeFusion: this.mergeFusion,
