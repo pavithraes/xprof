@@ -1,12 +1,11 @@
 load("@io_bazel_rules_sass//:defs.bzl", "sass_binary")
-load("//javascript/angular2:build_defs.bzl", "ng_module")
+load("//defs:defs.bzl", "xprof_ng_module")
 
 package(default_visibility = [
-    "//perftools/accelerators/xprof/frontend:__subpackages__",
     "@org_xprof//frontend:__subpackages__",
 ])
 
-ng_module(
+xprof_ng_module(
     name = "max_heap_chart_downloader",
     srcs = [
         "max_heap_chart_downloader.ts",
@@ -17,8 +16,6 @@ ng_module(
         "max_heap_chart_downloader.ng.html",
     ],
     deps = [
-        "//javascript/security:safe_downloader",
-        "//third_party/javascript/ts_csv",
         "@npm//@angular/common",
         "@npm//@angular/core",
         "@org_xprof//frontend/app/common/angular:angular_material_button",

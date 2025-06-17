@@ -1,9 +1,7 @@
 import {Component, Input} from '@angular/core';
-import {SafeDownloader} from 'google3/javascript/security/safe_downloader';
 import {type MemoryViewerPreprocessResult} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {HeapObject} from 'org_xprof/frontend/app/common/interfaces/heap_object';
 import {MemoryUsage} from 'org_xprof/frontend/app/components/memory_viewer/memory_usage/memory_usage';
-import {writer} from 'ts-csv';
 
 /** A component to download hlo module in proto, text or json formats. */
 @Component({
@@ -91,8 +89,5 @@ export class MaxHeapChartDownloader {
         heapObject.groupName || 'UNKNOWN',
       ]);
     }
-    const csvString = [...writer(this.data)].join('');
-    const csvBlob = new Blob([csvString], {type: 'text/csv;charset=utf-8'});
-    await SafeDownloader.download(csvBlob, fileName, 'text/csv;charset=utf-8');
   }
 }
