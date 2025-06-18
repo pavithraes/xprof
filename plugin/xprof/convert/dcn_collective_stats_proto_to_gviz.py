@@ -85,6 +85,10 @@ def get_dcn_collective_stats_table_args(dcn_slack_analysis):
       ("sendOpName", "string", "Send Op Name"),
       ("slackTime", "number", "Slack Time (ms)"),
       ("observedDuration", "number", "Observed Duration (ms)"),
+      ("sendDuration", "number", "Send Stall (ms)"),
+      ("recvDuration", "number", "Recv Stall (ms)"),
+      ("sendDoneDuration", "number", "SendDone Stall (ms)"),
+      ("recvDoneDuration", "number", "RecvDone Stall (ms)"),
       ("stallDuration", "number", "Stall Duration (ms)"),
       ("occurrences", "number", "Occurrences"),
       ("totalStallDuration", "number", "Aggregated Total Stall (ms)"),
@@ -93,6 +97,7 @@ def get_dcn_collective_stats_table_args(dcn_slack_analysis):
   ]
 
   data = []
+  set_op_times(dcn_slack_analysis)
   for slack in dcn_slack_analysis.dcn_slack_summary:
     row = [
         slack.rendezvous,
@@ -100,6 +105,10 @@ def get_dcn_collective_stats_table_args(dcn_slack_analysis):
         slack.send_op_name,
         slack.slack_us / 1000,
         slack.observed_duration_us / 1000,
+        slack.send_duration_us / 1000,
+        slack.recv_duration_us / 1000,
+        slack.send_done_duration_us / 1000,
+        slack.recv_done_duration_us / 1000,
         slack.stall_duration_us / 1000,
         slack.occurrences,
         (slack.stall_duration_us * slack.occurrences) / 1000,
@@ -117,6 +126,45 @@ def get_dcn_collective_stats_table_args(dcn_slack_analysis):
     data.append(row)
 
   return (table_description, data, [])
+
+
+def set_op_times(dcn_slack_analysis):
+  """Sets the op start and end times for each op in the DcnSlackAnalysis proto."""
+  slack_list_dict = {}
+  for slack in dcn_slack_analysis.dcn_slack:
+    if slack.rendezvous not in slack_list_dict:
+      slack_list_dict[slack.rendezvous] = []
+    slack_list_dict[slack.rendezvous].append(slack)
+  for slack_summary in dcn_slack_analysis.dcn_slack_summary:
+    if slack_summary.rendezvous not in slack_list_dict:
+      continue
+    slack_list = slack_list_dict[slack_summary.rendezvous]
+    slack_list.sort(key=lambda x: x.send_start_time_us)
+    slack_summary.send_duration_us = 0
+    slack_summary.recv_duration_us = 0
+    slack_summary.send_done_duration_us = 0
+    slack_summary.recv_done_duration_us = 0
+    for slack in slack_list:
+      slack_summary.send_duration_us += int(slack.send.duration_ps / 1000000)
+      slack_summary.recv_duration_us += int(slack.recv.duration_ps / 1000000)
+      slack_summary.send_done_duration_us += int(
+          slack.send_done.duration_ps / 1000000
+      )
+      slack_summary.recv_done_duration_us += int(
+          slack.recv_done.duration_ps / 1000000
+      )
+    slack_summary.send_duration_us = int(
+        slack_summary.send_duration_us / slack_summary.occurrences
+    )
+    slack_summary.recv_duration_us = int(
+        slack_summary.recv_duration_us / slack_summary.occurrences
+    )
+    slack_summary.send_done_duration_us = int(
+        slack_summary.send_done_duration_us / slack_summary.occurrences
+    )
+    slack_summary.recv_done_duration_us = int(
+        slack_summary.recv_done_duration_us / slack_summary.occurrences
+    )
 
 
 def generate_dcn_collective_stats_table(dcn_slack_analysis):
