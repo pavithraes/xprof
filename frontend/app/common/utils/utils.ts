@@ -67,6 +67,12 @@ const KNOWN_TOOLS = [
 ];
 
 /**
+ * The limit for peak flop rate to be considered as readable.
+ * If the peak flop rate is above this limit, it will be converted to TFLOP/s.
+ */
+export const PEAK_FLOP_RATE_READABLE_LIMIT = 1000.0;
+
+/**
  * Re-define enum here since NumericMemBwType from
  * org_xprof/frontend/app/common/interfaces/op_metrics.jsonpb_decls
  * is not accessible anymore. See b/266687316.
@@ -454,4 +460,31 @@ export function convertToSourceTopLine(
     return fileName;
   }
   return `${fileName}:${lineNumber}`;
+}
+
+/**
+ * Converts a value from Gigaflops to Teraflops and formats it as a string.
+ * @param value The value in Gigaflops (can be a string or a number).
+ * @param options Optional. An object with a `dp` property specifying the number
+ *     of decimal places (defaults to 2).
+ * @returns The value in Teraflops, formatted to the specified number of decimal
+ *     places.
+ */
+export function convertGigaflopsToTeraflops(
+    value: number, {dp = 2} = {}): number {
+  return Number((value / 1000).toFixed(dp));
+}
+
+/**
+ * Converts a value from Gigaflops to Teraflops if the value is above the
+ * readable limit.
+ * @param value The value in Gigaflops.
+ * @returns An object with the new value and unit.
+ */
+export function getGigaflopsReadableString(value: number): string {
+  if (value >= PEAK_FLOP_RATE_READABLE_LIMIT) {
+    const convertedValue = convertGigaflopsToTeraflops(value);
+    return `${convertedValue} TFLOP/s`;
+  }
+  return `${value} GFLOP/s`;
 }

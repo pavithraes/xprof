@@ -1,9 +1,9 @@
 import {Component, inject, OnDestroy, ViewChild} from '@angular/core';
 import {ActivatedRoute, Params} from '@angular/router';
 import {Store} from '@ngrx/store';
-import {DEVICE_INFO, NUMERIC_DATA_FORMAT, PIE_CHART_PALETTE, ROOFLINE_STYLES, SCATTER_CHART_AXIS, SCATTER_CHART_OPTIONS,} from 'org_xprof/frontend/app/common/constants/roofline_model_constants';
+import {DEVICE_INFO, NUMERIC_DATA_FORMAT, PIE_CHART_PALETTE, ROOFLINE_STYLES, SCATTER_CHART_AXIS, SCATTER_CHART_OPTIONS} from 'org_xprof/frontend/app/common/constants/roofline_model_constants';
 import {RooflineModelData} from 'org_xprof/frontend/app/common/interfaces/roofline_model';
-import {setLoadingState} from 'org_xprof/frontend/app/common/utils/utils';
+import {getGigaflopsReadableString, setLoadingState} from 'org_xprof/frontend/app/common/utils/utils';
 import {DATA_SERVICE_INTERFACE_TOKEN, DataServiceV2Interface} from 'org_xprof/frontend/app/services/data_service_v2/data_service_v2_interface';
 import {setCurrentToolStateAction} from 'org_xprof/frontend/app/store/actions';
 import {ReplaySubject} from 'rxjs';
@@ -16,7 +16,7 @@ interface DeviceInfoData {
   id: string;
   label: string;
   type?: string;
-  value?: string | number;
+  value?: string|number;
   unit?: string;
   context?: string;
   display?: boolean;
@@ -114,6 +114,30 @@ export class RooflineModel implements OnDestroy {
       this.update();
     });
     this.store.dispatch(setCurrentToolStateAction({currentTool: this.tool}));
+  }
+
+  /**
+   * Helper function to format the device information text.
+   * It converts the Gigaflops to Teraflops if the value is above the threshold
+   * and the unit is GFLOP/s.
+   */
+  deviceInfoText(deviceInfo: DeviceInfoData): string {
+    const {value, unit, id, context} = deviceInfo;
+    let infoText = '';
+
+    if (id === 'peak_flop_rate') {
+      infoText = getGigaflopsReadableString(Number(value));
+    } else {
+      infoText = String(value);
+      if (unit) {
+        infoText += ` ${unit}`;
+      }
+    }
+
+    if (context) {
+      infoText += ` ${context}`;
+    }
+    return infoText;
   }
 
   parseUrlParams() {
@@ -712,24 +736,25 @@ export class RooflineModel implements OnDestroy {
    */
   addRooflinesSeriesRows(scatterData: google.visualization.DataTable) {
     const rooflineInfo = this.deviceInfoArray.reduce(
-      (acc, item) => {
-        acc[item.id] = Number(item.value || 0);
-        return acc;
-      },
-      {} as {[key: string]: number},
+        (acc, item) => {
+          acc[item.id] = Number(item.value || 0);
+          return acc;
+        },
+        {} as {[key: string]: number},
     );
     let columnIndex = 1;
 
     if (!this.deviceIndicators.isGpu) {
-      const addRooflinePairs = (memType: 'cmem' | 'vmem') => {
+      const addRooflinePairs = (memType: 'cmem'|'vmem') => {
         ['read', 'write'].forEach((opType) => {
           this.addRoofline(
-            `${memType.toUpperCase()} ${opType.charAt(0).toUpperCase() + opType.slice(1)}`,
-            columnIndex,
-            rooflineInfo['peak_flop_rate'],
-            rooflineInfo[`peak_${memType}_${opType}_bw`],
-            rooflineInfo[`${memType}_${opType}_ridge_point`],
-            scatterData,
+              `${memType.toUpperCase()} ${
+                  opType.charAt(0).toUpperCase() + opType.slice(1)}`,
+              columnIndex,
+              rooflineInfo['peak_flop_rate'],
+              rooflineInfo[`peak_${memType}_${opType}_bw`],
+              rooflineInfo[`${memType}_${opType}_ridge_point`],
+              scatterData,
           );
           columnIndex += 2; // value col + tooltip col
         });
@@ -743,23 +768,23 @@ export class RooflineModel implements OnDestroy {
     } else {
       // Just use vmem_read for gpu SHM/L1
       this.addRoofline(
-        'Shared Mem / L1',
-        columnIndex,
-        rooflineInfo['peak_flop_rate'],
-        rooflineInfo['peak_vmem_write_bw'],
-        rooflineInfo['vmem_write_ridge_point'],
-        scatterData,
+          'Shared Mem / L1',
+          columnIndex,
+          rooflineInfo['peak_flop_rate'],
+          rooflineInfo['peak_vmem_write_bw'],
+          rooflineInfo['vmem_write_ridge_point'],
+          scatterData,
       );
       columnIndex += 2; // value col + tooltip col
     }
 
     this.addRoofline(
-      'HBM',
-      columnIndex,
-      rooflineInfo['peak_flop_rate'],
-      rooflineInfo['peak_hbm_bw'],
-      rooflineInfo['hbm_ridge_point'],
-      scatterData,
+        'HBM',
+        columnIndex,
+        rooflineInfo['peak_flop_rate'],
+        rooflineInfo['peak_hbm_bw'],
+        rooflineInfo['hbm_ridge_point'],
+        scatterData,
     );
   }
 
