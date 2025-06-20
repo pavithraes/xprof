@@ -15,12 +15,12 @@ limitations under the License.
 
 #include "xprof/convert/xplane_to_dcn_collective_stats.h"
 
-#include <memory>
 #include <string>
 #include <utility>
 
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "google/protobuf/arena.h"
 #include "xla/tsl/platform/errors.h"
 #include "xla/tsl/platform/statusor.h"
 #include "xla/tsl/platform/types.h"
@@ -44,8 +44,9 @@ absl::StatusOr<bool> GetDcnCollectiveStatsFromMultiXSpaceAndSaveToFile(
   DcnSlackAnalysisCombiner combiner;
   for (int idx = 0; idx < session_snapshot.XSpaceSize(); idx++) {
     std::string hostname = session_snapshot.GetHostname(idx);
-    TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                        session_snapshot.GetXSpace(idx));
+    google::protobuf::Arena arena;
+    TF_ASSIGN_OR_RETURN(XSpace* xspace,
+                        session_snapshot.GetXSpace(idx, &arena));
 
     // The profile does not have dcn collective stats.
     if (!HasDcnCollectiveStatsInXSpace(*xspace)) {
@@ -100,8 +101,9 @@ absl::StatusOr<bool> HasDcnCollectiveStatsInMultiXSpace(
   if (!hasCacheFile.first) {
     for (int idx = 0; idx < session_snapshot.XSpaceSize(); idx++) {
       std::string hostname = session_snapshot.GetHostname(idx);
-      TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                          session_snapshot.GetXSpace(idx));
+      google::protobuf::Arena arena;
+      TF_ASSIGN_OR_RETURN(XSpace* xspace,
+                          session_snapshot.GetXSpace(idx, &arena));
 
       if (HasDcnCollectiveStatsInXSpace(*xspace)) {
         return true;

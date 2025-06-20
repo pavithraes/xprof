@@ -28,6 +28,7 @@ limitations under the License.
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/arena.h"
 #include "xla/tsl/platform/env.h"
 #include "xla/tsl/platform/statusor.h"
 #include "xla/tsl/profiler/utils/file_system_utils.h"
@@ -67,12 +68,12 @@ class SessionSnapshot {
 
   // Gets XSpace proto.
   // The caller of this function will take ownership of the XSpace.
-  absl::StatusOr<std::unique_ptr<XSpace>> GetXSpace(size_t index) const;
+  absl::StatusOr<XSpace*> GetXSpace(size_t index, google::protobuf::Arena* arena) const;
 
   // Gets XSpace proto.
   // The caller of this function will take ownership of the XSpace.
-  absl::StatusOr<std::unique_ptr<XSpace>> GetXSpaceByName(
-      absl::string_view name) const;
+  absl::StatusOr<XSpace*> GetXSpaceByName(absl::string_view name,
+                                          google::protobuf::Arena* arena) const;
 
   // Gets host name.
   std::string GetHostname(size_t index) const;
@@ -194,10 +195,9 @@ inline absl::StatusOr<HloModuleMap> ProcessHloModuleMap(
   tensorflow::profiler::HloCostAnalysisWrapper::Factory create_cost_analysis =
       []() { return nullptr; };
   for (int i = 0; i < session_snapshot.XSpaceSize(); i++) {
-    TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                        session_snapshot.GetXSpace(i));
-    ProcessHloModuleMapFromXSpace(hlo_module_map, xspace.get(),
-                                  create_cost_analysis);
+    google::protobuf::Arena arena;
+    TF_ASSIGN_OR_RETURN(XSpace* xspace, session_snapshot.GetXSpace(i, &arena));
+    ProcessHloModuleMapFromXSpace(hlo_module_map, xspace, create_cost_analysis);
   }
   return hlo_module_map;
 }

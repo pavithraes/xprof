@@ -111,9 +111,9 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
         session_snapshot.XSpaceSize());
   }
 
-  TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                      session_snapshot.GetXSpace(0));
-  PreprocessSingleHostXSpace(xspace.get(), /*step_grouping=*/true,
+  google::protobuf::Arena arena;
+  TF_ASSIGN_OR_RETURN(XSpace* xspace, session_snapshot.GetXSpace(0, &arena));
+  PreprocessSingleHostXSpace(xspace, /*step_grouping=*/true,
                              /*derived_timeline=*/true);
   std::string content;
   if (tool_name == "trace_viewer") {
@@ -127,7 +127,7 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
           "streaming trace viewer hasn't been supported in Cloud AI");
     }
     if (!tsl::Env::Default()->FileExists(*sstable_path).ok()) {
-      ProcessMegascaleDcn(xspace.get());
+      ProcessMegascaleDcn(xspace);
       TraceEventsContainer trace_container;
       ConvertXSpaceToTraceEventsContainer(host_name, *xspace, &trace_container);
       std::unique_ptr<tsl::WritableFile> file;
@@ -231,9 +231,9 @@ absl::StatusOr<std::string> ConvertXSpaceToMemoryProfile(
   }
 
   std::string json_output;
-  TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                      session_snapshot.GetXSpace(0));
-  PreprocessSingleHostXSpace(xspace.get(), /*step_grouping=*/true,
+  google::protobuf::Arena arena;
+  TF_ASSIGN_OR_RETURN(XSpace* xspace, session_snapshot.GetXSpace(0, &arena));
+  PreprocessSingleHostXSpace(xspace, /*step_grouping=*/true,
                              /*derived_timeline=*/false);
   TF_RETURN_IF_ERROR(ConvertXSpaceToMemoryProfileJson(*xspace, &json_output));
   return json_output;
@@ -265,13 +265,14 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToTfDataBottleneckAnalysis(
   CombinedTfDataStatsBuilder builder(&combined_tf_data_stats);
 
   for (int idx = 0; idx < session_snapshot.XSpaceSize(); ++idx) {
-    TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                        session_snapshot.GetXSpace(idx));
+    google::protobuf::Arena arena;
+    TF_ASSIGN_OR_RETURN(XSpace* xspace,
+                        session_snapshot.GetXSpace(idx, &arena));
 
-    PreprocessSingleHostXSpace(xspace.get(), /*step_grouping=*/true,
+    PreprocessSingleHostXSpace(xspace, /*step_grouping=*/true,
                                /*derived_timeline=*/false);
     XPlane* host_plane = tsl::profiler::FindMutablePlaneWithName(
-        xspace.get(), tsl::profiler::kHostThreadsPlaneName);
+        xspace, tsl::profiler::kHostThreadsPlaneName);
     std::string host_name_from_file = session_snapshot.GetHostname(idx);
     if (host_plane == nullptr) {
       return tsl::errors::InvalidArgument(
@@ -344,9 +345,9 @@ absl::StatusOr<std::string> PreprocessXSpace(
         session_snapshot.XSpaceSize());
   }
 
-  TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                      session_snapshot.GetXSpace(0));
-  PreprocessSingleHostXSpace(xspace.get(), /*step_grouping=*/true,
+  google::protobuf::Arena arena;
+  TF_ASSIGN_OR_RETURN(XSpace* xspace, session_snapshot.GetXSpace(0, &arena));
+  PreprocessSingleHostXSpace(xspace, /*step_grouping=*/true,
                              /*derived_timeline=*/true);
   return xspace->SerializeAsString();
 }

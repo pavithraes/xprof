@@ -15,7 +15,6 @@ limitations under the License.
 
 #include "xprof/convert/xplane_to_hlo.h"
 
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -23,6 +22,7 @@ limitations under the License.
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/arena.h"
 #include "xla/service/hlo.pb.h"
 #include "xla/tsl/platform/env.h"
 #include "xla/tsl/platform/errors.h"
@@ -49,8 +49,8 @@ absl::StatusOr<bool> GetHloProtoFromMultiXSpaceAndSaveToFile(
   // Get all HLO protos from XSpaces and deduplicate.
   HloProtoMap hlo_proto_map;
   for (int i = 0; i < session_snapshot.XSpaceSize(); i++) {
-    TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                        session_snapshot.GetXSpace(i));
+    google::protobuf::Arena arena;
+    TF_ASSIGN_OR_RETURN(XSpace* xspace, session_snapshot.GetXSpace(i, &arena));
     hlo_proto_map.AddHloProtosFromXSpace(*xspace);
   }
 

@@ -15,12 +15,12 @@ limitations under the License.
 
 #include "xprof/convert/xplane_to_tool_names.h"
 
-#include <memory>
 #include <string>
 #include <vector>
 
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
+#include "google/protobuf/arena.h"
 #include "xla/tsl/platform/statusor.h"
 #include "xla/tsl/profiler/utils/tf_xplane_visitor.h"
 #include "xla/tsl/profiler/utils/xplane_schema.h"
@@ -81,8 +81,8 @@ absl::StatusOr<std::string> GetAvailableToolNames(
     // devices, and the tool list can be generated from the first host itself.
     // TODO(b/413686163): Create mechanism to cache the tools list.
     // Current optimization should benefits most profiles captured in 3P
-    TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                        session_snapshot.GetXSpace(0));
+    google::protobuf::Arena arena;
+    TF_ASSIGN_OR_RETURN(XSpace* xspace, session_snapshot.GetXSpace(0, &arena));
 
     has_kernel_stats =
         has_kernel_stats || !tsl::profiler::FindPlanesWithPrefix(

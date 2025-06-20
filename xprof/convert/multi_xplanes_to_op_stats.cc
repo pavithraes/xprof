@@ -15,10 +15,10 @@ limitations under the License.
 
 #include "xprof/convert/multi_xplanes_to_op_stats.h"
 
-#include <memory>
 #include <vector>
 
 #include "absl/status/status.h"
+#include "google/protobuf/arena.h"
 #include "xla/tsl/platform/statusor.h"
 #include "xla/tsl/platform/types.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
@@ -43,9 +43,9 @@ absl::Status ConvertMultiXSpacesToCombinedOpStats(
   std::vector<OpStats> all_op_stats;
   all_op_stats.reserve(session_snapshot.XSpaceSize());
   for (int i = 0; i < session_snapshot.XSpaceSize(); i++) {
-    TF_ASSIGN_OR_RETURN(std::unique_ptr<XSpace> xspace,
-                        session_snapshot.GetXSpace(i));
-    PreprocessSingleHostXSpace(xspace.get(), /*step_grouping=*/true,
+    google::protobuf::Arena arena;
+    TF_ASSIGN_OR_RETURN(XSpace* xspace, session_snapshot.GetXSpace(i, &arena));
+    PreprocessSingleHostXSpace(xspace, /*step_grouping=*/true,
                                /*derived_timeline=*/true);
     all_op_stats.push_back(ConvertXSpaceToOpStats(*xspace, options));
   }
