@@ -360,7 +360,7 @@ std::unique_ptr<DataTable> GetRooflineModelDataTableForGpu(
       {
           "max_mem_bw_utilization",
           "number",
-          "Max memory (cmem or hbm) bandwidth utilization (%)",
+          "Max memory BW utilization (among supported memories) (%)",
       },
       {"include_infeed_outfeed", "boolean", "Include Infeed/Outfeed"},
       {"hlo_module_id", "string", "Program ID"},
@@ -495,7 +495,7 @@ std::unique_ptr<DataTable> GetRooflineModelDataTable(
       {
           "max_mem_bw_utilization",
           "number",
-          "Max memory (cmem or hbm) bandwidth utilization (%)",
+          "Max memory BW utilization (among supported memories) (%)",
       },
       {"include_infeed_outfeed", "boolean", "Include Infeed/Outfeed"},
       {"hlo_module_id", "string", "Program ID"},
