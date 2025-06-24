@@ -16,8 +16,6 @@ limitations under the License.
 #define THIRD_PARTY_XPROF_CONVERT_TRACE_VIEWER_TRACE_EVENTS_TO_JSON_H_
 
 #include <algorithm>
-#include <array>
-#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -30,19 +28,15 @@ limitations under the License.
 
 #include "absl/base/macros.h"
 #include "absl/container/fixed_array.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/log.h"
 #include "absl/strings/match.h"
-#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/time/time.h"
 #include "xla/tsl/profiler/utils/timespan.h"
-#include "xla/tsl/profiler/utils/xplane_schema.h"
 #include "tsl/platform/protobuf.h"
 #include "tsl/profiler/lib/context_types.h"
 #include "xprof/convert/trace_viewer/trace_events_util.h"
@@ -555,58 +549,7 @@ void TraceEventsToJson(const JsonTraceOptions& options,
       }
       if (!options.sort_resources_by_name.count(device_id)) {
         separator.Add();
-        uint32_t sort_index = [resource_id, &resource]() {
-          // TODO(b/427269105): Clean this up and move to
-          // ConvertXLineToTraceEvents
-          constexpr int kMaxSortLength = 10;
-          constexpr std::string_view kStreamLineName = "Stream";
-          auto kPrefixToOffset =
-              absl::flat_hash_map<absl::string_view, int>({
-                  {kStreamLineName, 0},
-                  {tsl::profiler::kTensorFlowNameScopeLineName, 1},
-                  {tsl::profiler::kTensorFlowOpLineName, 2},
-                  {tsl::profiler::kXlaModuleLineName, 3},
-                  {tsl::profiler::kXlaOpLineName, 4},
-                  {tsl::profiler::kSourceLineName, 5},
-              });
-          // Fix the sort index of GPU threads to make sure they are sorted by
-          // stream id. The sort index is used to sort the threads in the trace
-          // viewer UI. The sort index is set to the resource id by default,
-          // this function fixes it to make sure the GPU threads are sorted by
-          // stream id.
-          absl::string_view resource_name = resource.name();
-          uint32_t sort_index = resource_id;
-          std::vector<absl::string_view> parts =
-              absl::StrSplit(resource_name, '#');
-          if (parts.size() != 2) {
-            return sort_index;
-          }
-          absl::string_view prefix_view = parts[0];
-          absl::string_view suffix = parts[1];
-          prefix_view = absl::StripSuffix(prefix_view, " - from ");
-          prefix_view = absl::StripSuffix(prefix_view, " ");
-          auto it = kPrefixToOffset.find(prefix_view);
-          if (it == kPrefixToOffset.end()) {
-            return sort_index;
-          }
-          uint32_t stream_id;
-          std::string stream_id_str;
-          for (char c : suffix) {
-            if (isdigit(c)) {
-              stream_id_str.push_back(c);
-            } else {
-              break;
-            }
-          }
-          if (stream_id_str.empty()) {
-            return sort_index;
-          }
-          if (absl::SimpleAtoi(stream_id_str, &stream_id)) {
-            return stream_id * kMaxSortLength + it->second;
-          }
-          return sort_index;
-        }();
-        output->Append(R"({"args":{"sort_index":)", sort_index,
+        output->Append(R"({"args":{"sort_index":)", resource_id,
                        R"(},"name":"thread_sort_index","ph":"M","pid":)",
                        device_id, R"(,"tid":)", resource_id, "}");
       }
