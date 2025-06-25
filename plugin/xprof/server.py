@@ -21,6 +21,7 @@ import sys
 
 from cheroot import wsgi
 from etils import epath
+
 from xprof.profile_plugin_loader import ProfilePluginLoader
 from xprof.standalone.base_plugin import TBContext
 from xprof.standalone.plugin_event_multiplexer import DataProvider
@@ -108,6 +109,27 @@ def launch_server(logdir, port):
   run_server(plugin, _get_wildcard_address(port), port)
 
 
+def get_abs_path(logdir: str) -> str:
+  """Gets the absolute path for a given log directory string.
+
+  This function correctly handles both Google Cloud Storage (GCS) paths and
+  local filesystem paths.
+
+  - GCS paths (e.g., "gs://bucket/log") are returned as is.
+  - Local filesystem paths (e.g., "~/logs", "log", ".") are made absolute.
+
+  Args:
+      logdir: The path string.
+
+  Returns:
+      The corresponding absolute path as a string.
+  """
+  if logdir.startswith("gs://"):
+    return logdir
+
+  return str(epath.Path(logdir).expanduser().resolve())
+
+
 def main() -> int:
   """Parses command-line arguments and launches the XProf server."""
   parser = argparse.ArgumentParser(
@@ -153,7 +175,7 @@ def main() -> int:
   except SystemExit as e:
     return e.code
 
-  logdir = args.logdir_opt or args.logdir_pos
+  logdir = get_abs_path(args.logdir_opt or args.logdir_pos)
   port = args.port
 
   print("Attempting to start XProf server:")
