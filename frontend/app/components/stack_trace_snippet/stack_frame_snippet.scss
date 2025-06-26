@@ -18,8 +18,13 @@
   border-radius: 0;
   min-height: 20px;
   max-height: 20px;
-  font-family: 'Roboto Mono', monospace;
+  font-family: $code-font-family;
   white-space: nowrap;
+}
+
+.stack-frame-snippet code {
+  font-family: $code-font-family;
+  font-size: 0.8125em;
 }
 
 .stack-frame-snippet .stack-frame-snippet-title {
@@ -80,7 +85,7 @@ mat-progress-bar {
   text-align: right; // Align numbers to the right
   color: #636d83; // A slightly lighter gray than the code text
   user-select: none; // Prevent selection of line numbers
-  font-size: 0.9em; // Slightly smaller than code font
+  font-size: 0.9em;
 }
 
 .stack-frame-snippet .stack-frame-snippet-line-content {
