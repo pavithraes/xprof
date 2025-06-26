@@ -81,14 +81,10 @@ std::vector<uint32_t> PerformanceInfoWrapper::InputBitwidths() const {
 }
 
 int64_t PerformanceInfoWrapper::ComputationalPrimitiveBitwidth() const {
-  auto inputs = InputBitwidths();
-  if (inputs.empty()) return 0;
-
-  if (opcode_.has_value() && opcode_ == xla::HloOpcode::kConvolution &&
-      inputs.size() == 2) {
-    return *std::max_element(inputs.begin(), inputs.end());
-  }
-  return 0;
+  return input_bitwidths_.size() == 2 && opcode_.has_value() &&
+                 opcode_ == xla::HloOpcode::kConvolution
+             ? std::max(input_bitwidths_[0], input_bitwidths_[1])
+             : 0;
 }
 PerformanceInfoWrapper::PerformanceInfoWrapper(
     std::unique_ptr<PerfInfoType> performance_info,
