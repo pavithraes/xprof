@@ -66,3 +66,33 @@ sass_binary(
         "@org_xprof//frontend/app/styles:common",
     ],
 )
+
+xprof_ng_module(
+    name = "stack_trace_snippet",
+    srcs = [
+        "stack_trace_snippet.ts",
+        "stack_trace_snippet_module.ts",
+    ],
+    assets = [
+        ":stack_trace_snippet_css",
+        "stack_trace_snippet.ng.html",
+    ],
+    deps = [
+        ":message",
+        ":stack_frame_snippet",
+        "@npm//@angular/common",
+        "@npm//@angular/core",
+        "@org_xprof//frontend/app/common/angular:angular_material_expansion",
+        "@org_xprof//frontend/app/services/source_code_service:source_code_service_interface",
+    ],
+)
+
+sass_binary(
+    name = "stack_trace_snippet_css",
+    src = "stack_trace_snippet.scss",
+    # stack = False,
+    sourcemap = False,
+    deps = [
+        "@org_xprof//frontend/app/styles:common",
+    ],
+)
