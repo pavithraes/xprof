@@ -18,7 +18,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import collections
 from collections.abc import Callable, Iterator
 import gzip
 import json
@@ -974,21 +973,12 @@ class ProfilePlugin(base_plugin.TBPlugin):
         "new_job/tensorboard/run1"
     """
     def find_all_subdirectories(top_path: epath.Path) -> Iterator[epath.Path]:
-      if not top_path.is_dir():
-        return
-
-      dirs_to_visit = collections.deque([top_path])
-
-      while dirs_to_visit:
-        current_dir = dirs_to_visit.popleft()
-        yield current_dir
-
-        try:
-          for path in current_dir.iterdir():
-            if path.is_dir():
-              dirs_to_visit.append(path)
-        except (IOError, OSError) as e:
-          print(f'Warning: Could not list directory {current_dir}: {e}')
+      for path in top_path.iterdir():
+        if path.is_dir():
+          yield path
+          for subpath in path.iterdir():
+            if subpath.is_dir():
+              yield subpath
 
     # Create a background context; we may not be in a request.
     ctx = tb_context.RequestContext()
