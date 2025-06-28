@@ -78,6 +78,26 @@ export const ROOFLINE_STYLES = {
   },
 };
 
+/** Roofline names. */
+export const ROOFLINE_NAMES = {
+  HBM: 'HBM',
+  SHARED_MEM_L1: 'Shared Mem / L1',
+  VMEM_READ: 'VMEM Read',
+  VMEM_WRITE: 'VMEM Write',
+  CMEM_READ: 'CMEM Read',
+  CMEM_WRITE: 'CMEM Write',
+};
+
+/** Roofline series names. */
+export const ROOFLINE_SERIES_NAMES = {
+  HBM: 'HBM Roofline',
+  SHARED_MEM_L1: 'Shared Mem / L1 Roofline',
+  VMEM_READ: 'VMEM Read Roofline',
+  VMEM_WRITE: 'VMEM Write Roofline',
+  CMEM_READ: 'CMEM Read Roofline',
+  CMEM_WRITE: 'CMEM Write Roofline',
+};
+
 /** roofline model properties configuration */
 export const DEVICE_INFO = [
   {
