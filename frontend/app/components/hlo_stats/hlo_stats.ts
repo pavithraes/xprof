@@ -101,7 +101,7 @@ export class HloStats extends Dashboard implements OnDestroy {
       ...TABLE_OPTIONS,
       showRowNumber: false,
       page: 'enable',
-      pageSize: 100,
+      pageSize: 10,
       sortAscending: true,
       sortColumn: 0,
     },
