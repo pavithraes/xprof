@@ -213,6 +213,11 @@ xprof_proto_library(
 )
 
 xprof_proto_library(
+    name = "smart_suggestion_proto",
+    srcs = ["smart_suggestion.proto"],
+)
+
+xprof_proto_library(
     name = "protos_all",
     create_go_proto = False,
     create_java_proto = False,
@@ -247,6 +252,7 @@ xprof_proto_library(
         ":trace_events_proto",
         ":trace_events_old_proto",
         ":trace_events_raw_proto",
+        ":smart_suggestion_proto",
     ],
 )
 
@@ -270,6 +276,7 @@ exports_files(
         "pod_viewer.proto",
         "power_metrics.proto",
         "roofline_model.proto",
+        "smart_suggestion.proto",
         "source_info.proto",
         "steps_db.proto",
         "task.proto",
