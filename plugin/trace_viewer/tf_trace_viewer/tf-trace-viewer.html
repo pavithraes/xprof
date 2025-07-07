@@ -712,15 +712,21 @@ dashboard would integrate trace viewer app using iframe.
         });
     },
 
-    createStackTraceSnippetLink: function(text) {
-      if (!text || !this._sourceCodeServiceIsAvailable) return;
-      // LINT.IfChange(stack_trace_key)
+    createStackTraceSnippetLink: function(hloModule, hloOp, stackTrace) {
+      if (!stackTrace || !this._sourceCodeServiceIsAvailable) return;
+      // LINT.IfChange(stack_trace_page_keys)
+      const hloModuleKey = 'hlo_module';
+      const hloOpKey = 'hlo_op';
       const stackTraceKey = 'stack_trace';
-      // LINT.ThenChange(//depot/google3/third_party/xprof/frontend/app/components/stack_trace_page/stack_trace_page.ts:stack_trace_key)
+      // LINT.ThenChange(//depot/google3/third_party/xprof/frontend/app/components/stack_trace_page/stack_trace_page.ts:keys)
       this.createCrossToolLink(
           'stack_trace_page',
           'Stack Trace Source Code Snippet',
-          {[stackTraceKey]: text},
+          {
+            [hloModuleKey]: hloModule,
+            [hloOpKey]: hloOp,
+            [stackTraceKey]: stackTrace,
+          },
           'Open in a new page');
     },
 
@@ -846,7 +852,7 @@ dashboard would integrate trace viewer app using iframe.
             this.createCodeSearchLink(event.args?.source);
           }
           if (event.args?.source_stack) {
-            this.createStackTraceSnippetLink(event.args?.source_stack);
+            this.createStackTraceSnippetLink(hloModule, hloOp,event.args?.source_stack);
           }
         } else if ('Source code' === event.parentContainer.name && event.title && this._codeLink) {
           this.createCodeSearchLink(event.title);

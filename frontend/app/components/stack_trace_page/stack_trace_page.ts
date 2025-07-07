@@ -1,4 +1,4 @@
-import {Component, inject, Injector, OnDestroy, OnInit} from '@angular/core';
+import {Component, inject, Injector, OnDestroy} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {SOURCE_CODE_SERVICE_INTERFACE_TOKEN} from 'org_xprof/frontend/app/services/source_code_service/source_code_service_interface';
 import {ReplaySubject} from 'rxjs';
@@ -18,18 +18,24 @@ import {takeUntil} from 'rxjs/operators';
   templateUrl: './stack_trace_page.ng.html',
   styleUrls: ['./stack_trace_page.css'],
 })
-export class StackTracePage implements OnInit, OnDestroy {
+export class StackTracePage implements OnDestroy {
   private readonly injector = inject(Injector);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyed = new ReplaySubject<void>(1);
-  // LINT.IfChange(stack_trace_key)
+  // LINT.IfChange(keys)
+  private readonly hloModuleKey = 'hlo_module';
+  private readonly hloOpKey = 'hlo_op';
   private readonly stackTraceKey = 'stack_trace';
-  // LINT.ThenChange(//depot/org_xprof/plugin/trace_viewer/tf_trace_viewer/tf-trace-viewer.html:stack_trace_key)
+  // LINT.ThenChange(
+  //   //depot/google3/perftools/accelerators/xprof/frontend/app/common/constants/constants.ts:stack_trace_page_keys,
+  //   //depot/org_xprof/plugin/trace_viewer/tf_trace_viewer/tf-trace-viewer.html:stack_trace_page_keys)
 
+  hloModule = '';
+  hloOp = '';
   stackTrace = '';
   sourceCodeServiceIsAvailable = false;
 
-  ngOnInit() {
+  constructor() {
     // We don't need the source code service to be persistently available.
     // We temporarily use the service to check if it is available and show
     // UI accordingly.
@@ -42,6 +48,8 @@ export class StackTracePage implements OnInit, OnDestroy {
 
     this.route.queryParams.pipe(takeUntil(this.destroyed))
         .subscribe((params) => {
+          this.hloModule = params[this.hloModuleKey] || '';
+          this.hloOp = params[this.hloOpKey] || '';
           this.stackTrace = params[this.stackTraceKey] || '';
         });
   }
