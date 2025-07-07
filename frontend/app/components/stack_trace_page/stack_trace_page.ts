@@ -22,7 +22,9 @@ export class StackTracePage implements OnInit, OnDestroy {
   private readonly injector = inject(Injector);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyed = new ReplaySubject<void>(1);
+  // LINT.IfChange(stack_trace_key)
   private readonly stackTraceKey = 'stack_trace';
+  // LINT.ThenChange(//depot/org_xprof/plugin/trace_viewer/tf_trace_viewer/tf-trace-viewer.html:stack_trace_key)
 
   stackTrace = '';
   sourceCodeServiceIsAvailable = false;
