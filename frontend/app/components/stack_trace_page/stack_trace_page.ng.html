@@ -1,0 +1,5 @@
+<!-- TODO: b/428761875 - Provide more context. -->
+<!-- TODO: b/428947160 - Load the stack trace from the backend.-->
+<div class="container" *ngIf="sourceCodeServiceIsAvailable">
+  <stack-trace-snippet [stackTrace]="stackTrace" />
+</div>
