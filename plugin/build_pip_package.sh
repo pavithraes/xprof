@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "${RUNFILES}" ]; then
-  if [ "$(uname)" = "MSYS_NT-10.0-20348" ]; then
+  if [[ "$(uname)" == "MSYS_NT"* ]]; then
     build_workspace="$(cygpath "$BUILD_WORKSPACE_DIRECTORY")"
     runfiles_dir="${build_workspace}/bazel-out/x64_windows-fastbuild/"
     RUNFILES="$(CDPATH= cd -- "$0.exe.runfiles" && pwd)"

@@ -3,8 +3,6 @@ build --repo_env=TF_PYTHON_VERSION=3.10
 build --experimental_repo_remote_exec
 build --cxxopt=-std=c++17
 build --host_cxxopt=-std=c++17
-build --copt=-Wno-error=array-parameter
-build --copt=-w
 build --noenable_bzlmod
 
 build:macos --apple_platform_type=macos
@@ -47,6 +45,7 @@ build:ci_windows_amd64 --crosstool_top="@xla//tools/toolchains/win2022/20241118:
 build:ci_windows_amd64 --extra_toolchains="@xla//tools/toolchains/win2022/20241118:cc-toolchain-x64_windows-clang-cl"
 build:ci_windows_amd64 --host_linkopt=/FORCE:MULTIPLE --linkopt=/FORCE:MULTIPLE
 build:ci_windows_amd64 --color=yes
+build:ci_windows_amd64 --enable_runfiles
 
 # #############################################################################
 # RBE config options below. These inherit the CI configs above and set the
@@ -64,6 +63,8 @@ build:resultstore --bes_timeout=600s
 
 build:avx_linux --copt=-mavx
 build:avx_linux --host_copt=-mavx
+build:avx_linux --copt=-Wno-error=array-parameter
+build:avx_linux --copt=-w
 
 # Flag to enable remote config
 common --experimental_repo_remote_exec
@@ -120,7 +121,6 @@ build:rbe_windows_amd64 --extra_execution_platforms="@xla//tools/toolchains/win2
 build:rbe_windows_amd64 --platforms="@xla//tools/toolchains/win2022:windows_ltsc2022_clang"
 
 build:rbe_windows_amd64 --shell_executable=C:\\tools\\msys64\\usr\\bin\\bash.exe
-build:rbe_windows_amd64 --enable_runfiles
 build:rbe_windows_amd64 --define=override_eigen_strong_inline=true
 
 # Don't build the python zip archive in the RBE build.
