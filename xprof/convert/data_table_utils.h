@@ -289,7 +289,7 @@ class DataTable {
   void AddCustomProperty(std::string name, std::string value) {
     custom_properties_[name] = value;
   }
-  std::string ToJson() {
+  std::string ToJson() const {
     nlohmann::json table;
     table["cols"] = nlohmann::json::array();
     table["rows"] = nlohmann::json::array();
