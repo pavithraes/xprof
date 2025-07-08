@@ -17,8 +17,10 @@ limitations under the License.
 
 #include <vector>
 
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "google/protobuf/arena.h"
+#include "xla/tsl/platform/errors.h"
 #include "xla/tsl/platform/statusor.h"
 #include "xla/tsl/platform/types.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
@@ -64,6 +66,31 @@ absl::Status ConvertMultiXSpacesToCombinedOpStats(
       ComputeStepIntersectionToMergeOpStats(all_op_stats_info, kuint32max);
   CombineAllOpStats(all_op_stats_info, step_intersection, combined_op_stats);
 
+  return absl::OkStatus();
+}
+
+absl::Status ConvertMultiXSpaceToCombinedOpStatsWithCache(
+    const SessionSnapshot& session_snapshot, OpStats* combined_op_stats) {
+  OpStatsOptions options;
+  options.generate_op_metrics_db = true;
+  options.generate_step_db = true;
+  options.generate_kernel_stats_db = true;
+  TF_ASSIGN_OR_RETURN(auto has_cache,
+                      session_snapshot.HasCacheFile(StoredDataType::OP_STATS));
+  if (has_cache.first) {
+    TF_RETURN_IF_ERROR(ReadBinaryProto(session_snapshot,
+                                       StoredDataType::OP_STATS,
+                                       kAllHostsIdentifier, combined_op_stats));
+
+  } else {
+    TF_RETURN_IF_ERROR(ConvertMultiXSpacesToCombinedOpStats(
+        session_snapshot, options, combined_op_stats));
+    if (!WriteBinaryProto(session_snapshot, StoredDataType::OP_STATS,
+                          kAllHostsIdentifier, *combined_op_stats)
+             .ok()) {
+      LOG(WARNING) << "Failed to write op stats cache file.";
+    };
+  }
   return absl::OkStatus();
 }
 

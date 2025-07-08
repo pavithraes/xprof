@@ -32,6 +32,10 @@ absl::Status ConvertMultiXSpacesToCombinedOpStats(
     const SessionSnapshot& session_snapshot, const OpStatsOptions& options,
     OpStats* combined_op_stats);
 
+// Converts multiple XSpaces to a combined OpStats, using cache if available.
+absl::Status ConvertMultiXSpaceToCombinedOpStatsWithCache(
+    const SessionSnapshot& session_snapshot, OpStats* combined_op_stats);
+
 }  // namespace profiler
 }  // namespace tensorflow
 

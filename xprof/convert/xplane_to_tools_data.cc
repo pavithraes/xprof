@@ -57,7 +57,6 @@ limitations under the License.
 #include "xprof/convert/xplane_to_hlo.h"
 #include "xprof/convert/xplane_to_kernel_stats_db.h"
 #include "xprof/convert/xplane_to_memory_profile.h"
-#include "xprof/convert/xplane_to_op_stats.h"
 #include "xprof/convert/xplane_to_tf_data_stats.h"
 #include "xprof/convert/xplane_to_tool_names.h"
 #include "xprof/convert/xplane_to_trace_container.h"
@@ -153,31 +152,6 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
         options, trace_container, &adapter);
     return content;
   }
-}
-
-absl::Status ConvertMultiXSpaceToCombinedOpStatsWithCache(
-    const SessionSnapshot& session_snapshot, OpStats* combined_op_stats) {
-  OpStatsOptions options;
-  options.generate_op_metrics_db = true;
-  options.generate_step_db = true;
-  options.generate_kernel_stats_db = true;
-  TF_ASSIGN_OR_RETURN(auto has_cache,
-                      session_snapshot.HasCacheFile(StoredDataType::OP_STATS));
-  if (has_cache.first) {
-    TF_RETURN_IF_ERROR(ReadBinaryProto(session_snapshot,
-                                       StoredDataType::OP_STATS,
-                                       kAllHostsIdentifier, combined_op_stats));
-
-  } else {
-    TF_RETURN_IF_ERROR(ConvertMultiXSpacesToCombinedOpStats(
-        session_snapshot, options, combined_op_stats));
-    if (!WriteBinaryProto(session_snapshot, StoredDataType::OP_STATS,
-                          kAllHostsIdentifier, *combined_op_stats)
-             .ok()) {
-      LOG(WARNING) << "Failed to write op stats cache file.";
-    };
-  }
-  return absl::OkStatus();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToOverviewPage(
