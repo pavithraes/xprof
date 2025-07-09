@@ -1659,14 +1659,15 @@ dashboard would integrate trace viewer app using iframe.
       rightControlsDropdownIds.forEach(id => {
         const dropdown = document.getElementById(id);
         if (dropdown) {
-          dropdown.style.display = 'unset';
           const dialog = dropdown.querySelector('dialog');
           dialog.classList.add('right-controls-dialog');
-          if (id == 'flow_event_filter_dropdown') {
-            dialog.setAttribute('style', 'padding:5px;')
-          }
           const button = dropdown.querySelector('button');
           button.classList.add('right-controls-button');
+          // Details requires data preprocessing, so we delay the style adjustment until the data is ready.
+          if (id == 'flow_event_filter_dropdown') {
+            dropdown.style.display = 'unset';
+            dialog.setAttribute('style', 'padding:5px;')
+          }
         }
       });
       const rightControlsButtonIds = ['view_console_button'];
@@ -1968,9 +1969,12 @@ dashboard would integrate trace viewer app using iframe.
         delete jsonData['stackFrames'];
       }
 
-      // Populate and show "details" selector.
-      if (jsonData['details']) {
-        const detailsSelector = document.getElementById('details_selector');
+      const detailsSelector = document.getElementById('details_selector');
+      if (!jsonData['details'] || !jsonData['details'].length > 0) {
+        // Hide the details selector if there are no details.
+        detailsSelector.style.display = 'none';
+      } else {
+        // Populate and show "details" selector if there are some details
         const detailsDialog = detailsSelector.getElementsByTagName('dialog')[0];
         jsonData['details'].forEach(detail => {
           let checkbox = detailsDialog.querySelector('#' + detail.name);
