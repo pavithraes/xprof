@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import collections
 from collections.abc import Callable, Iterator
 import gzip
 import json
@@ -25,9 +26,12 @@ import logging
 import os
 import re
 import threading
+import time
 from typing import Any, List, Optional, TypedDict
 
 from etils import epath
+from ratelimit import limits
+from ratelimit import sleep_and_retry
 import six
 from werkzeug import wrappers
 
@@ -56,6 +60,7 @@ except ImportError:
 
 
 # The prefix of routes provided by this plugin.
+TB_NAME = 'plugins'
 PLUGIN_NAME = 'profile'
 
 BASE_ROUTE = '/'
@@ -129,6 +134,16 @@ XPLANE_TOOLS_ALL_HOSTS_SUPPORTED = frozenset([
 # XPlane generated tools that only support all host mode.
 XPLANE_TOOLS_ALL_HOSTS_ONLY = frozenset(
     ['overview_page', 'pod_viewer'])
+
+# Rate limiter constants, the GCS quota defined below
+# https://cloud.google.com/storage/quotas#rate-quotas.
+# currently set to 1000 request per minute.
+# TODO(kcai): The assumption on the average number of subdirs is not
+# always true. If this is not sufficient, we can consider a token-based
+# approach that counts the number of subdirs after calling iterdir.
+MAX_GCS_REQUESTS = 1000
+LIMIT_WINDOW_SECONDS = 60
+AVERAGE_SUBDIR_NUMBER = 10
 
 
 def use_xplane(tool: str) -> bool:
@@ -972,15 +987,48 @@ class ProfilePlugin(base_plugin.TBPlugin):
         "run1", "train/run1", "train/run2", "validation/run1",
         "new_job/tensorboard/run1"
     """
-    def find_all_subdirectories(top_path: epath.Path) -> Iterator[epath.Path]:
-      for path in top_path.iterdir():
-        if path.is_dir():
-          yield path
-          for subpath in path.iterdir():
-            if subpath.is_dir():
-              yield subpath
 
-    # Create a background context; we may not be in a request.
+    # TODO(kcai): Remove this block once we can rely on walk() to get all
+    #             subdirectories, this requires python 3.12.
+    def find_all_subdirectories(top_path: epath.Path) -> Iterator[epath.Path]:
+      @sleep_and_retry
+      @limits(
+          calls=MAX_GCS_REQUESTS / AVERAGE_SUBDIR_NUMBER,
+          period=LIMIT_WINDOW_SECONDS,
+      )
+      def get_subdirectories(
+          current_dir: epath.Path, dirs_to_visit: collections.deque[epath.Path]
+      ):
+        try:
+          for path in current_dir.iterdir():
+            if path.is_dir():
+              dirs_to_visit.append(path)
+        except (IOError, OSError) as e:
+          logger.warning('Could not list directory %s: %s', current_dir, e)
+
+      if not top_path.is_dir():
+        return
+
+      dirs_to_visit = collections.deque([top_path])
+
+      logger.info(
+          'Start to find all subdirectories of %s at %s, subjected to be'
+          ' throttled by %d requests per %d seconds',
+          top_path,
+          time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+          MAX_GCS_REQUESTS,
+          LIMIT_WINDOW_SECONDS,
+      )
+      while dirs_to_visit:
+        current_dir = dirs_to_visit.popleft()
+        yield current_dir
+        get_subdirectories(current_dir, dirs_to_visit)
+      logger.info(
+          'Finish finding all subdirectories of %s at %s',
+          top_path,
+          time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+      )
+
     ctx = tb_context.RequestContext()
     tb_runs = set()
     # Get all tfevents files that TensorBoard would consider runs.
@@ -1012,16 +1060,29 @@ class ProfilePlugin(base_plugin.TBPlugin):
     # This change still enforce the requirement that the subdirectories must
     # end with plugins/profile directory, as enforced by TensorBoard.
     logdir_path = epath.Path(self.logdir)
-    if '.' not in tb_runs and logdir_path.is_dir():
+    if '.' not in tb_runs:
       tb_runs.add('.')
+    if logdir_path.is_dir():
       for path in find_all_subdirectories(logdir_path):
         relative_path = path.relative_to(logdir_path)
-        tb_runs.add(str(relative_path))
+        try:
+          *parts, second_last_dir, last_dir = relative_path.parts
+          # Only add subdirectories to runs that are end with plugins/profile.
+          if (
+              len(parts) >= 1  # len(parts) == 0 is the root logdir.
+              and last_dir == PLUGIN_NAME
+              and second_last_dir == TB_NAME
+          ):
+            tb_runs.add(str(epath.Path(*parts)))
+        except ValueError:
+          logger.info('Could not unpack relative path parts: %s', relative_path)
+          pass
     tb_run_names_to_dirs = {
         run: _tb_run_directory(self.logdir, run) for run in tb_runs
     }
-    plugin_assets = _plugin_assets(self.logdir, list(tb_run_names_to_dirs),
-                                   PLUGIN_NAME)
+    plugin_assets = _plugin_assets(
+        self.logdir, list(tb_run_names_to_dirs), PLUGIN_NAME
+    )
     visited_runs = set()
     for tb_run_name, profile_runs in six.iteritems(plugin_assets):
       tb_run_dir = tb_run_names_to_dirs[tb_run_name]
