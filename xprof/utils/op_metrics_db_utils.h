@@ -20,12 +20,13 @@ limitations under the License.
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "xla/tsl/platform/macros.h"
-#include "xla/tsl/profiler/utils/xplane_visitor.h"
 #include "xla/tsl/platform/types.h"
+#include "xla/tsl/profiler/utils/xplane_visitor.h"
 #include "plugin/xprof/protobuf/op_metrics.pb.h"
 
 namespace tensorflow {
@@ -141,6 +142,9 @@ inline uint64_t ChildrenTimePs(const OpMetrics& metrics) {
 // Returns the ratio of time spent sending data from the host to the device
 // relative to the total time the host was active.
 std::optional<double> HostInfeedEnqueueRatio(const OpMetricsDb& db);
+
+// Parses the provenance string into a vector of strings.
+std::vector<std::string> ParseProvenance(absl::string_view provenance);
 
 // Converts from the device op metrics to Tf-op metrics.
 OpMetricsDb CreateTfMetricsDbFromDeviceOpMetricsDb(

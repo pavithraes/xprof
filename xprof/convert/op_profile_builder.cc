@@ -81,10 +81,8 @@ Node TopKChildren(const Node* root, int k, Cmp cmp) {
   const int actual_k = std::min(k, static_cast<int>(children_ptrs.size()));
 
   if (actual_k > 0) {
-      std::partial_sort(children_ptrs.begin(),
-                        children_ptrs.begin() + actual_k,
-                        children_ptrs.end(),
-                        cmp);
+    std::partial_sort(children_ptrs.begin(), children_ptrs.begin() + actual_k,
+                      children_ptrs.end(), cmp);
   }
 
   Node output;
@@ -108,6 +106,11 @@ void CopySymbolDetailsToDeduplicatedNode(Node* top_child_node,
   if (IsFusion(top_child_node_xla.category())) return;
   xla.set_provenance(top_child_node_xla.provenance());
   *xla.mutable_layout() = top_child_node_xla.layout();
+}
+
+bool RequiresProgramGrouping(OpProfileOptions& options) {
+  return options.group_by == OpProfileGrouping::kByProgram ||
+         options.group_by == OpProfileGrouping::kByProvenance;
 }
 
 void SortAndPruneChildren(int k, int level, Node* root) {
@@ -134,39 +137,43 @@ void SortAndPruneChildren(int k, int level, Node* root) {
   }
 }
 
-// Finalize deduplicated nodes by copying symbol details from the top child
-// node.
-void FinalizeDeduplicatedNodes(bool by_program, Node* root) {
-  if (by_program) {
-    for (Node& program_node : *root->mutable_children()) {
-      for (Node& category_node : *program_node.mutable_children()) {
-        for (Node& deduplicated_node : *category_node.mutable_children()) {
-          // Node with 1 child doesn't have deduplication, the child is itself.
-          // Removing the dedup layer.
-          if (deduplicated_node.children_size() == 1) {
-            Node child = *deduplicated_node.mutable_children(0);
-            deduplicated_node = child;
-            continue;
-          }
-          CopySymbolDetailsToDeduplicatedNode(
-              deduplicated_node.mutable_children(0), &deduplicated_node);
-        }
+void FinalizeNodeRecursive(Node* node) {
+  // A node is a deduplication group if it has children, it does NOT have XLA
+  // info, and ALL of its children DO have XLA info.
+  bool is_dedup_group = (node->children_size() > 0 && !node->has_xla());
+  if (is_dedup_group) {
+    for (const auto& child : node->children()) {
+      if (!child.has_xla()) {
+        is_dedup_group = false;
+        break;
       }
     }
-  } else {
-    for (Node& category_node : *root->mutable_children()) {
-      for (Node& deduplicated_node : *category_node.mutable_children()) {
-        // Node with 1 child doesn't have deduplication, the child is itself.
-        // Removing the dedup layer.
-        if (deduplicated_node.children_size() == 1) {
-          Node child = *deduplicated_node.mutable_children(0);
-          deduplicated_node = child;
-          continue;
-        }
-        CopySymbolDetailsToDeduplicatedNode(
-            deduplicated_node.mutable_children(0), &deduplicated_node);
-      }
+  }
+
+  // If it's not a dedup group, recurse into its children.
+  if (!is_dedup_group) {
+    for (int i = 0; i < node->children_size(); ++i) {
+      FinalizeNodeRecursive(node->mutable_children(i));
     }
+    return;
+  }
+
+  // It's a single-op group. Replace the node with its child.
+  // A temporary copy is used to avoid the protobuf descendant check error.
+  if (node->children_size() == 1) {
+    Node child_copy = *node->mutable_children(0);
+    *node = child_copy;
+    return;  // Node is replaced; no need to recurse further.
+  }
+
+  // It's a multi-op group. Finalize its name.
+  // Children are op-nodes; no need to recurse further.
+  CopySymbolDetailsToDeduplicatedNode(node->mutable_children(0), node);
+}
+
+void FinalizeDeduplicatedNodes(Node* root) {
+  if (root) {
+    FinalizeNodeRecursive(root);
   }
 }
 
@@ -352,16 +359,26 @@ Node* OpProfileBuilder::LookupOrAddDeduplicatedNode(const OpMetrics& op_metrics,
 }
 
 OpProfileBuilder::Category* OpProfileBuilder::LookupOrAddCategoryNode(
-    const OpMetrics& op_metrics, Program* program) {
+    const OpMetrics& op_metrics, Program* program,
+    op_profile::Node* provenance_leaf_node) {
   Category* category;
   Node* category_parent;
-  if (program != nullptr) {
+
+  if (provenance_leaf_node != nullptr) {
+    // Grouping by provenance. Parent is the leaf of the provenance path.
+    category_parent = provenance_leaf_node;
+    category =
+        &provenance_category_map_[category_parent][op_metrics.category()];
+  } else if (program != nullptr) {
+    // Grouping by program. Parent is the program node.
     category = &program->categories[op_metrics.category()];
     category_parent = program->node;
   } else {
+    // Grouping by category only. Parent is the root node.
     category = &category_map_[op_metrics.category()];
     category_parent = root_;
   }
+
   if (category->node == nullptr) {
     category->node = category_parent->add_children();
     category->node->set_name(op_metrics.category());
@@ -380,12 +397,36 @@ OpProfileBuilder::Program* OpProfileBuilder::LookupOrAddProgramNode(
   return program;
 }
 
+Node* OpProfileBuilder::GetOrAddProvenanceParentNode(
+    const OpMetrics& op_metrics, Program* program) {
+  Node* current_node = nullptr;
+  if (program != nullptr) {
+    current_node = program->node;
+  } else {
+    current_node = root_;
+  }
+
+  std::vector<std::string> provenance_parts =
+      tensorflow::profiler::ParseProvenance(op_metrics.provenance());
+  for (const auto& name : provenance_parts) {
+    auto& children = provenance_children_map_[current_node];
+    Node*& child_node = children[name];
+    if (child_node == nullptr) {
+      child_node = current_node->add_children();
+      child_node->set_name(name);
+    }
+    UpdateNodeMetrics(op_metrics, &metrics_[child_node]);
+    current_node = child_node;
+  }
+  return current_node;
+}
+
 void OpProfileBuilder::AddOp(const OpMetrics& op_metrics) {
   // 1. Deal with nested parent nodes
   // op_metrics.time_ps in root node will be reset to total_time_ps later
   UpdateNodeMetrics(op_metrics, &metrics_[root_]);
   Program* program = nullptr;
-  if (!IsIdleOp(op_metrics) && options_.group_by_program) {
+  if (!IsIdleOp(op_metrics) && RequiresProgramGrouping(options_)) {
     program = LookupOrAddProgramNode(op_metrics);
     UpdateNodeMetrics(op_metrics, &metrics_[program->node]);
   }
@@ -397,7 +438,14 @@ void OpProfileBuilder::AddOp(const OpMetrics& op_metrics) {
     Node* leaf = AddOpNode(op_metrics);
     nested_grouping_nodes.push_back(leaf);
   } else {
-    Category* category = LookupOrAddCategoryNode(op_metrics, program);
+    op_profile::Node* provenance_leaf_node = nullptr;
+    if ((options_.group_by == OpProfileGrouping::kByProvenance) &&
+        !op_metrics.provenance().empty()) {
+      provenance_leaf_node = GetOrAddProvenanceParentNode(op_metrics, program);
+    }
+
+    Category* category =
+        LookupOrAddCategoryNode(op_metrics, program, provenance_leaf_node);
     nested_grouping_nodes.push_back(category->node);
 
     Node* deduplicated_node = nullptr;
@@ -434,10 +482,26 @@ void OpProfileBuilder::Finalize(
   // If grouping by program, we build a two-level pruned tree: the first level
   // is per program and the second level is per category. Otherwise we build a
   // single-level per category pruned tree.
-  int level = options_.group_by_program ? 2 : 1;
+  // for kByProvenance, we build a dynamic-depth pruned tree with a large
+  // level.
+  int level = 2;
+  switch (options_.group_by) {
+    case OpProfileGrouping::kByProgram:
+      level = 2;
+      break;
+    case OpProfileGrouping::kByCategory:
+      level = 1;
+      break;
+    case OpProfileGrouping::kByProvenance:
+      // A large number prevents pruning of the
+      //  dynamic-depth provenance hierarchy.
+      level = 100;
+      break;
+  }
+  SortAndPruneChildren(options_.children_per_node, level, root_);
   SortAndPruneChildren(options_.children_per_node, level, root_);
   if (options_.group_by_deduplicated_name) {
-    FinalizeDeduplicatedNodes(options_.group_by_program, root_);
+    FinalizeDeduplicatedNodes(root_);
   }
 }
 
@@ -450,8 +514,25 @@ OpProfileBuilder::OpProfileBuilder(
     LOG(DFATAL) << "root is null.";
     return;
   }
-  DCHECK(!options_.group_by_program || program_name_map_ != nullptr);
-  root->set_name(options_.group_by_program ? "by_program" : "by_category");
+  // Both kByProgram and kByProvenance require a program_name_map.
+  if (RequiresProgramGrouping(options_)) {
+    DCHECK(program_name_map_ != nullptr)
+        << "program_name_map is required for grouping by program or "
+           "provenance.";
+  }
+  // Set the root node's name based on the selected grouping option.
+  switch (options_.group_by) {
+    case OpProfileGrouping::kByProgram:
+      root->set_name("by_program");
+      break;
+    case OpProfileGrouping::kByProvenance:
+      root->set_name("by_provenance");
+      break;
+    case OpProfileGrouping::kByCategory:
+      root->set_name("by_category");
+      break;
+  }
 }
+
 }  // namespace profiler
 }  // namespace tensorflow

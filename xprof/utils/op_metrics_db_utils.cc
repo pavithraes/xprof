@@ -16,11 +16,13 @@ limitations under the License.
 #include "xprof/utils/op_metrics_db_utils.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
@@ -29,6 +31,7 @@ limitations under the License.
 #include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "xla/tsl/platform/logging.h"
 #include "xla/tsl/platform/types.h"
@@ -121,7 +124,7 @@ class DeviceTfOpMetricsDbBuilder : public OpMetricsDbBuilder {
     tf_op_metrics->set_flops(tf_op_metrics->flops() +
                              device_op_metrics.flops());
     tf_op_metrics->set_model_flops(tf_op_metrics->model_flops() +
-                                    device_op_metrics.model_flops());
+                                   device_op_metrics.model_flops());
     tf_op_metrics->set_bytes_accessed(tf_op_metrics->bytes_accessed() +
                                       device_op_metrics.bytes_accessed());
   }
@@ -346,6 +349,26 @@ std::optional<double> HostInfeedEnqueueRatio(const OpMetricsDb& db) {
         db.total_host_infeed_enq_start_timestamp_ps_diff());
   }
   return std::nullopt;
+}
+
+std::vector<std::string> ParseProvenance(absl::string_view provenance) {
+  std::vector<std::string> result;
+  std::vector<absl::string_view> parts =
+      absl::StrSplit(provenance, '/', absl::SkipEmpty());
+
+  if (parts.empty()) {
+    return result;
+  }
+
+  for (size_t i = 0; i < parts.size() - 1; ++i) {
+    result.emplace_back(parts[i]);
+  }
+
+  absl::string_view last_part = parts.back();
+  size_t colon_pos = last_part.find(':');
+  result.emplace_back(last_part.substr(0, colon_pos));
+
+  return result;
 }
 
 OpMetricsDb CreateTfMetricsDbFromDeviceOpMetricsDb(

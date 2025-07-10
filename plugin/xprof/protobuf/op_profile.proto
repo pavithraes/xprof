@@ -21,6 +21,9 @@ message Profile {
   // Exclude idle ops.
   Node by_category_exclude_idle = 6;
   Node by_program_exclude_idle = 7;
+  // Root of a profile broken down by program and provenance.
+  Node by_provenance = 8;
+  Node by_provenance_exclude_idle = 9;
 }
 
 // An entry in the profile tree. (An instruction, or set of instructions).

@@ -35,18 +35,19 @@ namespace {
 using ::tensorflow::profiler::IsIdleOp;
 using ::tensorflow::profiler::OpMetrics;
 using ::tensorflow::profiler::OpProfileBuilder;
+using ::tensorflow::profiler::OpProfileGrouping;
 using ::tensorflow::profiler::OpProfileOptions;
 using ::tensorflow::profiler::OpStats;
 using ::tensorflow::profiler::TotalTimePs;
 using ::tensorflow::profiler::op_profile::Node;
 
-void BuildOpProfileNodeTree(const OpStats& op_stats, bool group_by_program,
+void BuildOpProfileNodeTree(const OpStats& op_stats, OpProfileGrouping group_by,
                             bool exclude_idle_ops, int op_profile_limit,
                             Node* root) {
   const auto& metrics_db = op_stats.device_op_metrics_db();
   if (metrics_db.metrics_db().empty()) return;
 
-  OpProfileOptions options = {group_by_program,
+  OpProfileOptions options = {group_by,
                               /*group_by_deduplicated_name=*/true,
                               /*children_per_node=*/op_profile_limit};
   OpProfileBuilder builder(options, root, &op_stats.program_id_to_name_map());
@@ -76,25 +77,31 @@ void ConvertOpStatsToOpProfile(
     const OpStats& op_stats, tensorflow::profiler::HardwareType hardware_type,
     tensorflow::profiler::op_profile::Profile& profile, int op_profile_limit) {
   profile.set_device_type(HardwareType_Name(hardware_type));
-  BuildOpProfileNodeTree(op_stats,
-                         /*group_by_program=*/false,
+  BuildOpProfileNodeTree(op_stats, OpProfileGrouping::kByCategory,
                          /*exclude_idle_ops=*/false, op_profile_limit,
                          profile.mutable_by_category());
 
-  BuildOpProfileNodeTree(op_stats,
-                         /*group_by_program=*/false,
+  BuildOpProfileNodeTree(op_stats, OpProfileGrouping::kByCategory,
                          /*exclude_idle_ops=*/true, op_profile_limit,
                          profile.mutable_by_category_exclude_idle());
 
-  BuildOpProfileNodeTree(op_stats,
-                         /*group_by_program=*/true,
+  BuildOpProfileNodeTree(op_stats, OpProfileGrouping::kByProgram,
                          /*exclude_idle_ops=*/false, op_profile_limit,
                          profile.mutable_by_program());
 
-  BuildOpProfileNodeTree(op_stats,
-                         /*group_by_program=*/true,
+  BuildOpProfileNodeTree(op_stats, OpProfileGrouping::kByProgram,
                          /*exclude_idle_ops=*/true, op_profile_limit,
                          profile.mutable_by_program_exclude_idle());
+
+  // TODO: bhupendradubey - Re-enable provenance grouping once we add on demand
+  // support for it. BuildOpProfileNodeTree(op_stats,
+  // OpProfileGrouping::kByProvenance,
+  //                        /*exclude_idle_ops=*/false, op_profile_limit,
+  //                        profile.mutable_by_provenance());
+
+  // BuildOpProfileNodeTree(op_stats, OpProfileGrouping::kByProvenance,
+  //                        /*exclude_idle_ops=*/true, op_profile_limit,
+  //                        profile.mutable_by_provenance_exclude_idle());
 }
 
 }  // namespace profiler

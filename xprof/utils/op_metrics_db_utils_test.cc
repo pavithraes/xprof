@@ -15,6 +15,9 @@ limitations under the License.
 
 #include "xprof/utils/op_metrics_db_utils.h"
 
+#include <string>
+#include <vector>
+
 #include "testing/base/public/gmock.h"
 #include "<gtest/gtest.h>"
 #include "xla/tsl/profiler/utils/tf_xplane_visitor.h"
@@ -229,6 +232,29 @@ TEST(OpMetricsDbTest, XEventsOpMetricsDbBuilder) {
                 total_op_time_ps: 300
               )pb")));
 #endif
+}
+
+// TODO(bhupendradubey): Re-enable this test once we bring on demand provenance
+// grouping.
+TEST(OpMetricsDbTest, DISABLED_ParseProvenanceTest) {
+  // Test case 1: Empty provenance string.
+  std::string provenance_str_1 = "";
+  std::vector<std::string> result_1 = ParseProvenance(provenance_str_1);
+  EXPECT_TRUE(result_1.empty());
+
+  // Test case 2: A provenance string with a single part.
+  std::string provenance_str_2 = "my_op";
+  std::vector<std::string> result_2 = ParseProvenance(provenance_str_2);
+  ASSERT_EQ(result_2.size(), 1);
+  EXPECT_EQ(result_2[0], "my_op");
+
+  // Test case 3: A provenance string with multiple parts.
+  std::string provenance_str_3 = "my_op1/my_op2/my_op3:xyz";
+  std::vector<std::string> result_3 = ParseProvenance(provenance_str_3);
+  ASSERT_EQ(result_3.size(), 3);
+  EXPECT_EQ(result_3[0], "my_op1");
+  EXPECT_EQ(result_3[1], "my_op2");
+  EXPECT_EQ(result_3[2], "my_op3");
 }
 
 }  // namespace

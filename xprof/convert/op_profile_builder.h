@@ -29,8 +29,10 @@ limitations under the License.
 namespace tensorflow {
 namespace profiler {
 
+enum class OpProfileGrouping { kByProgram, kByCategory, kByProvenance };
+
 struct OpProfileOptions {
-  bool group_by_program = true;
+  OpProfileGrouping group_by = OpProfileGrouping::kByProgram;
   bool group_by_deduplicated_name = true;
   int children_per_node = 100;
 };
@@ -130,7 +132,15 @@ class OpProfileBuilder {
   // If program is not null, the category node is added under program.
   // Otherwise, the category node is added under root.
   Category* LookupOrAddCategoryNode(const OpMetrics& op_metrics,
-                                    Program* program);
+                                    Program* program,
+                                    op_profile::Node* provenance_leaf_node);
+
+  // Returns a node for op_metrics.provenance().
+  // Adds a node to the tree if necessary.
+  // If program is not null, the provenance node is added under program.
+  // Otherwise, the provenance node is added under root.
+  op_profile::Node* GetOrAddProvenanceParentNode(const OpMetrics& op_metrics,
+                                                 Program* program);
 
   // Returns a node for op_metrics.hlo_module_id().
   // Adds a node to the Node tree if necessary.
@@ -139,13 +149,36 @@ class OpProfileBuilder {
   OpProfileOptions options_;
   op_profile::Node* root_;
 
-  // Map to look up and aggregate OpMetrics.
+  // Maps for building the provenance hierarchy when grouping `by_provenance`.
+  // These maps enable building the tree incrementally by storing direct
+  // parent-to-child relationships, which avoids re-creating nodes for common
+  // path prefixes across different provenance strings.
+  //
+  // For example, with provenances "foo/bar/baz" and "foo/bar/qux", the nodes
+  // for "foo" and "bar" are created only once.
+  //
+  // `provenance_children_map_` stores the structure of the provenance path:
+  //   parent_node* -> { "child_name" -> child_node* }
+  // This allows `GetOrAddProvenanceParentNode` to efficiently traverse down the
+  // path (e.g., program -> foo -> bar -> baz).
   absl::node_hash_map<op_profile::Node*, OpMetrics> metrics_;
 
   // Maps to look up if a category / program / deduplicated node has
   // already been added to the tree.
   absl::flat_hash_map<uint64_t, Program> programs_map_;
   absl::flat_hash_map<std::string, Category> category_map_;
+
+  // Maps to look up if a child node has already been added to a provenance
+  // node, keyed by name.
+  absl::node_hash_map<op_profile::Node*,
+                      absl::flat_hash_map<std::string, op_profile::Node*>>
+      provenance_children_map_;
+
+  // Maps to look up if a category node has already been added to a provenance
+  // node.
+  absl::node_hash_map<op_profile::Node*,
+                      absl::flat_hash_map<std::string, Category>>
+      provenance_category_map_;
 
   // Map to look up program names by id.
   const tsl::protobuf::Map<uint64_t, std::string>* program_name_map_ = nullptr;
