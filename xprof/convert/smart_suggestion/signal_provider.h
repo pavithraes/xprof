@@ -17,13 +17,10 @@ limitations under the License.
 #define THIRD_PARTY_XPROF_CONVERT_SMART_SUGGESTION_SIGNAL_PROVIDER_H_
 
 #include <memory>
-#include <string>
 #include <utility>
 
-#include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "xprof/convert/repository.h"
-#include "xprof/convert/xplane_to_tools_data.h"
+#include "xprof/convert/smart_suggestion/tool_data_provider.h"
 #include "plugin/xprof/protobuf/overview_page.pb.h"
 #include "util/task/status_macros.h"
 
@@ -33,40 +30,25 @@ namespace profiler {
 // Concrete class to provide signals from a SessionSnapshot.
 class SignalProvider {
  public:
-  explicit SignalProvider(const SessionSnapshot& session_snapshot)
-      : session_snapshot_(session_snapshot) {}
+  explicit SignalProvider(std::unique_ptr<ToolDataProvider> tool_data_provider)
+      : tool_data_provider_(std::move(tool_data_provider)) {}
 
   // Example signal getters:
   absl::StatusOr<double> GetHbmUtilization() const {
-    ASSIGN_OR_RETURN(const auto* overview_page, GetOverviewPage());
+    ASSIGN_OR_RETURN(const auto* overview_page,
+                     tool_data_provider_->GetOverviewPage());
     return overview_page->analysis()
         .memory_bw_utilization_relative_to_hw_limit_percent();
   }
 
   absl::StatusOr<double> GetMxuUtilization() const {
-    ASSIGN_OR_RETURN(const auto* overview_page, GetOverviewPage());
+    ASSIGN_OR_RETURN(const auto* overview_page,
+                     tool_data_provider_->GetOverviewPage());
     return overview_page->analysis().mxu_utilization_percent();
   }
 
  private:
-  // Helper function to get or generate OverviewPage data.
-  // TODO(b/429210120): Create a data API to encapsulate extracting tool data.
-  absl::StatusOr<const OverviewPage*> GetOverviewPage() const{
-    if (!overview_page_cache_) {
-      ASSIGN_OR_RETURN(std::string overview_page_str,
-                       ConvertMultiXSpacesToToolData(session_snapshot_,
-                                                     "overview_page", {}));
-      auto overview_page = std::make_unique<OverviewPage>();
-      if (!overview_page->ParseFromString(overview_page_str)) {
-        return absl::InternalError("Failed to parse OverviewPage proto");
-      }
-      overview_page_cache_ = std::move(overview_page);
-    }
-    return overview_page_cache_.get();
-  }
-
-  const SessionSnapshot& session_snapshot_;
-  mutable std::unique_ptr<OverviewPage> overview_page_cache_;
+  std::unique_ptr<ToolDataProvider> tool_data_provider_;
 };
 
 }  // namespace profiler

@@ -1,0 +1,61 @@
+/* Copyright 2025 The TensorFlow Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+#ifndef THIRD_PARTY_XPROF_CONVERT_SMART_SUGGESTION_TOOL_DATA_PROVIDER_IMPL_H_
+#define THIRD_PARTY_XPROF_CONVERT_SMART_SUGGESTION_TOOL_DATA_PROVIDER_IMPL_H_
+
+#include <memory>
+#include <utility>
+
+#include "absl/status/statusor.h"
+#include "xprof/convert/multi_xplanes_to_op_stats.h"
+#include "xprof/convert/op_stats_to_overview_page.h"
+#include "xprof/convert/repository.h"
+#include "xprof/convert/smart_suggestion/tool_data_provider.h"
+#include "plugin/xprof/protobuf/op_stats.pb.h"
+#include "plugin/xprof/protobuf/overview_page.pb.h"
+#include "util/task/status_macros.h"
+
+namespace tensorflow {
+namespace profiler {
+
+// Concrete class to provide tool data from a SessionSnapshot.
+class ToolDataProviderImpl : public ToolDataProvider {
+ public:
+  explicit ToolDataProviderImpl(const SessionSnapshot& session_snapshot)
+      : session_snapshot_(session_snapshot) {}
+
+  absl::StatusOr<const OverviewPage*> GetOverviewPage() override {
+    if (!overview_page_cache_) {
+      OpStats combined_op_stats;
+      RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
+          session_snapshot_, &combined_op_stats));
+      OverviewPage overview_page =
+          ConvertOpStatsToOverviewPage(combined_op_stats);
+      overview_page_cache_ =
+          std::make_unique<OverviewPage>(std::move(overview_page));
+    }
+    return overview_page_cache_.get();
+  }
+
+ private:
+  const SessionSnapshot& session_snapshot_;
+  std::unique_ptr<OverviewPage> overview_page_cache_;
+};
+
+}  // namespace profiler
+}  // namespace tensorflow
+
+#endif  // THIRD_PARTY_XPROF_CONVERT_SMART_SUGGESTION_TOOL_DATA_PROVIDER_IMPL_H_
