@@ -2,7 +2,7 @@ import {PlatformLocation} from '@angular/common';
 import {HttpClient, HttpErrorResponse, HttpParams} from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {Store} from '@ngrx/store';
-import {API_PREFIX, CAPTURE_PROFILE_API, DATA_API, GRAPH_TYPE_DEFAULT, GRAPHVIZ_PAN_ZOOM_CONTROL, HLO_MODULE_LIST_API, HOSTS_API, LOCAL_URL, PLUGIN_NAME, RUN_TOOLS_API, RUNS_API} from 'org_xprof/frontend/app/common/constants/constants';
+import {API_PREFIX, CAPTURE_PROFILE_API, DATA_API, GRAPH_TYPE_DEFAULT, GRAPHVIZ_PAN_ZOOM_CONTROL, HLO_MODULE_LIST_API, HOSTS_API, LOCAL_URL, PLUGIN_NAME, RUN_TOOLS_API, RUNS_API, USE_SAVED_RESULT} from 'org_xprof/frontend/app/common/constants/constants';
 import {FileExtensionType} from 'org_xprof/frontend/app/common/constants/enums';
 import {CaptureProfileOptions, CaptureProfileResponse} from 'org_xprof/frontend/app/common/interfaces/capture_profile';
 import {DataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
@@ -13,8 +13,6 @@ import {DataServiceV2Interface} from 'org_xprof/frontend/app/services/data_servi
 import {setErrorMessageStateAction} from 'org_xprof/frontend/app/store/actions';
 import {Observable, of} from 'rxjs';
 import {catchError} from 'rxjs/operators';
-
-const USE_SAVED_RESULT = 'use_saved_result';
 
 /** The data service class that calls API and return response. */
 @Injectable()
@@ -64,13 +62,17 @@ export class DataServiceV2 implements DataServiceV2Interface {
         );
   }
 
-  private getHttpParams(sessionId: string|null, tool: string): HttpParams {
+  private getHttpParams(
+      sessionId: string|null, tool: string|null, host?: string): HttpParams {
     let params = new HttpParams();
     if (sessionId) {
       params = params.set('run', sessionId);
     }
     if (tool) {
       params = params.set('tag', tool);
+    }
+    if (host) {
+      params = params.set('host', host);
     }
     const searchParams = this.getSearchParams();
     if (searchParams) {
@@ -81,17 +83,35 @@ export class DataServiceV2 implements DataServiceV2Interface {
     return params;
   }
 
+  private getHTTPParamsForDataQuery(
+      run: string, tag: string, host: string,
+      parameters: Map<string, string> = new Map()): HttpParams {
+    // Update searchparams with the updated run, tag and host.
+    // In a Single Page App, we need to update the searchparams with the updated
+    // run, tag and host on tool change for consistency.
+    const searchParams = this.getSearchParams();
+    searchParams.set('run', run);
+    searchParams.set('tag', tag);
+    if (host) {
+      searchParams.set('host', host);
+    }
+    this.setSearchParams(searchParams);
+
+    let params = this.getHttpParams(run, tag, host);
+    parameters.forEach((value, key) => {
+      params = params.set(key, value);
+    });
+
+    this.disableCacheRegeneration();
+    return params;
+  }
+
   getData(
       sessionId: string, tool: string, host: string,
       parameters: Map<string, string> = new Map()):
       Observable<DataTable|DataTable[]|null> {
-    let params = new HttpParams()
-                     .set('run', sessionId)
-                     .set('tag', tool)
-                     .set('host', host);
-    parameters.forEach((value, key) => {
-      params = params.set(key, value);
-    });
+    const params =
+        this.getHTTPParamsForDataQuery(sessionId, tool, host, parameters);
     return this.get(this.pathPrefix + DATA_API, {'params': params}) as
         Observable<DataTable>;
   }
@@ -265,6 +285,9 @@ export class DataServiceV2 implements DataServiceV2Interface {
 
   disableCacheRegeneration() {
     const searchParams = this.getSearchParams();
+    if (!searchParams.has(USE_SAVED_RESULT)) {
+      return;
+    }
     searchParams.delete(USE_SAVED_RESULT);
     window.sessionStorage.setItem(
         'searchParams',
