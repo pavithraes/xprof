@@ -51,7 +51,7 @@ from [Op Profile](hlo_op_profile.md) to identify the most time consuming op, or
 Clicking the op in those tools will give you a direct link into the same op
 within Graph Viewer.
 
-![Graph Viewer button appears when the reduce.111 operation is clicked on the HLO Op Profile tool](images/graph_viewer_from_op_profile.png)
+![Graph Viewer button appears when the all-reduce.98 operation is clicked on the HLO Op Profile tool](images/graph_viewer_from_op_profile.png)
 
 By hovering over a box (representing an HLO operation), you might often see the
 line of your user code corresponding to the op where the function was defined.
