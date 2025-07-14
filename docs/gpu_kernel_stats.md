@@ -5,7 +5,7 @@ originating framework operation for every GPU-accelerated kernel that was
 launched during a profiling session. This tool helps identify potential
 bottlenecks at a low level and surfaces optimization opportunities.
 
-![Tensorboard GPU Kernel Stats](images/gpu_kernel_stats.png)
+![XProf GPU Kernel Stats](images/gpu_kernel_stats.png)
 
 ### Supported Platforms
 

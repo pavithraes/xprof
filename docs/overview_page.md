@@ -5,7 +5,7 @@ performed during a profile run, how well it utilized hardware resources, and
 where time was spent. The overview page acts as a starting point to pursue more
 detailed analysis using the other tools within XProf.
 
-![Tensorboard overview page](images/tensorboard_overview.png)
+![XProf overview page](images/xprof_overview.png)
 
 The Overview page shows two main sections:
 

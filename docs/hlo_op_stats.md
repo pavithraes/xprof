@@ -6,7 +6,7 @@ valuable for identifying potential targets for performance optimization by
 highlighting the most time-consuming operations within your HLO graph during the
 profiled period.
 
-![Tensorboard HLO Op Stats](images/hlo_op_stats.png)
+![XProf HLO Op Stats](images/hlo_op_stats.png)
 
 ### Supported Platforms
 
@@ -41,6 +41,13 @@ The HLO Op Stats tool has the following key components:
         access that the device does not possess).
     *   A chart plotting the GFLOPS/s for all HLO operations, ordered by total
         self time.
+    *   For TPUs only, time per HLO by replica group: A drop down lets you pick
+        from the different collective operations executed during the profiling
+        session. Different instances of that collective op may have been
+        executed among different replica groups (e.g.,
+        [AllGather](https://openxla.org/xla/operation_semantics#allgather)); a
+        pie chart shows the distribution of time between these different
+        instances.
 *   **HLO Operation Statistics Table**: This is the primary component,
     presenting a detailed breakdown of every HLO operation executed during the
     profiling session in a tabular format. There is one row for each distinct
@@ -56,7 +63,7 @@ The HLO Op Stats tool has the following key components:
 
 ### HLO Operation Statistics Table Details
 
-![Tensorboard HLO Op Stats Table](images/hlo_op_stats_2.png)
+![XProf HLO Op Stats Table](images/hlo_op_stats_2.png)
 
 You can click any of the column headings to sort the HLO operation statistics
 table. The default order is based on the total self time of the op (labeled
@@ -74,7 +81,7 @@ The table includes the following information for each HLO operation:
     the types and shapes of inputs/parameters.
 *   **Framework op name**: The operation at the framework level (e.g., JAX) that
     resulted in this HLO op getting generated.
-*   **\#Occurrences**: The total number of times this specific HLO operation was
+*   **Occurrences**: The total number of times this specific HLO operation was
     executed during the profiling period.
 *   **Total time (μs)**: The cumulative time spent executing this operation
     across all its occurrences. If this operation has any child operations

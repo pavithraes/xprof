@@ -7,7 +7,7 @@ suite of tools for [JAX](https://jax.readthedocs.io/),
 [PyTorch/XLA](https://github.com/pytorch/xla). These tools help you understand,
 debug and optimize programs to run on CPUs, GPUs and TPUs.
 
-![Tensorboard overview page](images/tensorboard_overview.png)
+![Xprof overview page](images/xprof_overview.png)
 
 XProf offers a number of tools to analyse and visualize the
 performance of your model across multiple devices. Some of the tools include:

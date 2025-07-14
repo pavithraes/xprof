@@ -45,9 +45,9 @@ data panel on a particular op, right click on the op.
 
 By default, no operations are selected in Graph Viewer, so you will see an empty
 screen. Search for the operation of interest to zoom into it and begin
-traversing the graph. Often, you start with one of the other tools (say,
-[Op Profile](hlo_op_profile.md) to identify the most time consuming op, or
-[Trace Viewer](trace_viewer.md) to identify the cause of a pipeline bubble).
+traversing the graph. Often, you start with one of the other tools. For example,
+from [Op Profile](hlo_op_profile.md) to identify the most time consuming op, or
+[Trace Viewer](trace_viewer.md) to identify the cause of a pipeline bubble.
 Clicking the op in those tools will give you a direct link into the same op
 within Graph Viewer.
 
