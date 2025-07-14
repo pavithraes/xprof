@@ -65,7 +65,7 @@ stored.
 
 First time user?
 
-- Explore the XProf interface with this [notebook demo](XProf_Explore.ipynb).
+- Explore the XProf interface with this [notebook demo](xprof_demo.ipynb).
 - Check out this
   [Colab Demo](https://docs.jaxstack.ai/en/latest/JAX_for_LLM_pretraining.html)
   to see how XProf can be used with JAX.
