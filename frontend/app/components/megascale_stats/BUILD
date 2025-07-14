@@ -21,6 +21,7 @@ xprof_ng_module(
         "@npm//@ngrx/store",
         "@npm//@types/google.visualization",
         "@npm//rxjs",
+        "@org_xprof//frontend/app/common/classes",
         "@org_xprof//frontend/app/common/interfaces",
         "@org_xprof//frontend/app/common/interfaces:chart",
         "@org_xprof//frontend/app/common/utils",

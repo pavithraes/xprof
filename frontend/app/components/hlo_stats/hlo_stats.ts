@@ -2,6 +2,7 @@ import {Component, ElementRef, inject, Injector, NgZone, OnDestroy, Renderer2, V
 import {FormControl} from '@angular/forms';
 import {ActivatedRoute, Params} from '@angular/router';
 import {Store} from '@ngrx/store';
+import {Throbber} from 'org_xprof/frontend/app/common/classes/throbber';
 import {OpType} from 'org_xprof/frontend/app/common/constants/enums';
 import {ChartDataInfo} from 'org_xprof/frontend/app/common/interfaces/chart';
 import {SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
@@ -50,6 +51,7 @@ export class HloStats extends Dashboard implements OnDestroy {
   private readonly zone = inject(NgZone);
   /** Handles on-destroy Subject, used to unsubscribe. */
   private readonly destroyed = new ReplaySubject<void>(1);
+  private readonly throbber = new Throbber(this.tool);
   data: SimpleDataTable|null = null;
   hloOpNameSelected = '';
   programIdSelected = '';
@@ -157,10 +159,12 @@ export class HloStats extends Dashboard implements OnDestroy {
 
   update() {
     setLoadingState(true, this.store, 'Loading hlo data');
+    this.throbber.start();
 
     this.dataService.getData(this.sessionId, this.tool, this.host)
         .pipe(takeUntil(this.destroyed))
         .subscribe((data) => {
+          this.throbber.stop();
           setLoadingState(false, this.store);
           this.data = data as SimpleDataTable | null;
           this.process(this.data);
