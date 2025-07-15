@@ -27,7 +27,6 @@ VERSION = version.__version__
 REQUIRED_PACKAGES = [
     'gviz_api >= 1.9.0',
     'protobuf >= 3.19.6',
-    'ratelimit >= 2.2.1',
     'setuptools >= 41.0.0',
     'six >= 1.10.0',
     'werkzeug >= 0.11.15',
