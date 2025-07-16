@@ -20,6 +20,7 @@ limitations under the License.
 #include <vector>
 
 #include "<gtest/gtest.h>"
+#include "absl/time/time.h"
 #include "nlohmann/json_fwd.hpp"
 #include "nlohmann/json.hpp"
 
@@ -98,6 +99,117 @@ TEST(DataTableUtilsTest, ToJsonWithCustomProperties) {
   EXPECT_EQ(parsed_json.find("p")->size(), 2);
   EXPECT_EQ(parsed_json.find("p")->at("key1"), "value1");
   EXPECT_EQ(parsed_json.find("p")->at("key2"), "value2");
+}
+
+TEST(TableRowAddCellsTest, AddNumberCell) {
+  TableRow row;
+  row.AddNumberCell(123.45);
+
+  EXPECT_EQ(row.RowSize(), 1);
+
+  std::vector<const TableCell*> cells = row.GetCells();
+  ASSERT_EQ(cells.size(), 1);
+
+  EXPECT_EQ(cells[0]->value->GetType(), kNumberTypeCode);
+  EXPECT_EQ(dynamic_cast<const NumberValue*>(cells[0]->value.get())->GetValue(),
+            123.45);
+  EXPECT_FALSE(cells[0]->HasFormattedValue());
+}
+
+TEST(TableRowAddCellsTest, AddTextCell) {
+  TableRow row;
+  row.AddTextCell("test_string");
+
+  EXPECT_EQ(row.RowSize(), 1);
+
+  std::vector<const TableCell*> cells = row.GetCells();
+  ASSERT_EQ(cells.size(), 1);
+
+  EXPECT_EQ(cells[0]->value->GetType(), kTextTypeCode);
+  EXPECT_EQ(dynamic_cast<const TextValue*>(cells[0]->value.get())->GetValue(),
+            "test_string");
+  EXPECT_FALSE(cells[0]->HasFormattedValue());
+}
+
+TEST(TableRowAddCellsTest, AddBooleanCell) {
+  TableRow row;
+  row.AddBooleanCell(true);
+
+  EXPECT_EQ(row.RowSize(), 1);
+
+  std::vector<const TableCell*> cells = row.GetCells();
+  ASSERT_EQ(cells.size(), 1);
+
+  EXPECT_EQ(cells[0]->value->GetType(), kBooleanTypeCode);
+  EXPECT_EQ(
+      dynamic_cast<const BooleanValue*>(cells[0]->value.get())->GetValue(),
+      true);
+  EXPECT_FALSE(cells[0]->HasFormattedValue());
+}
+
+TEST(TableRowAddCellsTest, AddFormattedNumberCell) {
+  TableRow row;
+  row.AddFormattedNumberCell(6789, "6,789");
+
+  EXPECT_EQ(row.RowSize(), 1);
+
+  std::vector<const TableCell*> cells = row.GetCells();
+  ASSERT_EQ(cells.size(), 1);
+
+  EXPECT_EQ(cells[0]->value->GetType(), kNumberTypeCode);
+  EXPECT_EQ(dynamic_cast<const NumberValue*>(cells[0]->value.get())->GetValue(),
+            6789);
+  EXPECT_TRUE(cells[0]->HasFormattedValue());
+  EXPECT_EQ(cells[0]->GetFormattedValue(), "6,789");
+}
+
+TEST(TableRowAddCellsTest, AddHexCell) {
+  TableRow row;
+  row.AddHexCell(0xABCD);
+
+  EXPECT_EQ(row.RowSize(), 1);
+
+  std::vector<const TableCell*> cells = row.GetCells();
+  ASSERT_EQ(cells.size(), 1);
+
+  EXPECT_EQ(cells[0]->value->GetType(), kNumberTypeCode);
+  EXPECT_EQ(dynamic_cast<const NumberValue*>(cells[0]->value.get())->GetValue(),
+            0xABCD);
+  EXPECT_TRUE(cells[0]->HasFormattedValue());
+  EXPECT_EQ(cells[0]->GetFormattedValue(), "0xabcd");
+}
+
+TEST(TableRowAddCellsTest, AddBytesCell) {
+  TableRow row;
+  row.AddBytesCell(1024 * 1024);
+
+  EXPECT_EQ(row.RowSize(), 1);
+
+  std::vector<const TableCell*> cells = row.GetCells();
+  ASSERT_EQ(cells.size(), 1);
+
+  EXPECT_EQ(cells[0]->value->GetType(), kNumberTypeCode);
+  EXPECT_EQ(dynamic_cast<const NumberValue*>(cells[0]->value.get())->GetValue(),
+            1024 * 1024);
+  EXPECT_TRUE(cells[0]->HasFormattedValue());
+  EXPECT_EQ(cells[0]->GetFormattedValue(), "1.00M");
+}
+
+TEST(TableRowAddCellsTest, AddFormattedDateCell) {
+  TableRow row;
+  absl::Time test_time = absl::FromUnixSeconds(1678886400);  // 2023-03-15
+  row.AddFormattedDateCell(test_time, "%Y-%m-%d");
+
+  EXPECT_EQ(row.RowSize(), 1);
+
+  std::vector<const TableCell*> cells = row.GetCells();
+  ASSERT_EQ(cells.size(), 1);
+
+  EXPECT_EQ(cells[0]->value->GetType(), kNumberTypeCode);
+  EXPECT_EQ(dynamic_cast<const NumberValue*>(cells[0]->value.get())->GetValue(),
+            1678886400);
+  EXPECT_TRUE(cells[0]->HasFormattedValue());
+  EXPECT_EQ(cells[0]->GetFormattedValue(), "2023-03-15");
 }
 
 }  // namespace

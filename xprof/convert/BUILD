@@ -1489,12 +1489,16 @@ cc_test(
 
 cc_library(
     name = "data_table_utils",
+    srcs = ["data_table_utils.cc"],
     hdrs = ["data_table_utils.h"],
     deps = [
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -1518,6 +1522,7 @@ cc_test(
     deps = [
         ":data_table_utils",
         "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
