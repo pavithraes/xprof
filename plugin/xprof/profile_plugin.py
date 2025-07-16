@@ -19,7 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 import gzip
 import json
 import logging
@@ -392,10 +392,30 @@ def validate_xplane_asset_paths(asset_paths: List[str]) -> None:
     FileNotFoundError: If any of the xplane asset paths do not exist.
   """
   for asset_path in asset_paths:
-    if str(asset_path).endswith(TOOLS['xplane']) and not epath.Path(
-        asset_path
-    ).exists():
+    if (
+        str(asset_path).endswith(TOOLS['xplane'])
+        and not epath.Path(asset_path).exists()
+    ):
       raise FileNotFoundError(f'Invalid asset path: {asset_path}')
+
+
+def _get_bool_arg(
+    args: Mapping[str, Any], arg_name: str, default: bool
+) -> bool:
+  """Gets a boolean argument from a request.
+
+  Args:
+    args: The werkzeug request arguments.
+    arg_name: The name of the argument.
+    default: The default value if the argument is not present.
+
+  Returns:
+    The boolean value of the argument.
+  """
+  arg_str = args.get(arg_name)
+  if arg_str is None:
+    return default
+  return arg_str.lower() == 'true'
 
 
 class ProfilePlugin(base_plugin.TBPlugin):
@@ -633,8 +653,8 @@ class ProfilePlugin(base_plugin.TBPlugin):
     host = request.args.get('host')
     module_name = request.args.get('module_name')
     tqx = request.args.get('tqx')
-    use_saved_result_str = request.args.get('use_saved_result', 'true')
-    use_saved_result = use_saved_result_str.lower() != 'false'
+    use_saved_result = _get_bool_arg(request.args, 'use_saved_result', True)
+    full_dma = _get_bool_arg(request.args, 'full_dma', False)
     run_dir = self._run_dir(run)
 
     # Check if the cache file exists and if the cache file version is less
@@ -676,6 +696,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     if tool == 'trace_viewer@':
       options = {}
       options['resolution'] = request.args.get('resolution', 8000)
+      options['full_dma'] = full_dma
       if request.args.get('start_time_ms') is not None:
         options['start_time_ms'] = request.args.get('start_time_ms')
       if request.args.get('end_time_ms') is not None:
