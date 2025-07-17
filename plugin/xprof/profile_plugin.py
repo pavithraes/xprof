@@ -1027,7 +1027,6 @@ class ProfilePlugin(base_plugin.TBPlugin):
         yield current_dir
         get_subdirectories(current_dir, dirs_to_visit)
 
-    tb_runs = set()
     # Ensure that we check the root logdir and all subdirectories.
     # Note that we check if logdir is a directory to handle case where
     # it's actually a multipart directory spec, which this plugin does not
@@ -1036,23 +1035,33 @@ class ProfilePlugin(base_plugin.TBPlugin):
     # This change still enforce the requirement that the subdirectories must
     # end with plugins/profile directory, as enforced by TensorBoard.
     logdir_path = epath.Path(self.logdir)
-    if '.' not in tb_runs:
-      tb_runs.add('.')
+    tb_runs = {'.'}
+
     if logdir_path.is_dir():
-      for path in find_all_subdirectories(logdir_path):
-        relative_path = path.relative_to(logdir_path)
-        try:
-          *parts, second_last_dir, last_dir = relative_path.parts
-          # Only add subdirectories to runs that are end with plugins/profile.
-          if (
-              len(parts) >= 1  # len(parts) == 0 is the root logdir.
-              and last_dir == PLUGIN_NAME
-              and second_last_dir == TB_NAME
-          ):
-            tb_runs.add(str(epath.Path(*parts)))
-        except ValueError:
-          logger.info('Could not unpack relative path parts: %s', relative_path)
-          pass
+      try:
+        for path in logdir_path.rglob(PLUGIN_NAME):
+          if path.is_dir() and path.parent.name == TB_NAME:
+            tb_run_dir = path.parent.parent
+            tb_run = tb_run_dir.relative_to(logdir_path)
+            tb_runs.add(str(tb_run))
+      except NotImplementedError:
+        # If epath implementation does not support rglob.
+        for path in find_all_subdirectories(logdir_path):
+          relative_path = path.relative_to(logdir_path)
+          try:
+            *parts, second_last_dir, last_dir = relative_path.parts
+            # Only add subdirectories to runs that are end with plugins/profile.
+            if (
+                len(parts) >= 1  # len(parts) == 0 is the root logdir.
+                and last_dir == PLUGIN_NAME
+                and second_last_dir == TB_NAME
+            ):
+              tb_runs.add(str(epath.Path(*parts)))
+          except ValueError:
+            logger.info(
+                'Could not unpack relative path parts: %s', relative_path
+            )
+            pass
     tb_run_names_to_dirs = {
         run: _tb_run_directory(self.logdir, run) for run in tb_runs
     }
