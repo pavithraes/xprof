@@ -121,19 +121,18 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
     return content;
   } else {  // streaming trace viewer.
     std::string host_name = session_snapshot.GetHostname(0);
-    auto sstable_path = session_snapshot.GetHostDataFilePath(
-        StoredDataType::TRACE_EVENTS, host_name);
-    if (!sstable_path.ok()) {
+    auto sstable_path = session_snapshot.GetFilePath(tool_name, host_name);
+    if (!sstable_path) {
       return tsl::errors::Unimplemented(
           "streaming trace viewer hasn't been supported in Cloud AI");
     }
-    if (!tsl::Env::Default()->FileExists(*sstable_path.value()).ok()) {
+    if (!tsl::Env::Default()->FileExists(*sstable_path).ok()) {
       ProcessMegascaleDcn(xspace);
       TraceEventsContainer trace_container;
       ConvertXSpaceToTraceEventsContainer(host_name, *xspace, &trace_container);
       std::unique_ptr<tsl::WritableFile> file;
       TF_RETURN_IF_ERROR(
-          tsl::Env::Default()->NewWritableFile(*sstable_path.value(), &file));
+          tsl::Env::Default()->NewWritableFile(*sstable_path, &file));
       TF_RETURN_IF_ERROR(trace_container.StoreAsLevelDbTable(std::move(file)));
     }
     TF_ASSIGN_OR_RETURN(TraceViewOption trace_option,
@@ -150,7 +149,7 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
     auto trace_events_filter =
         TraceEventsFilterFromTraceOptions(profiler_trace_options);
     TF_RETURN_IF_ERROR(trace_container.LoadFromLevelDbTable(
-        *sstable_path.value(), std::move(trace_events_filter),
+        *sstable_path, std::move(trace_events_filter),
         std::move(visibility_filter), kDisableStreamingThreshold));
     JsonTraceOptions json_trace_options;
 
