@@ -224,6 +224,11 @@ xprof_proto_library(
 )
 
 xprof_proto_library(
+    name = "trace_filter_config_proto",
+    srcs = ["trace_filter_config.proto"],
+)
+
+xprof_proto_library(
     name = "protos_all",
     create_go_proto = False,
     create_java_proto = False,
@@ -260,6 +265,7 @@ xprof_proto_library(
         ":trace_events_old_proto",
         ":trace_events_raw_proto",
         ":smart_suggestion_proto",
+        ":trace_filter_config_proto",
     ],
 )
 
@@ -297,6 +303,7 @@ exports_files(
         "trace_events.proto",
         "trace_events_old.proto",
         "trace_events_raw.proto",
+        "trace_filter_config.proto",
     ],
     visibility = [
         "@org_xprof//plugin/xprof/protobuf:__pkg__",

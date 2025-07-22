@@ -163,6 +163,7 @@ cc_library(
         ":trace_events_to_json",
         ":trace_utils",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@org_xprof//plugin/xprof/protobuf:trace_filter_config_proto_cc",
         "@org_xprof//xprof/convert:tool_options",
     ],
 )
@@ -173,6 +174,7 @@ cc_test(
     deps = [
         ":trace_events_filter_interface",
         ":trace_options",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@org_xprof//xprof/convert:tool_options",
