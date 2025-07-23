@@ -43,6 +43,7 @@ cc_library(
     hdrs =
         ["profiler_plugin_impl.h"],
     deps = [
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",

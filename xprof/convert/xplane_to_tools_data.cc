@@ -20,6 +20,7 @@ limitations under the License.
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -49,6 +50,8 @@ limitations under the License.
 #include "xprof/convert/op_stats_to_tf_stats.h"
 #include "xprof/convert/preprocess_single_host_xplane.h"
 #include "xprof/convert/process_megascale_dcn.h"
+#include "xprof/convert/profile_processor.h"
+#include "xprof/convert/profile_processor_factory.h"
 #include "xprof/convert/repository.h"
 #include "xprof/convert/tool_options.h"
 #include "xprof/convert/trace_viewer/trace_events_to_json.h"
@@ -370,6 +373,21 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToInferenceStats(
   return InferenceStatsToDataTableJson(inference_stats);
 }
 
+absl::Status RunMapReduce(xprof::ProfileProcessor* processor,
+                          const SessionSnapshot& session_snapshot) {
+  std::vector<std::string> map_output_files;
+  map_output_files.reserve(session_snapshot.XSpaceSize());
+  for (int i = 0; i < session_snapshot.XSpaceSize(); ++i) {
+    std::string hostname = session_snapshot.GetHostname(i);
+    google::protobuf::Arena arena;
+    TF_ASSIGN_OR_RETURN(XSpace * xspace, session_snapshot.GetXSpace(i, &arena));
+    TF_ASSIGN_OR_RETURN(std::string map_output_file,
+                        processor->Map(session_snapshot, hostname, *xspace));
+    map_output_files.push_back(map_output_file);
+  }
+  return processor->Reduce(session_snapshot, map_output_files);
+}
+
 }  // namespace
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToToolData(
@@ -419,6 +437,32 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToToolData(
         "Can not find tool: ", tool_name,
         ". Please update to the latest version of Tensorflow.");
   }
+}
+
+absl::StatusOr<std::string> ConvertMultiXSpacesToToolDataWithProfileProcessor(
+    const SessionSnapshot& session_snapshot, const absl::string_view tool_name,
+    const ToolOptions& options) {
+  LOG(INFO) << "serving tool: " << tool_name
+            << " with options: " << DebugString(options)
+            << " using ProfileProcessor";
+
+  auto processor =
+      xprof::ProfileProcessorFactory::GetInstance().Create(tool_name, options);
+  if (!processor) {
+    return tsl::errors::InvalidArgument(
+        "Can not find tool: ", tool_name,
+        ". Please update to the latest version of Tensorflow.");
+  }
+
+  if (processor->ShouldUseWorkerService(session_snapshot)) {
+    // This branch is for the Map/Reduce flow, potentially distributed in the
+    // future.
+    TF_RETURN_IF_ERROR(RunMapReduce(processor.get(), session_snapshot));
+  } else {
+    // This branch is for processing the session directly.
+    TF_RETURN_IF_ERROR(processor->ProcessSession(session_snapshot));
+  }
+  return processor->GetData();
 }
 
 }  // namespace profiler

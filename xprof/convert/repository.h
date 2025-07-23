@@ -47,11 +47,6 @@ enum StoredDataType {
   OP_STATS,
 };
 
-static auto* kHostDataSuffixes =
-    new std::vector<std::pair<StoredDataType, const char*>>(
-        {{StoredDataType::DCN_COLLECTIVE_STATS, ".dcn_collective_stats.pb"},
-         {StoredDataType::OP_STATS, ".op_stats.pb"}});
-
 // File system directory snapshot of a profile session.
 class SessionSnapshot {
  public:

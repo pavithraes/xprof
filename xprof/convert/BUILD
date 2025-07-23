@@ -7,6 +7,112 @@ package(
 )
 
 cc_library(
+    name = "profile_processor_factory",
+    srcs = ["profile_processor_factory.cc"],
+    hdrs = ["profile_processor_factory.h"],
+    deps = [
+        ":profile_processor",
+        ":tool_options",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/functional:any_invocable",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "profile_processor",
+    hdrs = ["profile_processor.h"],
+    deps = [
+        ":repository",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+    ],
+)
+
+cc_library(
+    name = "op_stats_processor",
+    srcs = ["op_stats_processor.cc"],
+    hdrs = ["op_stats_processor.h"],
+    deps = [
+        ":op_stats_combiner",
+        ":preprocess_single_host_xplane",
+        ":profile_processor",
+        ":repository",
+        ":xplane_to_op_stats",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+        "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
+        "@org_xprof//xprof/utils:hardware_type_utils",
+        "@org_xprof//xprof/utils:step_intersection",
+        "@tsl//tsl/platform:path",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:env",
+        "@xla//xla/tsl/platform:errors",
+        "@xla//xla/tsl/platform:statusor",
+        "@xla//xla/tsl/platform:types",
+    ],
+)
+
+cc_library(
+    name = "overview_page_processor",
+    srcs = ["overview_page_processor.cc"],
+    hdrs = ["overview_page_processor.h"],
+    deps = [
+        ":compute_inference_latency",
+        ":multi_xspace_to_inference_stats",
+        ":op_stats_combiner",
+        ":op_stats_processor",
+        ":op_stats_to_overview_page",
+        ":preprocess_single_host_xplane",
+        ":profile_processor_factory",
+        ":repository",
+        ":tool_options",
+        ":xplane_to_op_stats",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
+        "@org_xprof//plugin/xprof/protobuf:overview_page_proto_cc",
+        "@org_xprof//xprof/utils:hardware_type_utils",
+        "@org_xprof//xprof/utils:step_intersection",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
+        "@xla//xla/tsl/platform:types",
+    ],
+    alwayslink = 1,
+)
+
+cc_test(
+    name = "profile_processor_test",
+    srcs = ["profile_processor_test.cc"],
+    deps = [
+        ":overview_page_processor",
+        ":profile_processor",
+        ":profile_processor_factory",
+        ":repository",
+        ":tool_options",
+        ":xplane_to_tools_data",
+        "//file/base",
+        "//file/base:options_cc",
+        "//file/base:path",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
+        "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
+        "@tsl//tsl/platform:path",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:env",
+        "@xla//xla/tsl/platform:statusor",
+    ],
+)
+
+cc_library(
     name = "xplane_to_op_metrics_db",
     srcs = ["xplane_to_op_metrics_db.cc"],
     hdrs = ["xplane_to_op_metrics_db.h"],
@@ -755,6 +861,7 @@ cc_library(
         ":hlo_to_tools_data",
         ":multi_xplanes_to_op_stats",
         ":multi_xspace_to_inference_stats",
+        ":op_stats_processor",
         ":op_stats_to_hlo_stats",
         ":op_stats_to_input_pipeline_analysis",
         ":op_stats_to_op_profile",
@@ -762,8 +869,11 @@ cc_library(
         ":op_stats_to_pod_viewer",
         ":op_stats_to_roofline_model",
         ":op_stats_to_tf_stats",
+        ":overview_page_processor",
         ":preprocess_single_host_xplane",
         ":process_megascale_dcn",
+        ":profile_processor",
+        ":profile_processor_factory",
         ":repository",
         ":tool_options",
         ":xplane_to_dcn_collective_stats",

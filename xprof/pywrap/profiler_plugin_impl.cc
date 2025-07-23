@@ -20,6 +20,7 @@ limitations under the License.
 #include <utility>
 #include <vector>
 
+#include "absl/flags/flag.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -32,10 +33,14 @@ limitations under the License.
 #include "xprof/convert/tool_options.h"
 #include "xprof/convert/xplane_to_tools_data.h"
 
+ABSL_FLAG(bool, use_profile_processor, false,
+          "Use ProfileProcessor for tool data conversion");
+
 namespace xprof {
 namespace pywrap {
 
 using ::tensorflow::profiler::ConvertMultiXSpacesToToolData;
+using ::tensorflow::profiler::ConvertMultiXSpacesToToolDataWithProfileProcessor;
 using ::tensorflow::profiler::GetParam;
 using ::tensorflow::profiler::SessionSnapshot;
 using ::tensorflow::profiler::ToolOptions;
@@ -57,9 +62,16 @@ absl::StatusOr<std::pair<std::string, bool>> SessionSnapshotToToolsData(
     TF_RETURN_IF_ERROR(status_or_session_snapshot->ClearCacheFiles());
   }
 
-  absl::StatusOr<std::string> status_or_tool_data =
-      ConvertMultiXSpacesToToolData(status_or_session_snapshot.value(),
-                                    tool_name, tool_options);
+  absl::StatusOr<std::string> status_or_tool_data;
+  if (absl::GetFlag(FLAGS_use_profile_processor) &&
+      tool_name == "overview_page") {
+    status_or_tool_data = ConvertMultiXSpacesToToolDataWithProfileProcessor(
+        status_or_session_snapshot.value(), tool_name, tool_options);
+  } else {
+    status_or_tool_data = ConvertMultiXSpacesToToolData(
+        status_or_session_snapshot.value(), tool_name, tool_options);
+  }
+
   if (!status_or_tool_data.ok()) {
     LOG(ERROR) << status_or_tool_data.status().message();
     return std::make_pair(std::string(status_or_tool_data.status().message()),
