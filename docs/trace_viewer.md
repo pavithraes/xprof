@@ -82,6 +82,9 @@ Here are the main UI components in Trace Viewer:
     information is statically acquired from XLA during compilation, rather than
     runtime information from the profile.
 
+    ![Trace Viewer Details pane](images/trace_viewer_details.png)
+
+
 ### Typical Sections and Tracks
 
 Trace Viewer provides the following sections and tracks.
@@ -142,6 +145,9 @@ lines may or may not appear in certain profiles.
 *   You can search for specific event names using the “Find events..” search
     bar. Currently, this only searches within the visible time-window on screen,
     rather than the full trace.
+
+    ![Trace Viewer Find events search bar](images/trace_viewer_find.png)
+
 *   **Flow Events**: Enabling this option by clicking the “Flow Events” button
     in the top bar adds visualizations, linking events in one thread or line to
     events in another thread line. For example, there may be an arrow drawn from
@@ -150,3 +156,5 @@ lines may or may not appear in certain profiles.
     via a combination of user annotations, built-in heuristics, and by
     post-processing information it receives from different components (e.g.,
     CUPTI drivers, kernel launch IDs, TPU runtime information, etc.).
+
+    ![Trace Viewer Flow Events button](images/trace_viewer_flow.png)
