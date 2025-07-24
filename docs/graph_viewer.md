@@ -13,7 +13,7 @@ Both TPU and GPU are supported.
 
 Graph Viewer can be controlled with the following options:
 
-1. An **Op Name** box, where you enter the name of an
+1. An **XLA Op Name** box, where you enter the name of an
 operation to select it as the primary node and visualize its neighbors. Pressing
 enter after typing the op name will visualize the surrounding nodes.
 
@@ -21,25 +21,28 @@ enter after typing the op name will visualize the surrounding nodes.
 controls the maximum distance of nodes from the primary node that is included in
 the visualization.
 
-1. A **Metadata** selector, which you
-use to toggle the display of operation metadata included by the compiler, if
-any. Note that you need to click “Search Graph” again after selecting this
-checkbox.
+1. A **Show Metadata** toggle, which you use to toggle the display of operation
+metadata included by the compiler, if any. Note that you need to click “Search
+Graph” again after selecting this checkbox.
 
 1. A **Merge Fusion** checkbox that you can use to collapse or expand the
 components of fused ops. Note that you will need to click “Search Graph” again
 after toggling this checkbox.
 
-1. Zoom in/out buttons or keys, though you can
-also use your mouse to zoom.
+1. Zoom in/out buttons or keys, though you can also use your mouse to zoom.
 
-1. Links to download the graph as SVG or dot files.
+1. Links to download the graph as HTML+SVG, SVG or dot files.
 
 1. By using the search functionality, you can quickly locate and focus on
 specific operations within the potentially large graph.
 
-1. To freeze the runtime
-data panel on a particular op, right click on the op.
+1. To freeze the runtime data panel on a particular op, right click on the op.
+
+By clicking the **Check HLO Full Text** button at the top of the viewer, you
+can see the short or long HLO text representation of the graph, which can be
+useful for debugging.
+
+![Graph Viewer HLO Full Text](images/graph_viewer_hlo_full_text.png)
 
 ### Using Graph Viewer
 
@@ -60,6 +63,8 @@ the
 [multiple layers of transformation](https://openxla.org/xla/architecture#how_it_works)
 that your Python program undergoes on its way to generating an accelerator
 executable.
+
+![Graph Viewer showing the user code line corresponding to the op](images/graph_viewer_hover.png)
 
 Note that the profiler receives HLO-level information from an “optimized HLO”
 graph, close to the point where it is ready to be lowered to
