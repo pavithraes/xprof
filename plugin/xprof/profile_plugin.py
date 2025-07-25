@@ -36,7 +36,7 @@ from xprof import version
 from xprof.convert import raw_to_tool_data as convert
 from xprof.standalone.tensorboard_shim import base_plugin
 from xprof.standalone.tensorboard_shim import plugin_asset_util
-from xprof.pywrap import _pywrap_profiler_plugin
+from xprof.convert import _pywrap_profiler_plugin
 
 
 logger = logging.getLogger('tensorboard')

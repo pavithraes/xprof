@@ -28,11 +28,7 @@ import logging
 from xprof.convert import csv_writer
 from xprof.convert import trace_events_json
 from xprof.protobuf import trace_events_old_pb2
-
-try:
-  from xprof.convert import _pywrap_profiler_plugin  # pylint: disable=g-import-not-at-top
-except ImportError:
-  from xprof.pywrap import _pywrap_profiler_plugin  # pylint: disable=g-import-not-at-top
+from xprof.convert import _pywrap_profiler_plugin
 
 
 logger = logging.getLogger('tensorboard')

@@ -15,7 +15,7 @@
 """Tests for profiler_wrapper.cc pybind methods."""
 
 from absl.testing import absltest
-from xprof.pywrap import _pywrap_profiler_plugin as profiler_wrapper_plugin
+from xprof.convert import _pywrap_profiler_plugin as profiler_wrapper_plugin
 
 
 class ProfilerSessionTest(absltest.TestCase):
