@@ -42,6 +42,12 @@ export class FrameworkOpStatsAdapter implements OnDestroy {
         setCurrentToolStateAction({currentTool: 'framework_op_stats'}),
     );
     this.store.dispatch(actions.setTitleAction({title: 'Notes'}));
+    this.store.dispatch(
+        actions.setShowFlopRateChartAction({showFlopRateChart: true}),
+    );
+    this.store.dispatch(
+        actions.setShowModelPropertiesAction({showModelProperties: true}),
+    );
   }
 
   processQuery(params: Params) {
