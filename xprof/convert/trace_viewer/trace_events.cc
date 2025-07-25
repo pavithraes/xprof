@@ -20,7 +20,6 @@ limitations under the License.
 #include <cstring>
 #include <functional>
 #include <iterator>
-#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -41,7 +40,6 @@ limitations under the License.
 #include "xla/tsl/platform/macros.h"
 #include "xla/tsl/platform/types.h"
 #include "xla/tsl/profiler/utils/timespan.h"
-#include "xprof/convert/trace_viewer/trace_events_filter_interface.h"
 #include "xprof/convert/trace_viewer/trace_events_util.h"
 #include "xprof/convert/trace_viewer/trace_viewer_visibility.h"
 #include "xprof/convert/xprof_thread_pool_executor.h"
@@ -62,42 +60,8 @@ constexpr uint64_t kLayerResolutions[] = {
 };
 
 constexpr int NumLevels() { return TF_ARRAYSIZE(kLayerResolutions); }
-// Constants used by the LevelDB Table-based efficient trace viewer storage.
-static constexpr char kTraceMetadataKey[] = "/trace";
-static constexpr absl::string_view kLevelKey("123456789ABCDEFGHIJKLMNOPQ");
 static constexpr size_t kLevelDbKeyLength = 10;
 
-// Level Db table don't allow duplicated keys, so we add a tie break at the last
-// bytes. the format is zoom[1B] + timestamp[8B] + repetition[1B]
-std::string LevelDbTableKey(int zoom_level, uint64_t timestamp,
-                            uint64_t repetition) {
-  if (repetition >= 256) return std::string();
-  std::string output(kLevelDbKeyLength, 0);
-  char* ptr = output.data();
-  ptr[0] = kLevelKey[zoom_level];
-  // The big-endianness preserve the monotonic order of timestamp when convert
-  // to lexigraphical order (of Sstable key namespace).
-  uint64_t timestamp_bigendian = absl::big_endian::FromHost64(timestamp);
-  memcpy(ptr + 1, &timestamp_bigendian, sizeof(uint64_t));
-  ptr[9] = repetition;
-  return output;
-}
-
-uint64_t TimestampFromLevelDbTableKey(absl::string_view level_db_table_key) {
-  DCHECK_EQ(level_db_table_key.size(), kLevelDbKeyLength);
-  uint64_t value;  // big endian representation of timestamp.
-  memcpy(&value, level_db_table_key.data() + 1, sizeof(uint64_t));
-  return absl::big_endian::ToHost64(value);
-}
-
-bool ReadTraceMetadata(tsl::table::Iterator* iterator,
-                       absl::string_view metadata_key, Trace* trace) {
-  if (!iterator->Valid()) return false;
-  if (iterator->key() != metadata_key) return false;
-  auto serialized_trace = iterator->value();
-  return trace->ParseFromArray(serialized_trace.data(),
-                               serialized_trace.size());
-}
 
 // Returns the total number of events.
 inline int32_t NumEvents(
@@ -127,6 +91,38 @@ void MaybeAddEventUniqueId(std::vector<TraceEvent*>& events) {
 }
 
 }  // namespace
+
+bool ReadTraceMetadata(tsl::table::Iterator* iterator,
+                       absl::string_view metadata_key, Trace* trace) {
+  if (!iterator->Valid()) return false;
+  if (iterator->key() != metadata_key) return false;
+  auto serialized_trace = iterator->value();
+  return trace->ParseFromArray(serialized_trace.data(),
+                               serialized_trace.size());
+}
+
+uint64_t TimestampFromLevelDbTableKey(absl::string_view level_db_table_key) {
+  DCHECK_EQ(level_db_table_key.size(), kLevelDbKeyLength);
+  uint64_t value;  // big endian representation of timestamp.
+  memcpy(&value, level_db_table_key.data() + 1, sizeof(uint64_t));
+  return absl::big_endian::ToHost64(value);
+}
+
+// Level Db table don't allow duplicated keys, so we add a tie break at the last
+// bytes. the format is zoom[1B] + timestamp[8B] + repetition[1B]
+std::string LevelDbTableKey(int zoom_level, uint64_t timestamp,
+                            uint64_t repetition) {
+  if (repetition >= 256) return std::string();
+  std::string output(kLevelDbKeyLength, 0);
+  char* ptr = output.data();
+  ptr[0] = kLevelKey[zoom_level];
+  // The big-endianness preserve the monotonic order of timestamp when convert
+  // to lexigraphical order (of Sstable key namespace).
+  uint64_t timestamp_bigendian = absl::big_endian::FromHost64(timestamp);
+  memcpy(ptr + 1, &timestamp_bigendian, sizeof(uint64_t));
+  ptr[9] = repetition;
+  return output;
+}
 
 uint64_t LayerResolutionPs(unsigned level) {
   // This sometimes gets called in a tight loop, so levels are precomputed.
@@ -227,13 +223,9 @@ absl::Status DoStoreAsTraceEventsAndTraceEventsMetadataLevelDbTables(
   absl::Status trace_events_status, trace_events_metadata_status;
   executor->Execute(
       [&trace_events_file, &trace, &events_by_level, &trace_events_status]() {
-        // TODO: b/432623970 - Change the generate trace events copy function to
-        // GenerateTraceEventCopyForPersistingEventWithoutMetadata once
-        // https://source.corp.google.com/piper///depot/google3/perftools/gputools/profiler/collector/leveldb_trace_events_reader.cc;l=116
-        // is implemented.
         trace_events_status =
             DoStoreAsLevelDbTable(trace_events_file, trace, events_by_level,
-                                  GenerateTraceEventCopyForPersistingFullEvent);
+              GenerateTraceEventCopyForPersistingEventWithoutMetadata);
       });
   executor->Execute([&trace_events_metadata_file, &events_by_level, &trace,
                      &trace_events_metadata_status]() {
@@ -290,6 +282,8 @@ absl::Status DoStoreAsLevelDbTable(
     std::unique_ptr<tsl::WritableFile>& file, const Trace& trace,
     const std::vector<std::vector<const TraceEvent*>>& events_by_level,
     std::function<TraceEvent(const TraceEvent*)> generate_event_copy_fn) {
+  LOG(INFO) << "Storing " << trace.num_events()
+            << " events to LevelDb table fast file: ";
   tsl::table::Options options;
   options.block_size = 20 * 1024 * 1024;
   options.compression = tsl::table::kSnappyCompression;
@@ -304,18 +298,10 @@ absl::Status DoStoreAsLevelDbTable(
     // breaker. The hidden assumption was that there are not too many identical
     // timestamp per resolution, (if there are such duplications, we dropped
     // them if it overflow the last byte).
-    uint64_t last_timestamp = std::numeric_limits<uint64_t>::max();
-    uint64_t last_timestamp_repetition = 0;
     for (const TraceEvent* event : events_by_level[zoom_level]) {
       uint64_t timestamp = event->timestamp_ps();
-      if (timestamp != last_timestamp) {
-        last_timestamp = timestamp;
-        last_timestamp_repetition = 0;
-      } else {
-        ++last_timestamp_repetition;
-      }
       std::string key =
-          LevelDbTableKey(zoom_level, timestamp, last_timestamp_repetition);
+          LevelDbTableKey(zoom_level, timestamp, event->serial());
       if (!key.empty()) {
         TraceEvent event_copy = generate_event_copy_fn(event);
         builder.Add(key, event_copy.SerializeAsString());
@@ -334,124 +320,103 @@ absl::Status DoStoreAsLevelDbTable(
   return file->Close();
 }
 
-absl::Status DoLoadFromLevelDbTable(
-    const std::string& filename,
-    std::unique_ptr<TraceEventsFilterInterface> filter,
-    std::unique_ptr<TraceVisibilityFilter> visibility_filter,
-    int64_t filter_by_visibility_threshold, Trace& trace,
-    bool& filter_by_visibility,
-    const std::function<TraceEvent*(const TraceEvent&)>& copy_event_to_arena,
-    const std::function<void(TraceEvent*)>& add_arena_event) {
+absl::Status OpenLevelDbTable(const std::string& filename,
+                               tsl::table::Table** table,
+                               std::unique_ptr<tsl::RandomAccessFile>& file) {
   uint64_t file_size;
   TF_RETURN_IF_ERROR(tsl::Env::Default()->GetFileSize(filename, &file_size));
-
   tsl::FileSystem* file_system;
   TF_RETURN_IF_ERROR(
       tsl::Env::Default()->GetFileSystemForFile(filename, &file_system));
-
-  std::unique_ptr<tsl::RandomAccessFile> file;
   TF_RETURN_IF_ERROR(file_system->NewRandomAccessFile(filename, &file));
-
   tsl::table::Options options;
   options.block_size = 20 * 1024 * 1024;
-  tsl::table::Table* table = nullptr;
   TF_RETURN_IF_ERROR(
-      tsl::table::Table::Open(options, file.get(), file_size, &table));
-  std::unique_ptr<tsl::table::Table> table_deleter(table);
-  std::unique_ptr<tsl::table::Iterator> iterator(table->NewIterator());
-  if (iterator == nullptr) return tsl::errors::Unknown("Could not open table");
-
-  // Read the metadata.
-  iterator->SeekToFirst();
-  if (!ReadTraceMetadata(iterator.get(), kTraceMetadataKey, &trace)) {
-    return absl::UnknownError(
-        "Could not parse Trace proto to read trace metadata");
-  }
-
-  if (filter) filter->SetUp(trace);
-
-  tsl::profiler::Timespan visible_span;
-  uint64_t container_resolution_ps = 0;
-
-  filter_by_visibility = filter_by_visibility_threshold == -1LL ||
-                         !trace.has_num_events() ||
-                         trace.num_events() >= filter_by_visibility_threshold;
-  if (visibility_filter) {
-    if (!filter_by_visibility) {
-      // disable streaming
-      visibility_filter->UpdateVisibility(0);
-    }
-    visibility_filter->SetUp(trace);
-    visible_span = visibility_filter->VisibleSpan();
-    container_resolution_ps = visibility_filter->ResolutionPs();
-  } else {
-    visible_span = TraceSpan(trace);
-  }
-
-  // Read events at the different zoom levels.
-  std::vector<std::unique_ptr<std::vector<TraceEvent*>>> loaded_events_by_level;
-  size_t filtered = 0;
-  TraceEvent event;  // Declared outside of the loop to avoid repeated calls to
-                     // the constructor and destructor in the loop body. Cleared
-                     // by every call to ParseFromCord.
-  for (int i = 0;; ++i) {
-    loaded_events_by_level.emplace_back(
-        std::make_unique<std::vector<TraceEvent*>>());
-    auto& loaded_events = *loaded_events_by_level.back();
-    uint64_t resolution_ps = LayerResolutionPs(i);
-    // Seek to the first element that might be in range. For the initial zoom
-    // level, we don't know any bounds as events might be arbitrarily large.
-    uint64_t min_timestamp_ps = 0;
-    if (i > 0 && visible_span.begin_ps() > LayerResolutionPs(i - 1)) {
-      min_timestamp_ps = visible_span.begin_ps() - LayerResolutionPs(i - 1);
-    }
-    iterator->Seek(LevelDbTableKey(i, i == 0 ? 0 : min_timestamp_ps, 0));
-    while (iterator->Valid() && iterator->key().at(0) == kLevelKey[i]) {
-      auto serialized_event = iterator->value();
-      if (!event.ParseFromArray(serialized_event.data(),
-                                serialized_event.size())) {
-        return tsl::errors::Unknown("Could not parse TraceEvent proto");
-      }
-      uint64_t timestamp = TimestampFromLevelDbTableKey(iterator->key());
-      event.set_timestamp_ps(timestamp);
-      if (event.timestamp_ps() > visible_span.end_ps()) {
-        // This (and all following) events are outside of our window.
-        break;
-      }
-      // Filter before copying to the arena as it does not require sorting.
-      if (!filter || !filter->Filter(event)) {
-        loaded_events.push_back(copy_event_to_arena(event));
-      } else {
-        ++filtered;
-      }
-      iterator->Next();
-    }
-    if (container_resolution_ps >= resolution_ps) {
-      // No need to read further, the resolution we just loaded already exceeds
-      // the desired resolution.
-      break;
-    }
-  }
-
-  // We have loaded events from different zoom levels. Sort them by timestamp
-  // so visibility filtering works as expected.
-  std::vector<TraceEvent*> loaded_events;
-  nway_merge(loaded_events_by_level, std::back_inserter(loaded_events),
-             TraceEventsComparator());
-  loaded_events_by_level.clear();
-
-  LOG(INFO) << "Loaded " << loaded_events.size() << " events after filtering "
-            << filtered << " events from LevelDb fast file: " << filename;
-  size_t visible_events_count = 0;
-  for (TraceEvent* event : loaded_events) {
-    if (!visibility_filter || !visibility_filter->Filter(*event)) {
-      add_arena_event(event);
-      ++visible_events_count;
-    }
-  }
-  LOG(INFO) << "Added " << visible_events_count
-            << " visible events from LevelDb fast file: " << filename;
+      tsl::table::Table::Open(options, file.get(), file_size, table));
   return absl::OkStatus();
+}
+
+absl::Status DoReadFullEventFromLevelDbTable(
+    const std::string& trace_events_metadata_filename,
+    const std::string& trace_events_filename, absl::string_view event_name,
+    int64_t timestamp_ps, int64_t duration_ps, int64_t unique_id, Trace& trace,
+    const std::function<TraceEvent*(const TraceEvent&)>& copy_event_to_arena,
+    const std::function<void(TraceEvent*)>& add_arena_event) {
+  tsl::table::Table* trace_events_table = nullptr;
+  tsl::table::Table* trace_events_metadata_table = nullptr;
+  std::unique_ptr<tsl::RandomAccessFile> trace_events_file;
+  std::unique_ptr<tsl::RandomAccessFile> trace_events_metadata_file;
+  auto executor = std::make_unique<XprofThreadPoolExecutor>(
+      "ReadFullEventFromLevelDbTable", /*num_threads=*/2);
+  absl::Status trace_events_status;
+  absl::Status trace_events_metadata_status;
+  executor->Execute([&trace_events_filename, &trace_events_table,
+                     &trace_events_file, &trace_events_status]() {
+    trace_events_status = OpenLevelDbTable(
+        trace_events_filename, &trace_events_table, trace_events_file);
+  });
+  executor->Execute([&trace_events_metadata_filename,
+                     &trace_events_metadata_table, &trace_events_metadata_file,
+                     &trace_events_metadata_status]() {
+    trace_events_metadata_status = OpenLevelDbTable(
+        trace_events_metadata_filename, &trace_events_metadata_table,
+        trace_events_metadata_file);
+  });
+  executor->JoinAll();
+  trace_events_status.Update(trace_events_metadata_status);
+  TF_RETURN_IF_ERROR(trace_events_status);
+
+  std::unique_ptr<tsl::table::Table> trace_events_table_deleter(
+      trace_events_table);
+  std::unique_ptr<tsl::table::Table> trace_events_metadata_table_deleter(
+      trace_events_metadata_table);
+  std::unique_ptr<tsl::table::Iterator> trace_events_iterator(
+      trace_events_table->NewIterator());
+  std::unique_ptr<tsl::table::Iterator> trace_events_metadata_iterator(
+      trace_events_metadata_table->NewIterator());
+  if (trace_events_iterator == nullptr ||
+      trace_events_metadata_iterator == nullptr) {
+    return absl::UnknownError("Could not open table");
+  }
+
+  trace_events_iterator->SeekToFirst();
+  if (!ReadTraceMetadata(trace_events_iterator.get(), kTraceMetadataKey,
+                         &trace)) {
+    return absl::UnknownError("Could not parse Trace proto");
+  }
+
+  for (int zoom_level = 0; zoom_level < NumLevels(); ++zoom_level) {
+    std::string level_db_table_key =
+        LevelDbTableKey(zoom_level, timestamp_ps, unique_id);
+    trace_events_iterator->Seek(level_db_table_key);
+    if (trace_events_iterator->Valid() &&
+        trace_events_iterator->key() == level_db_table_key) {
+      TraceEvent event;
+      if (!event.ParseFromArray(trace_events_iterator->value().data(),
+                                trace_events_iterator->value().size())) {
+        return absl::UnknownError("Could not parse TraceEvent proto");
+      }
+      if (event.name() != event_name || event.duration_ps() != duration_ps) {
+        continue;
+      }
+      trace_events_metadata_iterator->Seek(level_db_table_key);
+      if (!trace_events_metadata_iterator->Valid() ||
+          trace_events_metadata_iterator->key() != level_db_table_key) {
+        return absl::UnknownError("Could not find metadata for event");
+      }
+      TraceEvent event_metadata;
+      if (!event_metadata.ParseFromArray(
+              trace_events_metadata_iterator->value().data(),
+              trace_events_metadata_iterator->value().size())) {
+        return absl::UnknownError("Could not parse TraceEvent proto");
+      }
+      event.set_timestamp_ps(timestamp_ps);
+      event.set_raw_data(event_metadata.raw_data());
+      add_arena_event(copy_event_to_arena(event));
+      return absl::OkStatus();
+    }
+  }
+  return absl::NotFoundError("Event not found");
 }
 
 }  // namespace profiler

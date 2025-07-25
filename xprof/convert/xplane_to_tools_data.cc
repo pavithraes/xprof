@@ -54,6 +54,7 @@ limitations under the License.
 #include "xprof/convert/profile_processor_factory.h"
 #include "xprof/convert/repository.h"
 #include "xprof/convert/tool_options.h"
+#include "xprof/convert/trace_viewer/trace_events.h"
 #include "xprof/convert/trace_viewer/trace_events_to_json.h"
 #include "xprof/convert/trace_viewer/trace_options.h"
 #include "xprof/convert/trace_viewer/trace_viewer_visibility.h"
@@ -151,8 +152,10 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
     constexpr int64_t kDisableStreamingThreshold = 500000;
     auto trace_events_filter =
         CreateTraceEventsFilterFromTraceOptions(profiler_trace_options);
+    TraceEventsLevelDbFilePaths file_paths;
+    file_paths.trace_events_file_path = *sstable_path;
     TF_RETURN_IF_ERROR(trace_container.LoadFromLevelDbTable(
-        *sstable_path, std::move(trace_events_filter),
+        file_paths, std::move(trace_events_filter),
         std::move(visibility_filter), kDisableStreamingThreshold));
     JsonTraceOptions json_trace_options;
 
