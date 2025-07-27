@@ -119,14 +119,16 @@ TEST(GraphViewerParamsTest, AdjNodesType) {
 TEST(GraphViewerParamsTest, OtherTypes) {
   ToolOptions options1;
   EXPECT_THAT(ParseGraphViewerParams(options1),
-              StatusIs(tsl::error::INVALID_ARGUMENT,
-                       HasSubstr("Graph viewer must provide a type option")));
+              absl_testing::StatusIs(
+                  tsl::error::INVALID_ARGUMENT,
+                  HasSubstr("Graph viewer must provide a type option")));
 
   ToolOptions options2;
   options2["type"] = "abcd";
   EXPECT_THAT(ParseGraphViewerParams(options2),
-              StatusIs(tsl::error::INVALID_ARGUMENT,
-                       HasSubstr("Unknown graph viewer type option: abcd")));
+              absl_testing::StatusIs(
+                  tsl::error::INVALID_ARGUMENT,
+                  HasSubstr("Unknown graph viewer type option: abcd")));
 }
 
 }  // namespace
