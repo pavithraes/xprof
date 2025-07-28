@@ -193,14 +193,17 @@ void PopulateOpMetricsNode(
   metrics->set_avg_time_ps(tsl::profiler::SafeDivide(op_metrics.time_ps(),
                                                      op_metrics.occurrences()));
 
-  double flops_utilization = CapUtilization(
+  double uncapped_flops_utilization =
       tsl::profiler::SafeDivide(GigaFlopsPerSecondPerCore(op_metrics),
-                                peak_gigaflops_per_second_per_core));
+                                peak_gigaflops_per_second_per_core);
+
+  double flops_utilization = CapUtilization(uncapped_flops_utilization);
   // The UI expects flops_utilization = flop_util / time_fraction. See:
   // https://github.com/tensorflow/profiler/blob/master/frontend/app/common/utils/utils.ts
   const double time_fraction =
       tsl::profiler::SafeDivide(op_metrics.time_ps(), total_time_ps);
   metrics->set_flops(flops_utilization * time_fraction);
+  metrics->set_uncapped_flops(uncapped_flops_utilization * time_fraction);
 
   // Capture both on-chip and off-chip memory utilization.
   const double hbm_gibibytes_per_second =

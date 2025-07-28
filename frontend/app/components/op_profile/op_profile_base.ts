@@ -39,6 +39,7 @@ export class OpProfileBase implements OnDestroy, OnInit {
   sourceCodeServiceIsAvailable = false;
   stackTrace = '';
   showStackTrace = false;
+  useUncappedFlops = false;
 
   @Input() opProfileData: OpProfileProto|null = null;
 
@@ -60,7 +61,7 @@ export class OpProfileBase implements OnDestroy, OnInit {
         !!this.profile && !!this.profile.byCategory && !!this.profile.byProgram;
     this.isByCategory = false;
     this.updateRoot();
-    this.data.update(this.rootNode);
+    this.data.update(this.rootNode, this.useUncappedFlops);
     this.summary = this.dataService.getOpProfileSummary(this.data);
   }
 
@@ -132,7 +133,7 @@ export class OpProfileBase implements OnDestroy, OnInit {
   updateExcludeIdle() {
     this.excludeIdle = !this.excludeIdle;
     this.updateRoot();
-    this.data.update(this.rootNode);
+    this.data.update(this.rootNode, this.useUncappedFlops);
   }
 
   updateShowStackTrace() {
@@ -145,6 +146,11 @@ export class OpProfileBase implements OnDestroy, OnInit {
 
   updateShowP90() {
     this.showP90 = !this.showP90;
+  }
+
+  updateFlopsType() {
+    this.useUncappedFlops = !this.useUncappedFlops;
+    this.data.update(this.rootNode, this.useUncappedFlops);
   }
 
   ngOnDestroy() {

@@ -30,6 +30,9 @@ export class OpTableEntry implements OnChanges {
   /** The property to show top 90%. */
   @Input() showP90 = false;
 
+  /** The property to show uncapped flops. */
+  @Input() useUncappedFlops = false;
+
   /** The number of children nodes to be shown. */
   @Input() childrenCount = 10;
 
@@ -77,15 +80,18 @@ export class OpTableEntry implements OnChanges {
       this.barWidth = '0';
       this.percent = '';
     }
-    this.flameColor = utils.flameColor(
-        utils.flopsUtilization(this.node, this.rootNode), 0.7, 1, Math.sqrt);
+
+    const utilization =
+        utils.flopsUtilization(this.node, this.rootNode, this.useUncappedFlops);
+
+    this.flopsUtilization = utils.percent(utilization);
+    this.flameColor = utils.flameColor(utilization, 0.7, 1, Math.sqrt);
+
     this.name = (this.node && this.node.name) ? this.node.name : '';
     this.offset = this.level.toString() + 'em';
     this.provenance =
         this.node?.xla?.provenance?.replace(/^.*(:|\/)/, '') || '-';
     this.timeWasted = utils.percent(utils.timeWasted(this.node, this.rootNode));
-    this.flopsUtilization =
-        utils.percent(utils.flopsUtilization(this.node, this.rootNode));
 
     if (this.node?.metrics?.rawBytesAccessedArray &&
         this.rootNode?.metrics?.rawBytesAccessedArray) {

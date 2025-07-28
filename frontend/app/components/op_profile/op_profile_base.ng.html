@@ -44,6 +44,18 @@
           </div>
           <mat-slide-toggle [checked]="byWasted" (toggleChange)="updateByWasted()" matTooltip="Order by Time% by default."></mat-slide-toggle>
         </div>
+         <div class="control">
+          <div class="control-title">
+            Uncap FLOPS Utilization
+            <mat-icon
+              class="tooltip-icon"
+              matTooltip="Toggle to view uncapped flops utilization. For more details, see b/428777557."
+              matTooltipPosition="above">
+              info
+            </mat-icon>
+          </div>
+          <mat-slide-toggle [checked]="useUncappedFlops" (toggleChange)="updateFlopsType()" matTooltip="Use capped flops by default."></mat-slide-toggle>
+        </div>
         <div class="control">
           <div class="control-title">Top 90%
             <mat-icon
@@ -92,7 +104,8 @@
       [rootNode]="rootNode"
       [byWasted]="byWasted"
       [showP90]="showP90"
-      [childrenCount]="childrenCount">
+      [childrenCount]="childrenCount"
+      [useUncappedFlops]="useUncappedFlops">
     </op-table>
     </as-split-area>
     <as-split-area [size]="20" *ngIf="sourceCodeServiceIsAvailable && showStackTrace">

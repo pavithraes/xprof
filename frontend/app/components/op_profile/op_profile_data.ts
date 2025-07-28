@@ -19,9 +19,11 @@ export class OpProfileData {
           .fill('');
   flopsUtilizationPercent?: string;
 
-  update(node?: Node) {
+  update(node?: Node, useUncappedFlops = false) {
     if (node) {
-      const flopUtilization = utils.flopsUtilization(node, node);
+      const flopUtilization =
+          utils.flopsUtilization(node, node, useUncappedFlops);
+
       this.flopsColor = utils.flopsColor(flopUtilization);
       this.flopsUtilizationPercent = utils.percent(flopUtilization);
 

@@ -52,6 +52,7 @@ export namespace Node {
  */
 export interface Metrics {
   flops?: /* double */ number;
+  uncappedFlops?: /* double */ number;
   bf16Flops?: /* double */ number;
   bandwidthUtils?: /* double */ number[];
   rawTime?: /* double */ number;

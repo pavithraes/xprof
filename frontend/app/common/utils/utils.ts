@@ -205,13 +205,16 @@ export function timeFraction(
  * Computes the utilization for operations.
  */
 export function flopsUtilization(
-    node: OpProfileNode, rootNode: OpProfileNode): number {
+    node: OpProfileNode, rootNode: OpProfileNode,
+    useUncappedFlops = false): number {
   // NaN indicates undefined utilization for fused operations (we can't
   // measure performance inside a fusion). It could also indicate operations
   // with zero time, but they currently don't appear in the profile.
   const timeFractionLocal = timeFraction(node, rootNode);
   if (!node || !node.metrics || !timeFractionLocal) return NaN;
-  return (node.metrics.flops || 0) / timeFractionLocal;
+  return useUncappedFlops ?
+      (node.metrics.uncappedFlops || 0) / timeFractionLocal :
+      (node.metrics.flops || 0) / timeFractionLocal;
 }
 
 /**
