@@ -18,7 +18,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import collections
 from collections.abc import Callable, Iterator, Mapping
 import gzip
 import json
@@ -29,6 +28,7 @@ import threading
 from typing import Any, List, Optional, TypedDict
 
 from etils import epath
+import etils.epath.backend
 import six
 from werkzeug import wrappers
 
@@ -1017,30 +1017,6 @@ class ProfilePlugin(base_plugin.TBPlugin):
         "run1", "train/run1", "train/run2", "validation/run1",
         "new_job/tensorboard/run1"
     """
-
-    # TODO(kcai): Remove this block once we can rely on walk() to get all
-    #             subdirectories, this requires python 3.12.
-    def find_all_subdirectories(top_path: epath.Path) -> Iterator[epath.Path]:
-      def get_subdirectories(
-          current_dir: epath.Path, dirs_to_visit: collections.deque[epath.Path]
-      ):
-        try:
-          for path in current_dir.iterdir():
-            if path.is_dir():
-              dirs_to_visit.append(path)
-        except (IOError, OSError) as e:
-          logger.warning('Could not list directory %s: %s', current_dir, e)
-
-      if not top_path.is_dir():
-        return
-
-      dirs_to_visit = collections.deque([top_path])
-
-      while dirs_to_visit:
-        current_dir = dirs_to_visit.popleft()
-        yield current_dir
-        get_subdirectories(current_dir, dirs_to_visit)
-
     # Ensure that we check the root logdir and all subdirectories.
     # Note that we check if logdir is a directory to handle case where
     # it's actually a multipart directory spec, which this plugin does not
@@ -1049,33 +1025,27 @@ class ProfilePlugin(base_plugin.TBPlugin):
     # This change still enforce the requirement that the subdirectories must
     # end with plugins/profile directory, as enforced by TensorBoard.
     logdir_path = epath.Path(self.logdir)
+    schemeless_logdir = str(logdir_path)
+    if '://' in schemeless_logdir:
+      schemeless_logdir = schemeless_logdir.split('://', 1)[1]
     tb_runs = {'.'}
 
     if logdir_path.is_dir():
       try:
-        for path in logdir_path.rglob(PLUGIN_NAME):
-          if path.is_dir() and path.parent.name == TB_NAME:
+        fs = etils.epath.backend.fsspec_backend.fs(self.logdir)
+        for path_str in fs.glob(os.path.join(self.logdir, '**', PLUGIN_NAME)):
+          path = epath.Path(path_str)
+          if fs.isdir(path) and path.parent.name == TB_NAME:
             tb_run_dir = path.parent.parent
+            tb_run = tb_run_dir.relative_to(schemeless_logdir)
+            tb_runs.add(str(tb_run))
+      except ValueError:
+        # gcsfs not available, fall back to legacy path walk.
+        for cur_dir, _, _ in logdir_path.walk():
+          if (cur_dir.name == PLUGIN_NAME and cur_dir.parent.name == TB_NAME):
+            tb_run_dir = cur_dir.parent.parent
             tb_run = tb_run_dir.relative_to(logdir_path)
             tb_runs.add(str(tb_run))
-      except NotImplementedError:
-        # If epath implementation does not support rglob.
-        for path in find_all_subdirectories(logdir_path):
-          relative_path = path.relative_to(logdir_path)
-          try:
-            *parts, second_last_dir, last_dir = relative_path.parts
-            # Only add subdirectories to runs that are end with plugins/profile.
-            if (
-                len(parts) >= 1  # len(parts) == 0 is the root logdir.
-                and last_dir == PLUGIN_NAME
-                and second_last_dir == TB_NAME
-            ):
-              tb_runs.add(str(epath.Path(*parts)))
-          except ValueError:
-            logger.info(
-                'Could not unpack relative path parts: %s', relative_path
-            )
-            pass
     tb_run_names_to_dirs = {
         run: _tb_run_directory(self.logdir, run) for run in tb_runs
     }
