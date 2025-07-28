@@ -44,30 +44,6 @@ py_test(
 )
 
 py_library(
-    name = "tf_data_stats_proto_to_gviz",
-    srcs = ["tf_data_stats_proto_to_gviz.py"],
-    deps = [
-        requirement("gviz_api"),
-        "@org_xprof//plugin/xprof/protobuf:tf_data_stats_proto_py",
-    ],
-)
-
-py_test(
-    name = "tf_data_stats_proto_to_gviz_test",
-    size = "small",
-    srcs = ["tf_data_stats_proto_to_gviz_test.py"],
-    main = "tf_data_stats_proto_to_gviz_test.py",
-    deps = [
-        ":tf_data_stats_proto_to_gviz",
-        requirement("absl-py"),  # build_cleaner: keep; go/disable_tf2
-        "//third_party/py/google/protobuf:use_fast_cpp_protos",  # Automatically added go/proto_python_upb_flip
-        requirement("gviz_api"),
-        "//:expect_tensorflow_installed",
-        "@org_xprof//plugin/xprof/protobuf:tf_data_stats_proto_py",
-    ],
-)
-
-py_library(
     name = "raw_to_tool_data",
     srcs = ["raw_to_tool_data.py"],
     visibility = visibility + ["//perftools/accelerators/xprof/benchmark/xprof_benchmarking_tools:__subpackages__"],
