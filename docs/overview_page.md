@@ -12,9 +12,14 @@ The Overview page shows two main sections:
 *   **Performance Summary** displays details on the average step time, the ratio
     of framework ops executed on the host vs. the device, the percentage of time
     spent on eager execution, and device compute precisions.
+
+    ![Performance Summary](images/xprof_overview_summary.png)
+
 *   **Step-time Graph** displays a graph of device step time (in milliseconds)
     over all the steps sampled. Each step is broken into the multiple categories
     (with different colors) of where time is spent.
+
+    ![Step-time Graph](images/xprof_overview_graph.png)
 
 ### Supported Platforms
 

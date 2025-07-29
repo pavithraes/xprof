@@ -9,8 +9,6 @@ during the profiling interval. You can use this tool to:
   issues that may arise when you run multi-tenancy inference.
 * Debug memory fragmentation issues.
 
-![Memory Profile](images/memory_profile.png)
-
 ### Supported Platforms
 
 Both TPU and GPU are supported.
@@ -25,6 +23,9 @@ Memory Profile has the following components:
     Bandwidth Memory (HBM) attached to one of the different accelerators that
     may be connected to the host being profiled, or even the host memory in
     certain cases.
+
+    ![Memory Profile Host ID and Memory ID Selectors](images/memory_profile_annotated.png)
+
 *   The **Memory Profile Summary** and the **Memory Timeline Graph** capture
     high-level information about memory allocations, deallocations, and usage
     during the profiling session, including breakdowns across stack and heap,
@@ -34,6 +35,9 @@ Memory Profile has the following components:
       the memory system selected; the lifetime peak heap usage since the
       model started running (note that this may be outside the profiling
       interval); and the peak memory usage within the profiling interval.
+
+      ![Memory Profile Summary](images/memory_profile_summary.png)
+
     * The **Memory Timeline Graph** shows a plot of the memory usage over time
       (represented by the Y-axis on the left of the graph) and the percentage of
       fragmentation over the profiling interval (represented by the Y-axis on

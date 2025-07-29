@@ -45,13 +45,17 @@ specific operations within the potentially large graph.
 9. To freeze the runtime
 data panel on a particular op, double-click on the op.
 
-10.  **Check the HLO Full Text** by choosing the short or long form text option.
-
-11.  Download the HLO module as .pb .pbtxt, short text, and long text
+10.  Download the HLO module as .pb .pbtxt, short text, and long text
 through the Download/Save icon near the XLA Modules dropdown
 
-12.  Download the graph as SVG, HTML, or DOT files
+11.  Download the graph as SVG, HTML, or DOT files
 using links at the bottom of the graph window
+
+12.  Click the **Check the HLO Full Text** button at the top of the viewer to
+see choose the short or long HLO text representation of the graph, which can be
+useful for debugging.
+
+![Graph Viewer HLO Full Text](images/graph_viewer_hlo_full_text.png)
 
 ### Using Graph Viewer
 
@@ -63,7 +67,7 @@ from [Op Profile](hlo_op_profile.md) to identify the most time consuming op, or
 Clicking the op in those tools will give you a direct link into the same op
 within Graph Viewer.
 
-![Graph Viewer button appears when the all-reduce.98 operation is clicked on the HLO Op Profile tool](images/graph_viewer_from_op_profile.png)
+![Graph Viewer button appears when the all-reduce.98 operation is clicked on the HLO Op Profile tool](images/graph_viewer_from_op_profile_annotated.png)
 
 By hovering over a box (representing an HLO operation), you might often see the
 line of your user code corresponding to the op where the function was defined.
@@ -72,6 +76,8 @@ the
 [multiple layers of transformation](https://openxla.org/xla/architecture#how_it_works)
 that your Python program undergoes on its way to generating an accelerator
 executable.
+
+![Graph Viewer showing the user code line corresponding to the op](images/graph_viewer_hover.png)
 
 Note that the profiler receives HLO-level information from an “optimized HLO”
 graph, close to the point where it is ready to be lowered to

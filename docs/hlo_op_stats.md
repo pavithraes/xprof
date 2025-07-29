@@ -6,8 +6,6 @@ valuable for identifying potential targets for performance optimization by
 highlighting the most time-consuming operations within your HLO graph during the
 profiled period.
 
-![XProf HLO Op Stats](images/hlo_op_stats.png)
-
 ### Supported Platforms
 
 Both TPU and GPU are supported.
@@ -48,6 +46,9 @@ The HLO Op Stats tool has the following key components:
         [AllGather](https://openxla.org/xla/operation_semantics#allgather)); a
         pie chart shows the distribution of time between these different
         instances.
+
+    ![XProf HLO Op Stats](images/hlo_op_stats.png)
+
 *   **HLO Operation Statistics Table**: This is the primary component,
     presenting a detailed breakdown of every HLO operation executed during the
     profiling session in a tabular format. There is one row for each distinct
