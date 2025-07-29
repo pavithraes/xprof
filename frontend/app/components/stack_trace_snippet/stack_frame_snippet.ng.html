@@ -31,8 +31,8 @@
           <ng-container *ngIf="frame.lines && frame.lines.length > 0; else noLines">
             <tr
               *ngFor="let line of frame.lines; let lineIndex = index; trackBy: trackByIndex"
-              [class.stack-frame-snippet-line-selected]="frame.firstLine + lineIndex === sourceCodeSnippetAddress.lineNumber">
-              <td><pre class="stack-frame-snippet-line-number"><code>{{ frame.firstLine + lineIndex }}</code></pre></td>
+              [class.stack-frame-snippet-line-selected]="sourceCodeSnippetAddress.firstLine + lineIndex === sourceCodeSnippetAddress.lineNumber">
+              <td><pre class="stack-frame-snippet-line-number"><code>{{ sourceCodeSnippetAddress.firstLine + lineIndex }}</code></pre></td>
               <td><pre class="stack-frame-snippet-line-content"><code [innerHTML]="line"></code></pre></td>
             </tr>
           </ng-container>
