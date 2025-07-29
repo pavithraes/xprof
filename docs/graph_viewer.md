@@ -13,33 +13,46 @@ Both TPU and GPU are supported.
 
 Graph Viewer can be controlled with the following options:
 
-1. An **XLA Op Name** box, where you enter the name of an
+1. A **XLA Modules** dropdown menu, where
+you can choose an HLO module from the available list for visualization.
+
+2. A **Graph Type** dropdown menu, where
+you can select the type of graph from the list of available options.
+
+3. The **XLA Op Name** box, where you enter the name of an
 operation to select it as the primary node and visualize its neighbors. Pressing
 enter after typing the op name will visualize the surrounding nodes.
 
-1. A **Graph Width** selector, which
+4. A **Graph Width** selector, which
 controls the maximum distance of nodes from the primary node that is included in
 the visualization.
 
-1. A **Show Metadata** toggle, which you use to toggle the display of operation
-metadata included by the compiler, if any. Note that you need to click “Search
-Graph” again after selecting this checkbox.
+5. A **Show Metadata** checkbox, which you
+use to toggle the display of operation metadata included by the compiler, if
+any. Note that you need to click “Search Graph” again after selecting this
+checkbox.
 
-1. A **Merge Fusion** checkbox that you can use to collapse or expand the
+6. A **Merge Fusion** checkbox that you can use to collapse or expand the
 components of fused ops. Note that you will need to click “Search Graph” again
 after toggling this checkbox.
 
-1. Zoom in/out buttons or keys, though you can also use your mouse to zoom.
+7. Zoom in/out/reset buttons or keys, though you can
+also use your mouse to zoom.
 
-1. Links to download the graph as HTML+SVG, SVG or dot files.
-
-1. By using the search functionality, you can quickly locate and focus on
+8. By using the search functionality, you can quickly locate and focus on
 specific operations within the potentially large graph.
 
-1. To freeze the runtime data panel on a particular op, right click on the op.
+9. To freeze the runtime
+data panel on a particular op, double-click on the op.
 
-By clicking the **Check HLO Full Text** button at the top of the viewer, you
-can see the short or long HLO text representation of the graph, which can be
+10.  Download the HLO module as .pb .pbtxt, short text, and long text
+through the Download/Save icon near the XLA Modules dropdown
+
+11.  Download the graph as SVG, HTML, or DOT files
+using links at the bottom of the graph window
+
+12.  Click the **Check the HLO Full Text** button at the top of the viewer to
+see choose the short or long HLO text representation of the graph, which can be
 useful for debugging.
 
 ![Graph Viewer HLO Full Text](images/graph_viewer_hlo_full_text.png)
