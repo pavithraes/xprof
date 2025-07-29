@@ -91,6 +91,7 @@ ts_library(
         "navigation_event.ts",
         "roofline_model.ts",
         "source_info.jsonpb_decls.d.ts",
+        "source_stats.ts",
         "summary_info.ts",
         "tool.ts",
         "window.ts",
