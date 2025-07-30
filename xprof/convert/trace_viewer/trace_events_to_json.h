@@ -55,6 +55,11 @@ limitations under the License.
 namespace tensorflow {
 namespace profiler {
 
+// The JSON parser's 700MB limit is tested empirically to hold up to 16M
+// counter events. (go/xprof-event-counter-fix). Conservatively setting
+// this to 10M toward room for other events.
+inline constexpr size_t kMaxCounterEvents = 10'000'000;
+
 // JSON generation options.
 struct JsonTraceOptions {
   using Details = std::vector<std::pair<std::string, bool>>;
@@ -726,14 +731,15 @@ void TraceEventsToJson(const JsonTraceOptions& options,
   }
   size_t counter_event_count = writer.GetCounterEventCount();
   VLOG(1) << "Counter event count: " << counter_event_count;
-  if (counter_event_count == 14000000) {
+  if (counter_event_count == tensorflow::profiler::kMaxCounterEvents) {
     output->Append(
-        R"(], "showCounterMessage": "Only 14M counter events are shown. Zoom in or pan to see more." )");
+        R"(], "showCounterMessage": "Only )",
+        tensorflow::profiler::kMaxCounterEvents,
+        R"( counter events are shown. Zoom in or pan to see more." )");
   } else {
     output->Append(R"(], "showCounterMessage": "" )");
   }
   output->Append(R"(,"totalCounterEvents":)", counter_event_count);
-  output->Append(R"(,"counterEventsOffset":)", 0);
   output->Append(R"(})");
 }
 
