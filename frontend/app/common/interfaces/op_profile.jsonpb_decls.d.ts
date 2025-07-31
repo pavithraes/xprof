@@ -31,6 +31,7 @@ export namespace Node {
     computationPrimitiveSize?: /* uint32 */ number;
     programId?: /* uint64 */ string;
     sourceInfo?: SourceInfo;
+    xprofKernelMetadata?: string;
   }
   export namespace XLAInstruction {
     export interface LayoutAnalysis {

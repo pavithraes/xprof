@@ -17,6 +17,7 @@ xprof_ng_module(
         "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//@ngrx/store",
+        "@npm//ngx-json-viewer",
         "@npm//rxjs",
         "@org_xprof//frontend/app/common/angular:angular_material_button",
         "@org_xprof//frontend/app/common/angular:angular_material_card",

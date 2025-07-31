@@ -603,6 +603,30 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "xla_op_utils",
+    srcs = ["xla_op_utils.cc"],
+    hdrs = ["xla_op_utils.h"],
+    deps = [
+        "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/hlo/parser:hlo_parser",
+    ],
+)
+
+cc_test(
+    name = "xla_op_utils_test",
+    srcs = ["xla_op_utils_test.cc"],
+    deps = [
+        ":xla_op_utils",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "xprof_gpu_cost_analysis_registration_test",
     srcs = ["xprof_gpu_cost_analysis_registration_test.cc"],

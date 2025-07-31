@@ -35,6 +35,7 @@ limitations under the License.
 #include "plugin/xprof/protobuf/op_profile.pb.h"
 #include "plugin/xprof/protobuf/source_info.pb.h"
 #include "xprof/utils/op_metrics_db_utils.h"
+#include "xprof/utils/xla_op_utils.h"
 
 namespace tensorflow {
 namespace profiler {
@@ -52,6 +53,8 @@ void PopulateSymbolNode(const OpMetrics& op_metrics, Node* node) {
   Node::XLAInstruction& xla = *node->mutable_xla();
   xla.set_program_id(op_metrics.hlo_module_id());
   xla.set_expression(op_metrics.long_name());
+  xla.set_xprof_kernel_metadata(
+      tensorflow::profiler::ExtractXprofKernelMetadata(op_metrics.long_name()));
   xla.set_fingerprint(op_metrics.fingerprint());
   xla.set_category(op_metrics.category());
   xla.set_provenance(op_metrics.provenance());
@@ -101,6 +104,9 @@ void CopySymbolDetailsToDeduplicatedNode(Node* top_child_node,
   const Node::XLAInstruction& top_child_node_xla = top_child_node->xla();
   xla.set_program_id(top_child_node_xla.program_id());
   xla.set_expression(top_child_node_xla.expression());
+  if (top_child_node_xla.has_xprof_kernel_metadata()) {
+    xla.set_xprof_kernel_metadata(top_child_node_xla.xprof_kernel_metadata());
+  }
   xla.set_fingerprint(top_child_node_xla.fingerprint());
   xla.set_category(top_child_node_xla.category());
   if (IsFusion(top_child_node_xla.category())) return;

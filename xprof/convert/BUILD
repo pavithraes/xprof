@@ -1055,6 +1055,7 @@ cc_library(
         "@org_xprof//plugin/xprof/protobuf:op_profile_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:source_info_proto_cc",
         "@org_xprof//xprof/utils:op_metrics_db_utils",
+        "@org_xprof//xprof/utils:xla_op_utils",
         "@tsl//tsl/platform:protobuf",
         "@xla//xla/tsl/profiler/convert:xla_op_utils",
         "@xla//xla/tsl/profiler/utils:math_utils",
