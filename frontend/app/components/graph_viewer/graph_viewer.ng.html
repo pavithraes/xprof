@@ -45,6 +45,15 @@
         </div>
       </ng-template>
     </mat-expansion-panel>
+    <div *ngIf="!hasGraphOrLoading()" class="default-graph">
+      <div><p>You can select a module and op to draw the graph. </p></div>
+      <div *ngIf="showDefaultGraphOptions()">
+        <p>To quick start, choose from the chips below to view its graph.</p>
+        <mat-chip-listbox multiple aria-label="profile quick options">
+          <mat-chip-option *ngFor="let option of defaultGraphOptions" [matTooltip]="option.tooltip" (click)="onClickDefaultGraphOption(option)" appearance="hairline-filter">{{ defaultGraphOptionLabel(option) }}</mat-chip-option>
+        </mat-chip-listbox>
+      </div>
+    </div>
     <div *ngIf="!showMeGraph" class="graph-container">
       <iframe #iframe id="graph-html"></iframe>
     </div>
