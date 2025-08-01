@@ -396,6 +396,12 @@ absl::Status DoReadFullEventFromLevelDbTable(
                                 trace_events_iterator->value().size())) {
         return absl::UnknownError("Could not parse TraceEvent proto");
       }
+      if (event.has_name_ref()) {
+        auto it = trace.name_table().find(event.name_ref());
+        if (it != trace.name_table().end()) {
+          event.set_name(it->second);
+        }
+      }
       if (event.name() != event_name || event.duration_ps() != duration_ps) {
         continue;
       }
