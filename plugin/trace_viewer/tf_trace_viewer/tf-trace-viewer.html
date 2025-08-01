@@ -2026,8 +2026,8 @@ dashboard would integrate trace viewer app using iframe.
         }
       });
       otherEvents = this._filterKnownTraceEvents(otherEvents);
-      // We intentionally bypass filtering for counter events to prevent a potential crash
-      // JSON limit : https://issues.chromium.org/issues/42201829.
+      // We intentionally bypass filtering for counter events to prevent a potential
+      // stalling of the UI ,see https://issues.chromium.org/issues/42201829.
       // A large counter event can generate a hash key that exceeds the maximum safe
       // value for a number, which throws a RangeError.
       const ungroupedCounterEvents = counterEvents.flatMap(event => {
