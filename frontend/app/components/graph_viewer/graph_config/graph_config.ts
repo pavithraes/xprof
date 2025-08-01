@@ -1,3 +1,5 @@
+import 'org_xprof/frontend/app/common/interfaces/window';
+
 import {Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges} from '@angular/core';
 import {MatSelectChange} from '@angular/material/select';
 import {type GraphConfigInput, type GraphTypeObject} from 'org_xprof/frontend/app/common/interfaces/graph_viewer';
