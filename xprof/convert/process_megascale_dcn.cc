@@ -55,33 +55,6 @@ using tsl::profiler::SafeDivide;
 static constexpr double kbandwidthConversionFactor =
     /*bytes_to_gigabits=*/8E-9 / /*us_to_seconds=*/1E-6;
 
-std::string convertBytesToHumanReadableFormat(int64_t num_bytes) {
-  if (num_bytes == std::numeric_limits<int64_t>::min()) {
-    // Special case for number whose absolute value is out of range.
-    return "-8E";
-  }
-
-  const char* neg_str = GetNegStr(&num_bytes);
-
-  // Special case for bytes.
-  if (num_bytes < int64_t{1024}) {
-    // No fractions for bytes.
-    return absl::StrFormat("%s%dB", neg_str, num_bytes);
-  }
-
-  // int64 only goes up to E.
-  static const char units[] = "KMGTPE";
-  const char* unit = units;
-  while (num_bytes >= int64_t{1024} * int64_t{1024}) {
-    num_bytes /= int64_t{1024};
-    ++unit;
-    CHECK(unit < units + ABSL_ARRAYSIZE(units));
-  }
-
-  return absl::StrFormat("%s%.*f%c", neg_str, (*unit == 'K') ? 1 : 2,
-                         num_bytes / 1024.0, *unit);
-}
-
 void ProcessMegascaleDcn(XSpace* space) {
   std::vector<XPlane*> device_xplanes = FindMutableTensorCorePlanes(space);
   int num_tpu_cores = device_xplanes.size();
@@ -125,8 +98,7 @@ DataTable GetMegaScaleDataTable(const DcnSlackAnalysis& dcn_slack_analysis) {
       {"stall_duration", "number", "Stall Duration (ms)"},
       {"total_stall", "number", "Aggregated Total Stall (ms)"},
       {"occurrences", "number", "Occurrences"},
-      // TODO(sannidhya): Add a BytesCell for Data Transmitted Size.
-      {"net_tx_bytes", "string", "Data Transmitted Size"},
+      {"net_tx_bytes", "number", "Data Transmitted Size"},
       {"required_bandwidth", "number", "Required Bandwidth (Gbps)"},
   };
 
@@ -155,8 +127,7 @@ DataTable GetMegaScaleDataTable(const DcnSlackAnalysis& dcn_slack_analysis) {
     row->AddNumberCell(
         MicroToMilli(slack.stall_duration_us() * slack.occurrences()));
     row->AddNumberCell(slack.occurrences());
-    row->AddTextCell(convertBytesToHumanReadableFormat(
-        slack.bytes_transmitted_over_network()));
+    row->AddBytesCell(slack.bytes_transmitted_over_network());
     if (slack.slack_us() == 0) {
       row->AddNumberCell(INT_MAX);
     } else {

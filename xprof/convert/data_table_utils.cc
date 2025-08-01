@@ -242,6 +242,12 @@ TableRow& TableRow::AddFormattedNumberCell(double value,
   return *this;
 }
 
+TableRow& TableRow::AddFormattedTextCell(absl::string_view value,
+                                         absl::string_view formatted_value) {
+  cells_.push_back(std::make_unique<TableCell>(value, formatted_value));
+  return *this;
+}
+
 TableRow& TableRow::AddHexCell(uint64_t value) {
   return AddFormattedNumberCell(value, absl::StrCat("0x", absl::Hex(value)));
 }
@@ -333,6 +339,9 @@ std::string DataTable::ToJson() const {
     for (const TableCell* cell : row->GetCells()) {
       nlohmann::json cell_json;
       cell_json["v"] = cell->GetCellValue();
+      if (cell->HasFormattedValue()) {
+        cell_json["f"] = cell->GetFormattedValue();
+      }
       if (!cell->custom_properties.empty()) {
         cell_json["p"] = cell->custom_properties;
       }

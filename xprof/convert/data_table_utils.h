@@ -154,6 +154,8 @@ class TableRow {
   TableRow& AddBooleanCell(bool value);
   TableRow& AddFormattedNumberCell(double value,
                                    absl::string_view formatted_value);
+  TableRow& AddFormattedTextCell(absl::string_view value,
+                                 absl::string_view formatted_value);
   TableRow& AddHexCell(uint64_t value);
   TableRow& AddBytesCell(uint64_t value);
   TableRow& AddFormattedDateCell(absl::Time value,
