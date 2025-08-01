@@ -172,7 +172,7 @@ export class GraphViewer implements OnDestroy {
     // Graph Viewer initial loading complete: module list loaded
     this.throbber.start();
     this.loadingModuleList = true;
-    this.dataService.getModuleList(this.sessionId)
+    this.dataService.getModuleList(this.sessionId, this.graphType)
         .pipe(takeUntil(this.destroyed))
         .subscribe((moduleList) => {
           this.throbber.stop();
@@ -554,6 +554,16 @@ export class GraphViewer implements OnDestroy {
       relativeTo: this.route,
       queryParams: this.getGraphSearchParams(),
     });
+  }
+
+  onGraphTypeSelectionChange(graphType: string) {
+    if (graphType === this.graphType) return;
+    this.graphType = graphType;
+    this.zone.run(() => {
+      this.moduleList = [];
+      this.selectedModule = '';
+    });
+    this.loadModuleList();
   }
 
   // Event handler for module selection change in graph config form,

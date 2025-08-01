@@ -4,9 +4,11 @@
       <graph-config
         [initialInputs]="initialParams"
         [moduleList]="moduleList"
+        [loadingModuleList]="loadingModuleList"
         [graphTypes]="graphTypes"
         (plot)="onSearchGraph($event)"
         (updateSelectedModule)="onModuleSelectionChange($event)"
+        (updateGraphType)="onGraphTypeSelectionChange($event)"
       ></graph-config>
       <div class="hlo-download">
         <download-hlo

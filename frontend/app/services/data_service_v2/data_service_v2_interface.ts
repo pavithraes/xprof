@@ -23,7 +23,7 @@ export interface DataServiceV2Interface {
       ): Observable<DataTable|DataTable[]|null>;
 
   // Returns a string of comma separated module names.
-  getModuleList(sessionId: string): Observable<string>;
+  getModuleList(sessionId: string, graphType?: string): Observable<string>;
 
   getGraphViewerLink(
       sessionId: string,

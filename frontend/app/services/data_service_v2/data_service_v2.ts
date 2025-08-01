@@ -122,9 +122,10 @@ export class DataServiceV2 implements DataServiceV2Interface {
         Observable<DataTable>;
   }
 
-  getModuleList(sessionId: string): Observable<string> {
-    let params = this.getHttpParams('', '');
-    params = params.set('run', sessionId);
+  getModuleList(sessionId: string, graphType = ''): Observable<string> {
+    const params = this.getHttpParams('', '')
+                       .set('run', sessionId)
+                       .set('graph_type', graphType);
     return this.get(this.pathPrefix + HLO_MODULE_LIST_API, {
       'params': params,
       'responseType': 'text',
