@@ -1,0 +1,9 @@
+<mat-card>
+  <mat-card-title>{{title}}</mat-card-title>
+  <mat-card-content>
+    <!-- TODO(pennyhui): change the suggestion format from html to string and render it here. Add thumbs up/down for each suggestion-->
+    <div *ngIf="suggestionReport?.suggestions">
+      <span *ngFor="let suggestion of suggestionReport!.suggestions" [innerHtml]="suggestion.suggestionText"></span>
+    </div>
+  </mat-card-content>
+</mat-card>
