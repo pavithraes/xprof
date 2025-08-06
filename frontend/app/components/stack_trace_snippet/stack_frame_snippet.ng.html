@@ -1,4 +1,4 @@
-<mat-expansion-panel class="stack-frame-snippet" [expanded]="!failure" *ngIf="sourceCodeSnippetAddress">
+<mat-expansion-panel class="stack-frame-snippet" [expanded]="!failure && isAtTopOfStack" *ngIf="sourceCodeSnippetAddress">
 
   <mat-expansion-panel-header class="stack-frame-snippet-address">
     <mat-panel-title>
