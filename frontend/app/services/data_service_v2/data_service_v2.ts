@@ -71,6 +71,14 @@ export class DataServiceV2 implements DataServiceV2Interface {
   private getHttpParams(
       sessionId: string|null, tool: string|null, host?: string): HttpParams {
     let params = new HttpParams();
+    const searchParams = this.getSearchParams();
+    if (searchParams) {
+      searchParams.forEach((value, key) => {
+        params = params.set(key, value);
+      });
+    }
+    // Ensure the input arguments are populated at last to override the
+    // persistent query params in the session storage.
     if (sessionId) {
       params = params.set('run', sessionId);
     }
@@ -79,12 +87,6 @@ export class DataServiceV2 implements DataServiceV2Interface {
     }
     if (host) {
       params = params.set('host', host);
-    }
-    const searchParams = this.getSearchParams();
-    if (searchParams) {
-      searchParams.forEach((value, key) => {
-        params = params.set(key, value);
-      });
     }
     return params;
   }
@@ -122,8 +124,9 @@ export class DataServiceV2 implements DataServiceV2Interface {
         Observable<DataTable>;
   }
 
-  getModuleList(sessionId: string, graphType = ''): Observable<string> {
-    const params = this.getHttpParams('', '')
+  getModuleList(sessionId: string, graphType = GRAPH_TYPE_DEFAULT):
+      Observable<string> {
+    const params = this.getHttpParams('', 'graph_viewer')
                        .set('run', sessionId)
                        .set('graph_type', graphType);
     return this.get(this.pathPrefix + HLO_MODULE_LIST_API, {
