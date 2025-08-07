@@ -25,5 +25,6 @@
 <table #table [dataView]="dataView" [showRowNumber]="true"></table>
 
 <stack-trace-snippet
+    [sourceFileAndLineNumber]="sourceFileAndLineNumber"
     [stackTrace]="stackTrace"
     *ngIf="sourceCodeServiceIsAvailable && showStackTrace"/>
