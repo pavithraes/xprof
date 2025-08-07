@@ -69,7 +69,7 @@ function parseAddresses(value: string): Address[] {
   const result: Address[] = [];
   const linesBefore = 5;
   const linesAfter = 5;
-  const framePattern = /^\s*(.+?)(?:\:(\d+))?(?:\:\d+)?\s*$/;
+  const framePattern = /^\s*([^:]+?)(?:\:(-?\d+))?(?:\:-?\d+)?\s*$/;
   const lines = value.trim().split('\n');
   for (const line of lines) {
     const match = line.match(framePattern);
@@ -77,9 +77,15 @@ function parseAddresses(value: string): Address[] {
       const fileName = match[1];
       const lineNumberStr = match[2];
       let lineNumber = Number(lineNumberStr);
-      // Alternative to ignoring invalid line numbers, we can use `-1`. I have
-      // not seen this use-case yet, so I pick the simplest solution for now.
-      if (!isNaN(lineNumber)) {
+      // Since in the current implementation, we only show a few lines around
+      // the line number, we need `lineNumber` to be valid. In fact, `Address`
+      // constructor throws an error if `lineNumber` is not positive.
+      //
+      // An alternative implementation is to show top of the file and let the
+      // user scroll down. Since I've not yet seen a case where the file name
+      // is valid but the line number is invalid, I've opted for the current
+      // implementation which is simpler.
+      if (!isNaN(lineNumber) && lineNumber > 0) {
         lineNumber = Math.floor(lineNumber);
         result.push(new Address(fileName, lineNumber, linesBefore, linesAfter));
       }
