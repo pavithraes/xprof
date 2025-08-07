@@ -37,6 +37,7 @@ export class OpProfileBase implements OnDestroy, OnInit {
   deviceType = 'TPU';
   summary: OpProfileSummary[] = [];
   sourceCodeServiceIsAvailable = false;
+  sourceFileAndLineNumber = '';
   stackTrace = '';
   showStackTrace = false;
   useUncappedFlops = false;
@@ -79,6 +80,8 @@ export class OpProfileBase implements OnDestroy, OnInit {
   }
 
   private updateActiveNode(node: Node|null) {
+    this.sourceFileAndLineNumber = `${node?.xla?.sourceInfo?.fileName || ''}:${
+        node?.xla?.sourceInfo?.lineNumber || -1}`;
     this.stackTrace = node?.xla?.sourceInfo?.stackFrame || '';
   }
 
