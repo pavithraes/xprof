@@ -87,6 +87,7 @@ export class GraphViewer implements OnDestroy {
 
   private readonly injector: Injector = inject(Injector);
   sourceCodeServiceIsAvailable = false;
+  sourceFileAndLineNumber = '';
   stackTrace = '';
 
   constructor(
@@ -415,6 +416,9 @@ export class GraphViewer implements OnDestroy {
 
   private updateStackTrace(node: Node|null) {
     this.zone.run(() => {
+      this.sourceFileAndLineNumber =
+          `${node?.xla?.sourceInfo?.fileName || ''}:${
+              node?.xla?.sourceInfo?.lineNumber || -1}`;
       this.stackTrace = node?.xla?.sourceInfo?.stackFrame || '';
     });
   }
