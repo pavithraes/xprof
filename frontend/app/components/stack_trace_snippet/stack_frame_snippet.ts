@@ -88,11 +88,10 @@ export class StackFrameSnippet implements OnChanges, OnDestroy {
           error: (err) => {
             this.codeSearchLinkTooltip =
                 'Try Opening in Code Search (might fail)';
-            if (err === null) {
-              this.failure = 'Unknown Error';
-            } else if ('error' in err && typeof err.error === 'string') {
+            if (typeof err === 'object' && typeof err?.error === 'string') {
               this.failure = err.error;
-            } else if ('message' in err && typeof err.message === 'string') {
+            } else if (
+                typeof err === 'object' && typeof err?.message === 'string') {
               this.failure = err.message;
             } else {
               this.failure = 'Unknown Error';
