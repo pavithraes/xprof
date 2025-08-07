@@ -4,6 +4,12 @@
     <mat-panel-title>
       <div class="stack-frame-snippet-file-line">
         {{sourceCodeSnippetAddress.fileName}}:{{sourceCodeSnippetAddress.lineNumber}}
+        <mat-icon
+          *ngIf="usingSourceFileAndLineNumber"
+          class="info-icon"
+          matTooltip="Stack-trace is unavailable for the selected HLO operation. Using source file name and line number instead.">
+          info
+        </mat-icon>
         <mat-progress-bar *ngIf="!loaded" mode="indeterminate"></mat-progress-bar>
         <mat-icon
           *ngIf="loaded && failure"

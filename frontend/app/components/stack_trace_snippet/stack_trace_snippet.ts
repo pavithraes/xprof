@@ -12,11 +12,25 @@ import {Address} from 'org_xprof/frontend/app/services/source_code_service/sourc
   styleUrls: ['./stack_trace_snippet.scss'],
 })
 export class StackTraceSnippet implements OnChanges {
+  /**
+   * The source location of the HLO operation.
+   *
+   * This is a string representation of the first frame of the stack trace.
+   * Sometimes the stack trace is not available, but the source location is
+   * available. Whenever that is the case, we treat this input as a stack-trace
+   * with a single frame and use it instead of the `stackTrace` input.
+   *
+   * The expected format is the same as each line in the stack trace string.
+   * Example:
+   *
+   *   /full/path/to/file.py:100
+   */
+  @Input() sourceFileAndLineNumber: string|undefined = undefined;
   @Input() stackTrace: string|undefined = undefined;
   sourceCodeSnippetAddresses: readonly Address[] = [];
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['stackTrace']) {
+    if (changes['sourceFileAndLineNumber'] || changes['stackTrace']) {
       this.parseAddresses();
     }
   }
@@ -25,8 +39,17 @@ export class StackTraceSnippet implements OnChanges {
     return index;
   }
 
+  /**
+   * Returns true if the `stackTrace` is not available, but the
+   * `sourceFileAndLineNumber` is available.
+   */
+  get usingSourceFileAndLineNumber(): boolean {
+    return !this.stackTrace && !!this.sourceFileAndLineNumber;
+  }
+
   private parseAddresses() {
-    this.sourceCodeSnippetAddresses = parseAddresses(this.stackTrace || '');
+    this.sourceCodeSnippetAddresses =
+        parseAddresses(this.stackTrace || this.sourceFileAndLineNumber || '');
   }
 }
 

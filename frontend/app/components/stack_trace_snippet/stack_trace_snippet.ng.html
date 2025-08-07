@@ -4,7 +4,8 @@
     <stack-frame-snippet
       *ngFor="let addr of sourceCodeSnippetAddresses; let isLast = last; trackBy: trackByIndex"
       [sourceCodeSnippetAddress]="addr"
-      [topOfStack]="isLast">
+      [topOfStack]="isLast"
+      [usingSourceFileAndLineNumber]="usingSourceFileAndLineNumber">
     </stack-frame-snippet>
   </ng-container>
 

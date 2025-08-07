@@ -17,6 +17,7 @@ import {takeUntil} from 'rxjs/operators';
 export class StackFrameSnippet implements OnChanges, OnDestroy {
   @Input() sourceCodeSnippetAddress: Address|undefined = undefined;
   @Input() topOfStack: boolean|undefined = undefined;
+  @Input() usingSourceFileAndLineNumber: boolean|undefined = undefined;
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly sourceCodeService: SourceCodeServiceInterface =
       inject(SOURCE_CODE_SERVICE_INTERFACE_TOKEN);
