@@ -59,6 +59,7 @@ export class MemoryViewerMain implements OnDestroy, OnChanges {
   hloInstructionNames: string[] = [];
   hasTrace = false;
   diagnostics: Diagnostics = {info: [], warnings: [], errors: []};
+  sourceFileAndLineNumber = '';
   stackTrace = '';
   showStackTrace = false;
   sourceCodeServiceIsAvailable = false;
@@ -96,12 +97,16 @@ export class MemoryViewerMain implements OnDestroy, OnChanges {
         free: span.free,
         color: utils.getChartItemColorByIndex(heapObject.color || 0),
       };
+      this.sourceFileAndLineNumber =
+          `${heapObject.sourceInfo?.fileName || ''}:${
+              heapObject.sourceInfo?.lineNumber || -1}`;
       this.stackTrace = heapObject.sourceInfo?.stackFrame || '';
     } else {
       this.activeInfo = undefined;
       this.selectedIndex = -1;
       this.selectedIndexBySize = -1;
       this.selectedIndexByPaddingSize = -1;
+      this.sourceFileAndLineNumber = '';
       this.stackTrace = '';
     }
   }

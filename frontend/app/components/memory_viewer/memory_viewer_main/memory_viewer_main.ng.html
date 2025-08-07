@@ -84,6 +84,8 @@
 </as-split-area>
 
 <as-split-area [size]="20" *ngIf="sourceCodeServiceIsAvailable && showStackTrace">
-  <stack-trace-snippet [stackTrace]="stackTrace" />
+  <stack-trace-snippet
+      [sourceFileAndLineNumber]="sourceFileAndLineNumber"
+      [stackTrace]="stackTrace" />
 </as-split-area>
 </as-split>
