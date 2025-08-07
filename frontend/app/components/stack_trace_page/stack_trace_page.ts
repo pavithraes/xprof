@@ -25,6 +25,7 @@ export class StackTracePage implements OnDestroy {
   // LINT.IfChange(keys)
   private readonly hloModuleKey = 'hlo_module';
   private readonly hloOpKey = 'hlo_op';
+  private readonly sourceKey = 'source';
   private readonly stackTraceKey = 'stack_trace';
   // LINT.ThenChange(
   //   //depot/google3/perftools/accelerators/xprof/frontend/app/common/constants/constants.ts:stack_trace_page_keys,
@@ -32,6 +33,7 @@ export class StackTracePage implements OnDestroy {
 
   hloModule = '';
   hloOp = '';
+  sourceFileAndLineNumber = '';
   stackTrace = '';
   sourceCodeServiceIsAvailable = false;
 
@@ -50,6 +52,7 @@ export class StackTracePage implements OnDestroy {
         .subscribe((params) => {
           this.hloModule = params[this.hloModuleKey] || '';
           this.hloOp = params[this.hloOpKey] || '';
+          this.sourceFileAndLineNumber = params[this.sourceKey] || '';
           this.stackTrace = params[this.stackTraceKey] || '';
         });
   }
