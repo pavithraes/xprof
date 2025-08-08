@@ -20,7 +20,9 @@ limitations under the License.
 #include <utility>
 #include <vector>
 
+#include "absl/base/no_destructor.h"
 #include "absl/flags/flag.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -35,6 +37,17 @@ limitations under the License.
 
 ABSL_FLAG(bool, use_profile_processor, false,
           "Use ProfileProcessor for tool data conversion");
+
+static const absl::NoDestructor<absl::flat_hash_set<std::string>>
+    kProfileProcessorSupportedTools({
+        "overview_page",
+        "input_pipeline_analyzer",
+        "kernel_stats",
+        "pod_viewer",
+        "hlo_stats",
+        "roofline_model",
+        "framework_op_stats",
+    });
 
 namespace xprof {
 namespace pywrap {
@@ -63,8 +76,9 @@ absl::StatusOr<std::pair<std::string, bool>> SessionSnapshotToToolsData(
   }
 
   absl::StatusOr<std::string> status_or_tool_data;
-  if (absl::GetFlag(FLAGS_use_profile_processor) &&
-      tool_name == "overview_page") {
+  bool use_profile_processor = absl::GetFlag(FLAGS_use_profile_processor);
+  bool is_supported_tool = kProfileProcessorSupportedTools->contains(tool_name);
+  if (use_profile_processor && is_supported_tool) {
     status_or_tool_data = ConvertMultiXSpacesToToolDataWithProfileProcessor(
         status_or_session_snapshot.value(), tool_name, tool_options);
   } else {
