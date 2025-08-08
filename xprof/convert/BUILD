@@ -955,7 +955,7 @@ cc_library(
     name = "preprocess_single_host_xplane",
     srcs = ["preprocess_single_host_xplane.cc"],
     hdrs = ["preprocess_single_host_xplane.h"],
-    # copybara:uncomment visibility = ["@org_tensorflow//tensorflow/core/profiler:internal"],
+    # copybara:uncomment visibility = ["//visibility:private"],
     deps = [
         "@com_google_absl//absl/strings",
         "@org_xprof//xprof/utils:derived_timeline",
