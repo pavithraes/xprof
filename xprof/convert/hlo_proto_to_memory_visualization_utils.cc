@@ -426,10 +426,10 @@ struct StackFrameInfo {
 // The result is a newline-separated list of file names, line, and column
 // numbers (numbers could be negative). Each line is of the form:
 // `<file_name>:<line_number>:<column_number>`. Order of stack frames in the
-// result is the opposite of their order in the input.
+// result is same as their order in the input.
 std::string JoinStackFrames(const std::vector<StackFrameInfo>& stack_frames) {
   std::stringstream result;
-  for (auto end = stack_frames.crend(), it = stack_frames.crbegin(); it != end;
+  for (auto end = stack_frames.cend(), it = stack_frames.cbegin(); it != end;
        ++it) {
     if (result.tellp() > 0) {
       result << '\n';
