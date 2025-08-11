@@ -31,7 +31,7 @@ absl::Status PodViewerProcessor::ProcessCombinedOpStats(
     const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
   std::string json_output;
   tsl::protobuf::util::JsonPrintOptions opts;
-  opts.always_print_primitive_fields = true;
+  opts.always_print_fields_with_no_presence = true;
 
   auto encode_status = tsl::protobuf::util::MessageToJsonString(
       ConvertOpStatsToPodViewer(combined_op_stats), &json_output, opts);
