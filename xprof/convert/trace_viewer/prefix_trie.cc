@@ -7,6 +7,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
 #include "xla/tsl/lib/io/iterator.h"
 #include "xla/tsl/lib/io/table.h"
@@ -83,7 +84,7 @@ absl::StatusOr<std::vector<PrefixSearchResult>> LoadTrieAsLevelDbTableAndSearch(
   iterator->Seek(prefix);
   while (iterator->Valid()) {
     std::string key = std::string(iterator->key());
-    if (key.starts_with(prefix)) {
+    if (absl::StartsWith(key, prefix)) {
       PrefixTrieNodeProto proto;
       if (!proto.ParseFromString(iterator->value())) {
         return absl::InternalError("Failed to parse PrefixTrieNodeProto");

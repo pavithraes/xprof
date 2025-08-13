@@ -202,6 +202,7 @@ cc_library(
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
         "@org_xprof//plugin/xprof/protobuf:prefix_trie_node_proto_cc",
         "@xla//xla/tsl/lib/io:block",
