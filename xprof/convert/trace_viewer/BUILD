@@ -129,6 +129,7 @@ cc_library(
     srcs = ["trace_events.cc"],
     hdrs = ["trace_events.h"],
     deps = [
+        ":prefix_trie",
         ":trace_events_filter_interface",
         ":trace_events_util",
         ":trace_viewer_visibility",
