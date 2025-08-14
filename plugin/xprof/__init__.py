@@ -25,54 +25,18 @@ from importlib import metadata
 import warnings
 
 
-def _get_current_package_name():
-  """Discovers the distribution package name (e.g., 'xprof-nightly').
-  """
-  # __package__ should be 'xprof'
-  current_import_name = __package__
-
-  try:
-    # packages_distributions() returns a mapping like:
-    # {'xprof': ['xprof-nightly'], 'numpy': ['numpy']}
-    dist_map = metadata.packages_distributions()
-
-    # Look up our import name to find the list of distributions that provide it.
-    # In a standard environment, this list will have one item.
-    dist_names = set(dist_map.get(current_import_name))
-
-    if dist_names:
-      if len(dist_names) > 1:
-        warnings.warn(
-            f"Multiple distributions found for package '{current_import_name}':"
-            f" {dist_names}. Please uninstall one of them.",
-            UserWarning,
-        )
-      return dist_names[0]
-
-  except (ValueError, IndexError, TypeError, AttributeError):
-    pass
-
-  return current_import_name
-
-
 def _check_for_conflicts():
-  """Checks for conflicting legacy packages and raises an error if any are found."""
-  current_package_name = _get_current_package_name()
+  """Checks for conflicting packages and raises an error if any are found."""
+  try:
+    dist_map = metadata.packages_distributions()
+  except Exception:  # pylint: disable=broad-except
+    return
 
-  conflicting_packages = ["tensorboard-plugin-profile", "tbp-nightly"]
-
-  for conflicting_pkg in conflicting_packages:
-    try:
-      installed_version = metadata.version(conflicting_pkg)
-
-      raise RuntimeError(
-          f"Installation Conflict: The package '{current_package_name}'"
-          f" cannot be used while '{conflicting_pkg}=={installed_version}' is"
-          " installed.\n\nTo fix this, please uninstall the conflicting package"
-          f" by running:\n\n  pip uninstall {conflicting_pkg}"
-      )
-    except metadata.PackageNotFoundError:
-      continue
-
+  xprof_providers = dist_map.get("xprof", [])
+  if len(xprof_providers) > 1:
+    raise RuntimeError(
+        "Installation Conflict: Multiple 'xprof' providers found:"
+        f" {xprof_providers}. Please install only one."
+    )
 
 _check_for_conflicts()
