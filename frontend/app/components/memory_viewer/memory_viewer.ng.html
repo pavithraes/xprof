@@ -2,7 +2,7 @@
     <mat-sidenav mode="side" opened>
       <memory-viewer-control
         [moduleList]="moduleList"
-        [firstLoadSelectedModule]="moduleList[firstLoadModuleIndex]"
+        [firstLoadSelectedModule]="selectedModule"
         [firstLoadSelectedMemorySpaceColor]="firstLoadMemorySpaceColor"
         (changed)="update($event)"
       ></memory-viewer-control>
@@ -18,6 +18,9 @@
         *ngIf="!loading"
         [memoryViewerPreprocessResult]="memoryViewerPreprocessResult"
         [memorySpaceColor]="selectedMemorySpaceColor"
+        [currentRun]="sessionId"
+        [currentHost]="host"
+        [currentModule]="selectedModule"
       ></memory-viewer-main>
     </mat-sidenav-content>
 </mat-sidenav-container>

@@ -43,6 +43,7 @@
   </mat-form-field>
 </div>
 
+<!-- TODO(xprof): Remove module selector from sidenav once it's been moved to the memory viewer control. -->
 <div [hidden]="!is_hlo_tool" class="item-container">
   <div [ngClass]="{'mat-subheading-2': true, 'disabled': !moduleList.length}">
     Hlo Modules ({{moduleList.length}})
