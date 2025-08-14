@@ -5,9 +5,9 @@ load("//:config.bzl", "repository_configuration")
 
 repository_configuration(name = "repository_configuration")
 
-load("@repository_configuration//:repository_config.bzl", "PROFILER_PYTHON_VERSION", "PROFILER_REQUIREMENTS_FILE")
+load("@repository_configuration//:repository_config.bzl", "HERMETIC_PYTHON_VERSION", "PROFILER_REQUIREMENTS_FILE")
 
-print("Using Python Version = {}".format(PROFILER_PYTHON_VERSION))
+print("Using Python Version = {}".format(HERMETIC_PYTHON_VERSION))
 
 # XLA uses an old (2019) version of rules_closure, while Tensorboard requires a newer (2024) version.
 # rules_closure has added a number of other dependencies, which we disable so that XLA can properly initialize.
@@ -57,7 +57,7 @@ python_init_rules()
 load("@xla//third_party/py:python_init_repositories.bzl", "python_init_repositories")
 
 python_init_repositories(
-    default_python_version = PROFILER_PYTHON_VERSION,
+    default_python_version = HERMETIC_PYTHON_VERSION,
     requirements = {
         "3.9": "//:requirements_lock_3_9.txt",
         "3.10": "//:requirements_lock_3_10.txt",
