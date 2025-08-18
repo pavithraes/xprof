@@ -20,23 +20,3 @@ Public submodules:
   server: Standalone server entrypoint.
   version: The version of the plugin.
 """
-
-from importlib import metadata
-import warnings
-
-
-def _check_for_conflicts():
-  """Checks for conflicting packages and raises an error if any are found."""
-  try:
-    dist_map = metadata.packages_distributions()
-  except Exception:  # pylint: disable=broad-except
-    return
-
-  xprof_providers = dist_map.get("xprof", [])
-  if len(xprof_providers) > 1:
-    raise RuntimeError(
-        "Installation Conflict: Multiple 'xprof' providers found:"
-        f" {xprof_providers}. Please install only one."
-    )
-
-_check_for_conflicts()
