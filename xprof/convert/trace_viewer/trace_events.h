@@ -308,6 +308,15 @@ absl::Status DoSearchInLevelDbTable(
         LoadTrieAsLevelDbTableAndSearch(
             file_paths.trace_events_prefix_trie_file_path, event_name_prefix);
     search_results_status = search_results_or.status();
+    // This is to maintain the backward compatibility for old profiles where
+    // prefix trie file is not present.
+    if (search_results_status.code() == absl::StatusCode::kNotFound) {
+      LOG(INFO) << "Prefix trie file not found: "
+                << file_paths.trace_events_prefix_trie_file_path;
+      search_results = {};
+      search_results_status = absl::OkStatus();
+      return;
+    }
     if (!search_results_status.ok()) {
       LOG(ERROR) << "Failed to load and search from the prefix trie file: "
                  << file_paths.trace_events_prefix_trie_file_path
