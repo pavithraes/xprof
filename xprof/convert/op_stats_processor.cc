@@ -112,9 +112,9 @@ absl::Status OpStatsProcessor::Reduce(
   OpStats combined_op_stats;
   CombineAllOpStats(all_op_stats_info, step_intersection, &combined_op_stats);
 
-  TF_RETURN_IF_ERROR(WriteBinaryProto(session_snapshot,
-                                      StoredDataType::OP_STATS, "all_hosts",
-                                      combined_op_stats));
+  TF_RETURN_IF_ERROR(WriteBinaryProto(
+      session_snapshot, StoredDataType::OP_STATS,
+      tensorflow::profiler::kAllHostsIdentifier, combined_op_stats));
 
   return ProcessCombinedOpStats(session_snapshot, combined_op_stats);
 }
