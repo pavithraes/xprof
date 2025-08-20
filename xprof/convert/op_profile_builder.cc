@@ -107,6 +107,9 @@ void CopySymbolDetailsToDeduplicatedNode(Node* top_child_node,
   if (top_child_node_xla.has_xprof_kernel_metadata()) {
     xla.set_xprof_kernel_metadata(top_child_node_xla.xprof_kernel_metadata());
   }
+  if (top_child_node_xla.has_source_info()) {
+    *xla.mutable_source_info() = top_child_node_xla.source_info();
+  }
   xla.set_fingerprint(top_child_node_xla.fingerprint());
   xla.set_category(top_child_node_xla.category());
   if (IsFusion(top_child_node_xla.category())) return;
