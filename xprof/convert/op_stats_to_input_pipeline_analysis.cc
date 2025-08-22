@@ -29,6 +29,7 @@ limitations under the License.
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -287,7 +288,8 @@ enum class InputOpCategory {
   kDemandedFileRead,  // demanded read from file.
   kAdvancedFileRead,  // advanced read from file (including cached,
                       // prefetch, parallel-map, interleave).
-  kPreprocessing      // data preprocessing.
+  kPreprocessing,     // data preprocessing.
+  kUnknown,           // unknown category.
 };
 
 std::string InputOpCategoryString(InputOpCategory category) {
@@ -300,6 +302,30 @@ std::string InputOpCategoryString(InputOpCategory category) {
       return "Advanced file read";
     case InputOpCategory::kPreprocessing:
       return "Preprocessing";
+    case InputOpCategory::kUnknown:
+      return "Unknown";
+  }
+}
+
+// category will be empty string for other ops.
+inline bool IsInputOpNew(absl::string_view category) {
+  std::string lower_case_category = absl::AsciiStrToLower(category);
+  return lower_case_category == "enqueue" || lower_case_category == "read" ||
+         lower_case_category == "preprocessing" ||
+         lower_case_category == "unknown";
+}
+
+// Given the new category string, return the legacy input op category.
+inline InputOpCategory CategorizeInputOpNew(absl::string_view category) {
+  std::string lower_case_category = absl::AsciiStrToLower(category);
+  if (lower_case_category == "enqueue") {
+    return InputOpCategory::kEnqueue;
+  } else if (lower_case_category == "read") {
+    return InputOpCategory::kDemandedFileRead;
+  } else if (lower_case_category == "preprocessing") {
+    return InputOpCategory::kPreprocessing;
+  } else {
+    return InputOpCategory::kUnknown;
   }
 }
 
@@ -308,7 +334,7 @@ inline bool IsInputOp(absl::string_view category) {
   // that experiences the install stall, not an Op that causes the input stall.
   return tsl::profiler::IsInfeedEnqueueOp(category) ||
          tsl::profiler::IsDatasetOp(category) ||
-         tsl::profiler::IsMemcpyHToDOp(category);
+         tsl::profiler::IsMemcpyHToDOp(category) || IsInputOpNew(category);
 }
 
 // TODO(ckluk):
@@ -1272,8 +1298,13 @@ void GenerateHostResult(const OpMetricsDb& host_tf_metrics_db,
 
   absl::flat_hash_map<InputOpCategory, double> aggregated_input_op_times_us;
   for (const OpMetrics* op_metrics : input_op_metrics.input_op_metrics) {
-    InputOpCategory category =
-        CategorizeInputOp(op_metrics->name(), op_metrics->category());
+    InputOpCategory category = InputOpCategory::kUnknown;
+    std::string category_str = op_metrics->category();
+    if (IsInputOpNew(category_str)) {
+      category = CategorizeInputOpNew(category_str);
+    } else {
+      category = CategorizeInputOp(op_metrics->name(), op_metrics->category());
+    }
     *result->add_input_op_details() = ConvertOpMetricsToInputOpDetails(
         *op_metrics, input_op_metrics.input_op_time_ps, category);
     aggregated_input_op_times_us[category] +=
