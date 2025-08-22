@@ -54,6 +54,7 @@ using ::tsl::profiler::XStatsBuilder;
 #if defined(PLATFORM_GOOGLE)
 // NOLINTNEXTLINE: clang-tidy missing-includes
 using ::testing::EqualsProto;
+using ::testing::proto::IgnoringRepeatedFieldOrdering;
 #endif
 
 void AddTensorFlowTpuOpEvent(std::string&& name, std::string&& tf_op_fullname,
@@ -307,6 +308,79 @@ TEST(ConvertXPlaneToOpMetricsDb, HostXPlaneWithXlaOps) {
                                            total_op_time_ps: 18000000
                                            precision_stats {}
               )pb"));
+#endif
+}
+
+TEST(ConvertXPlaneToOpMetricsDb, HostXPlaneWithInputPipelineTracemeOps) {
+  XPlane xplane;
+  XPlaneBuilder plane(&xplane);
+  XLineBuilder line = plane.GetOrCreateLine(/*line_id=*/10);
+  tsl::profiler::CreateXEvent(
+      &plane, &line, "ShuffleMapDataset", /*offset_ps=*/100000000,
+      /*duration_ps=*/10000000,
+      {{StatType::kInputPipelineStageId, 1},
+       {StatType::kInputPipelineStageCategory, "preprocessing"}});
+  tsl::profiler::CreateXEvent(
+      &plane, &line, "MapMapDataset", /*offset_ps=*/100000000,
+      /*duration_ps=*/8000000,
+      {{StatType::kInputPipelineStageId, 2},
+       {StatType::kInputPipelineStageCategory, "preprocessing"}});
+  tsl::profiler::CreateXEvent(
+      &plane, &line, "ShuffleMapDataset", /*offset_ps=*/120000000,
+      /*duration_ps=*/10000000,
+      {{StatType::kInputPipelineStageId, 3},
+       {StatType::kInputPipelineStageCategory, "preprocessing"}});
+  tsl::profiler::CreateXEvent(
+      &plane, &line, "MapMapDataset", /*offset_ps=*/120000000,
+      /*duration_ps=*/8000000,
+      {{StatType::kInputPipelineStageId, 4},
+       {StatType::kInputPipelineStageCategory, "preprocessing"}});
+
+  OpMetricsDb op_metrics = ConvertHostThreadsXPlaneToOpMetricsDb(xplane);
+#if defined(PLATFORM_GOOGLE)
+  EXPECT_THAT(op_metrics, IgnoringRepeatedFieldOrdering(
+                              EqualsProto(R"pb(metrics_db {
+                                                 self_time_ps: 2000000
+                                                 occurrences: 1
+                                                 name: "ShuffleMapDataset"
+                                                 category: "preprocessing"
+                                                 hlo_module_id: 1
+                                                 time_ps: 10000000
+                                               }
+                                               metrics_db {
+                                                 self_time_ps: 8000000
+                                                 occurrences: 1
+                                                 name: "MapMapDataset"
+                                                 category: "preprocessing"
+                                                 hlo_module_id: 2
+                                                 time_ps: 8000000
+                                               }
+                                               metrics_db {
+                                                 self_time_ps: 2000000
+                                                 occurrences: 1
+                                                 name: "ShuffleMapDataset"
+                                                 category: "preprocessing"
+                                                 hlo_module_id: 3
+                                                 time_ps: 10000000
+                                               }
+                                               metrics_db {
+                                                 self_time_ps: 8000000
+                                                 occurrences: 1
+                                                 name: "MapMapDataset"
+                                                 category: "preprocessing"
+                                                 hlo_module_id: 4
+                                                 time_ps: 8000000
+                                               }
+                                               metrics_db {
+                                                 self_time_ps: 10000000
+                                                 name: "IDLE"
+                                                 time_ps: 10000000
+                                                 category: "IDLE"
+                                               }
+                                               total_time_ps: 30000000
+                                               total_op_time_ps: 20000000
+                                               precision_stats {}
+                              )pb")));
 #endif
 }
 
