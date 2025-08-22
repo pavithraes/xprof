@@ -145,7 +145,7 @@ export class RooflineModel implements OnDestroy {
 
   parseUrlParams() {
     this.selectedOpName =
-      this.dataService.searchParams?.get('roofline_op_name') || '';
+        this.dataService.getSearchParams().get('roofline_op_name') || '';
   }
 
   refreshDashboards() {

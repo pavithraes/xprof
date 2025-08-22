@@ -20,11 +20,6 @@ import {catchError} from 'rxjs/operators';
 export class DataServiceV2 implements DataServiceV2Interface {
   isLocalDevelopment = false;
   pathPrefix = '';
-  // Assign the value here for backward compatibility. Remove the searchParams
-  // variable later.
-  searchParams = new URLSearchParams(
-      window.sessionStorage.getItem('searchParams') || '',
-  );
 
   constructor(
       private readonly httpClient: HttpClient,

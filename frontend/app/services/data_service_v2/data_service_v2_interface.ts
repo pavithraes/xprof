@@ -13,8 +13,6 @@ import {type SmartSuggestionReport} from 'org_xprof/frontend/app/common/interfac
 
 /** The data service class that calls API and return response. */
 export interface DataServiceV2Interface {
-  searchParams?: URLSearchParams;
-
   getData(
       sessionId: string,
       tool: string,

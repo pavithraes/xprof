@@ -175,11 +175,11 @@ export class HloStats extends Dashboard implements OnDestroy {
 
   onCheckInputParams() {
     this.hloOpNameSelected =
-        this.dataService.searchParams?.get('hlo_op_name') || '';
+        this.dataService.getSearchParams().get('hlo_op_name') || '';
     // Assumption: the program_id is in format like 'main(<program_id>)'
     // parsing with a regex to match content in the bracket
     const programIdParsed =
-        this.dataService.searchParams?.get('program_id')?.match(/\((.*)\)/);
+        this.dataService.getSearchParams().get('program_id')?.match(/\((.*)\)/);
     this.programIdSelected =
         programIdParsed?.length === 2 ? programIdParsed[1] : '';
   }
