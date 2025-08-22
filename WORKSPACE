@@ -34,10 +34,10 @@ http_archive(
     name = "xla",
     patch_args = ["-p1"],
     patches = ["//third_party:xla.patch"],
-    sha256 = "983d483dc7c5aa448018f3108fc054a15763231bbb9293f52dcd20e18913163e",
-    strip_prefix = "xla-dae36884b3a38de63bd2601729808f0cf52cc1ac",
+    sha256 = "c53efbcff1df56036832cbe5f47298d6ca9d3bf76fef9f35d796e07e72cc4ae1",
+    strip_prefix = "xla-dc9f8b6675d49df1d24b172b92bed14c7b4f41c2",
     urls = [
-        "https://github.com/openxla/xla/archive/dae36884b3a38de63bd2601729808f0cf52cc1ac.zip",
+        "https://github.com/openxla/xla/archive/dc9f8b6675d49df1d24b172b92bed14c7b4f41c2.zip",
     ],
 )
 
@@ -49,6 +49,28 @@ xla_workspace4()
 load("@xla//:workspace3.bzl", "xla_workspace3")
 
 xla_workspace3()
+
+# Toolchains for ML projects
+# Details: https://github.com/google-ml-infra/rules_ml_toolchain
+http_archive(
+    name = "rules_ml_toolchain",
+    sha256 = "d1a64a54b1688446619364dac25ff5bcef65c6ffb6984f82128986f5f66129f6",
+    strip_prefix = "rules_ml_toolchain-b42dc53b80d7f4da1e12abca7503a264e96de98e",
+    urls = [
+        "https://github.com/google-ml-infra/rules_ml_toolchain/archive/b42dc53b80d7f4da1e12abca7503a264e96de98e.tar.gz",
+    ],
+)
+
+load(
+    "@rules_ml_toolchain//cc/deps:cc_toolchain_deps.bzl",
+    "cc_toolchain_deps",
+)
+
+cc_toolchain_deps()
+
+register_toolchains("@rules_ml_toolchain//cc:linux_x86_64_linux_x86_64")
+
+register_toolchains("@rules_ml_toolchain//cc:linux_x86_64_linux_x86_64_cuda")
 
 load("@xla//third_party/py:python_init_rules.bzl", "python_init_rules")
 
@@ -113,17 +135,6 @@ load(
 )
 
 python_wheel_version_suffix_repository(name = "tf_wheel_version_suffix")
-
-load(
-    "@rules_ml_toolchain//cc_toolchain/deps:cc_toolchain_deps.bzl",
-    "cc_toolchain_deps",
-)
-
-cc_toolchain_deps()
-
-register_toolchains("@rules_ml_toolchain//cc_toolchain:lx64_lx64")
-
-register_toolchains("@rules_ml_toolchain//cc_toolchain:lx64_lx64_cuda")
 
 load(
     "@rules_ml_toolchain//third_party/gpus/cuda/hermetic:cuda_json_init_repository.bzl",
