@@ -396,6 +396,13 @@ absl::Status RunMapReduce(xprof::ProfileProcessor* processor,
   return processor->Reduce(session_snapshot, map_output_files);
 }
 
+absl::Status ProcessSession(xprof::ProfileProcessor* processor,
+                            const SessionSnapshot& session_snapshot,
+                            const ToolOptions& options) {
+  TF_RETURN_IF_ERROR(processor->ProcessSession(session_snapshot, options));
+  return absl::OkStatus();
+}
+
 absl::StatusOr<std::string> ConvertMultiXSpacesToSmartSuggestion(
     const SessionSnapshot& session_snapshot) {
   SmartSuggestionEngine engine;
@@ -498,7 +505,8 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToToolDataWithProfileProcessor(
     TF_RETURN_IF_ERROR(RunMapReduce(processor.get(), session_snapshot));
   } else {
     // This branch is for processing the session directly.
-    TF_RETURN_IF_ERROR(processor->ProcessSession(session_snapshot));
+    TF_RETURN_IF_ERROR(
+        ProcessSession(processor.get(), session_snapshot, options));
   }
   return processor->GetData();
 }
