@@ -48,12 +48,16 @@ export class DataServiceV2 implements DataServiceV2Interface {
                 errorMessage = 'Request failed : Unable to get the profile data';
               } else {
                 const urlObj = new URL(error.url || '');
+                const errorString = typeof error.error === 'object' ?
+                    String(error.error?.error?.message) :
+                    String(error.error);
+
                 errorMessage = 'There was an error in the requested URL ' +
                     urlObj.pathname + urlObj.search + '.<br><br>' +
                     '<b>message:</b> ' + error.message + '<br>' +
                     '<b>status:</b> ' + String(error.status) + '<br>' +
                     '<b>statusText:</b> ' + error.statusText + '<br>' +
-                    '<b>error:</b> ' + String(error.error);
+                    '<b>error:</b> ' + errorString;
               }
 
               if (notifyError) {
