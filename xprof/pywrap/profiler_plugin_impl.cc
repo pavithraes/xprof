@@ -48,6 +48,7 @@ static const absl::NoDestructor<absl::flat_hash_set<std::string>>
         "roofline_model",
         "framework_op_stats",
         "megascale_stats",
+        "memory_viewer",
     });
 
 namespace xprof {

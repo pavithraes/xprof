@@ -20,6 +20,7 @@ limitations under the License.
 
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "xla/service/hlo.pb.h"
 #include "xprof/convert/repository.h"
 #include "xprof/convert/tool_options.h"
 
