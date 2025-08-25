@@ -191,6 +191,30 @@ cc_library(
 )
 
 cc_library(
+    name = "memory_profile_processor",
+    srcs = ["memory_profile_processor.cc"],
+    hdrs = ["memory_profile_processor.h"],
+    deps = [
+        ":preprocess_single_host_xplane",
+        ":profile_processor",
+        ":profile_processor_factory",
+        ":repository",
+        ":tool_options",
+        ":xplane_to_memory_profile",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_protobuf//:protobuf",
+        "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
+        "@xla//xla/tsl/platform:statusor",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "kernel_stats_processor",
     srcs = ["kernel_stats_processor.cc"],
     hdrs = ["kernel_stats_processor.h"],
@@ -1086,6 +1110,7 @@ cc_library(
         ":input_pipeline_processor",
         ":kernel_stats_processor",
         ":megascale_stats_processor",
+        ":memory_profile_processor",
         ":memory_viewer_processor",
         ":multi_xplanes_to_op_stats",
         ":multi_xspace_to_inference_stats",
