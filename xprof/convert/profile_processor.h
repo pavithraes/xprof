@@ -1,4 +1,4 @@
-/* Copyright 2024 The OpenXLA Authors. All Rights Reserved.
+/* Copyright 2025 The OpenXLA Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+
 #ifndef THIRD_PARTY_XPROF_CONVERT_PROFILE_PROCESSOR_H_
 #define THIRD_PARTY_XPROF_CONVERT_PROFILE_PROCESSOR_H_
 
@@ -31,6 +32,12 @@ namespace xprof {
 class ProfileProcessor {
  public:
   virtual ~ProfileProcessor() = default;
+
+  // Processes a single host's XSpace data and returns the path to the output
+  // file.
+  virtual absl::StatusOr<std::string> Map(const std::string& xspace_path) {
+    return absl::UnimplementedError("Map not implemented");
+  }
 
   // Processes a single host's XSpace data and returns the path to the output
   // file.
