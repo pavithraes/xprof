@@ -309,6 +309,28 @@ cc_library(
 )
 
 cc_library(
+    name = "op_profile_processor",
+    srcs = ["op_profile_processor.cc"],
+    hdrs = ["op_profile_processor.h"],
+    deps = [
+        ":op_stats_processor",
+        ":op_stats_to_op_profile",
+        ":profile_processor_factory",
+        ":repository",
+        ":tool_options",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:string_view",
+        "@org_xprof//plugin/xprof/protobuf:op_profile_proto_cc",
+        "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
+        "@org_xprof//xprof/utils:hardware_type_utils",
+        "@tsl//tsl/platform:protobuf",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "hlo_stats_processor",
     srcs = ["hlo_stats_processor.cc"],
     hdrs = ["hlo_stats_processor.h"],
@@ -1170,6 +1192,7 @@ cc_library(
         ":memory_viewer_processor",
         ":multi_xplanes_to_op_stats",
         ":multi_xspace_to_inference_stats",
+        ":op_profile_processor",
         ":op_stats_to_hlo_stats",
         ":op_stats_to_input_pipeline_analysis",
         ":op_stats_to_op_profile",

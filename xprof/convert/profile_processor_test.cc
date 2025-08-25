@@ -197,6 +197,7 @@ INSTANTIATE_TEST_SUITE_P(
         {"HloStats", "hlo_stats"},
         {"RooflineModel", "roofline_model"},
         {"FrameworkOpStats", "framework_op_stats"},
+        {"OpProfile", "op_profile"},
     }),
     [](const ::testing::TestParamInfo<ProfileProcessorTest::ParamType>& info) {
       return info.param.test_name;
