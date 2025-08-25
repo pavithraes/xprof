@@ -23,9 +23,10 @@ Memory Viewer consists of several key components:
 1.  User control dropdowns that let you customize the data that you’re
     visualizing:
     *   Memory types: The supported memory types are accelerator-dependent. For
-        GPUs, the focus is on the High Bandwidth Memory (HBM), whereas for TPUs,
-        you can additionally view usage for on-chip memories including VMEM,
-        SMEM, CMEM, Sync Flags (SFlag), Sparsecore, and also the Host memory.
+        GPUs, the focus is on the High Bandwidth Memory (HBM) and Host Memory.
+        For TPUs, you can additionally view usage for on-chip memories
+        including VMEM, SMEM, CMEM, Sync Flags (SFlag), and Sparsecore, as well
+        as the Host memory.
     *   Modules: These are the XLA programs that were part of your execution. A
         good starting point is often a top-level module, labeled something like
         “jit_train_step” or “jit_generate”.
@@ -95,3 +96,7 @@ Memory Viewer consists of several key components:
         *   Allocation type: Categorizes the buffer allocations into the
             following types: Parameter, Output, Thread-local, and Temporary
             (e.g., buffer allocation inside a fusion).
+        *   Source: Shows the source code location (file and line number) for
+            the operation that created the buffer.
+        *   Source Stack: Displays the full call stack for the operation,
+            providing the execution context that led to the buffer allocation.

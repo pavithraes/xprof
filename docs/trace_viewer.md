@@ -105,10 +105,10 @@ Trace Viewer provides the following sections and tracks.
         multiple host offload rows present if there are multiple offload ops
         executing in parallel, requiring the trace viewer to concurrently
         display multiple events.
-*   One section for each Sparsecore node: Some TPU generations (e.g., TPU v5p
-    and TPU v6e) are
-    equipped with one or more SparseCore units in addition to the dense compute
-    MXU units;
+*   One section for each Sparsecore node: Some TPU generations (e.g.,
+    [TPU v5p](https://cloud.google.com/tpu/docs/v5p) and
+    [Trillium](https://cloud.google.com/tpu/docs/v6e)) are equipped with one or
+    more SparseCore units in addition to the dense compute MXU units;
     modules, ops, and TraceMes associated with these cores will appear in this
     section.
 *   One section for each GPU node, with the following tracks:
