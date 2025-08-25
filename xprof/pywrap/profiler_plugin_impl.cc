@@ -51,6 +51,8 @@ static const absl::NoDestructor<absl::flat_hash_set<std::string>>
         "memory_viewer",
         "graph_viewer",
         "memory_profile",
+        "trace_viewer",
+        "trace_viewer@",
     });
 
 namespace xprof {
