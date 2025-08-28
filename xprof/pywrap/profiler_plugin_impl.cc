@@ -49,6 +49,7 @@ static const absl::NoDestructor<absl::flat_hash_set<std::string>>
         "framework_op_stats",
         "megascale_stats",
         "memory_viewer",
+        "inference_profile",
         "graph_viewer",
         "memory_profile",
         "trace_viewer",

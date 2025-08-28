@@ -215,6 +215,27 @@ cc_library(
 )
 
 cc_library(
+    name = "inference_stats_processor",
+    srcs = ["inference_stats_processor.cc"],
+    hdrs = ["inference_stats_processor.h"],
+    deps = [
+        ":multi_xspace_to_inference_stats",
+        ":profile_processor",
+        ":profile_processor_factory",
+        ":repository",
+        ":tool_options",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
+        "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "megascale_stats_processor",
     srcs = ["megascale_stats_processor.cc"],
     hdrs = ["megascale_stats_processor.h"],
@@ -1185,6 +1206,7 @@ cc_library(
         ":graph_viewer_processor",
         ":hlo_stats_processor",
         ":hlo_to_tools_data",
+        ":inference_stats_processor",
         ":input_pipeline_processor",
         ":kernel_stats_processor",
         ":megascale_stats_processor",
