@@ -26,6 +26,16 @@ export class DataServiceV2 implements DataServiceV2Interface {
       platformLocation: PlatformLocation,
       private readonly store: Store<{}>,
   ) {
+    // Clear previous searchParams from session storage
+    window.sessionStorage.removeItem('searchParams');
+
+    const searchParamsFromUrl = new URLSearchParams(platformLocation.search);
+    if (searchParamsFromUrl.toString()) {
+      window.sessionStorage.setItem(
+          'searchParams', searchParamsFromUrl.toString());
+      // Persist the query parameters in the URL.
+    }
+
     this.isLocalDevelopment = platformLocation.pathname === LOCAL_URL;
     if (String(platformLocation.pathname).includes(API_PREFIX + PLUGIN_NAME)) {
       this.pathPrefix =
@@ -280,6 +290,8 @@ export class DataServiceV2 implements DataServiceV2Interface {
         'searchParams',
         new URLSearchParams(searchParams).toString(),
     );
+    const newUrl = window.location.pathname + '?' + searchParams.toString();
+    window.history.replaceState({}, '', newUrl);
   }
 
   exportDataAsCSV(sessionId: string, tool: string, host: string) {
@@ -317,8 +329,18 @@ export class DataServiceV2 implements DataServiceV2Interface {
   }
 
   /** Methods below are for 3P only */
-  getRuns() {
-    return this.get(this.pathPrefix + RUNS_API);
+  getRuns(): Observable<string[]|null> {
+    const searchParams = this.getSearchParams();
+    const session = searchParams.get('session');
+    const runPath = searchParams.get('run_path');
+    let params = new HttpParams();
+    if (session) {
+      params = params.set('session', session);
+    }
+    if (runPath) {
+      params = params.set('run_path', runPath);
+    }
+    return this.get<string[]>(this.pathPrefix + RUNS_API, {'params': params});
   }
 
   getRunTools(run: string): Observable<string[]> {
@@ -343,6 +365,7 @@ export class DataServiceV2 implements DataServiceV2Interface {
             .set('device_tracer_level', options.deviceTracerLevel.toString())
             .set('python_tracer_level', options.pythonTracerLevel.toString())
             .set('delay', options.delay.toString());
-    return this.httpClient.get(this.pathPrefix + CAPTURE_PROFILE_API, {params});
+    return this.httpClient.get<CaptureProfileResponse>(
+        this.pathPrefix + CAPTURE_PROFILE_API, {params});
   }
 }

@@ -508,6 +508,110 @@ class ProfilePluginTest(absltest.TestCase):
     # Now that there's data, this should be active.
     self.assertTrue(self.plugin.is_active())
 
+  def test_generate_runs_from_path_params_with_session(self):
+    session = os.path.join(self.logdir, 'session_run')
+    os.mkdir(session)
+    with open(os.path.join(session, 'host.xplane.pb'), 'w') as f:
+      f.write('dummy xplane data')
+    runs = list(self.plugin._generate_runs_from_path_params(session=session))
+    self.assertListEqual(['session_run'], runs)
+    self.assertEqual(self.logdir, self.plugin.logdir)
+
+  def test_generate_runs_no_logdir(self):
+    self.plugin.logdir = None
+    self.plugin.basedir = None
+    runs = list(self.plugin.generate_runs())
+    self.assertEmpty(runs)
+
+  def test_generate_runs_from_path_params_with_run_path(self):
+    run_path = os.path.join(self.logdir, 'base')
+    os.mkdir(run_path)
+    run1_path = os.path.join(run_path, 'run1')
+    os.mkdir(run1_path)
+    with open(os.path.join(run1_path, 'host.xplane.pb'), 'w') as f:
+      f.write('dummy xplane data')
+    run2_path = os.path.join(run_path, 'run2')
+    os.mkdir(run2_path)
+    # run3 is a file, not a directory, and should be ignored.
+    with open(os.path.join(run_path, 'run3'), 'w') as f:
+      f.write('dummy file')
+    runs = list(self.plugin._generate_runs_from_path_params(run_path=run_path))
+    self.assertListEqual(['run1'], runs)
+    self.assertEqual(run_path, self.plugin.logdir)
+
+  def test_runs_impl_with_session(self):
+    session = os.path.join(self.logdir, 'session_run')
+    os.mkdir(session)
+    with open(os.path.join(session, 'host.xplane.pb'), 'w') as f:
+      f.write('dummy xplane data')
+    request = utils.make_data_request(
+        utils.DataRequestOptions(session=session)
+    )
+    runs = self.plugin.runs_imp(request)
+    self.assertListEqual(['session_run'], runs)
+    self.assertEqual(os.path.dirname(session), self.plugin.logdir)
+
+  def test_runs_impl_with_run_path(self):
+    run_path = os.path.join(self.logdir, 'base')
+    os.mkdir(run_path)
+    run1_path = os.path.join(run_path, 'run1')
+    os.mkdir(run1_path)
+    with open(os.path.join(run1_path, 'host.xplane.pb'), 'w') as f:
+      f.write('dummy xplane data')
+    request = utils.make_data_request(
+        utils.DataRequestOptions(run_path=run_path)
+    )
+    runs = self.plugin.runs_imp(request)
+    self.assertListEqual(['run1'], runs)
+    self.assertEqual(run_path, self.plugin.logdir)
+
+  def test_run_dir_no_logdir(self):
+    self.plugin.logdir = None
+    with self.assertRaisesRegex(
+        RuntimeError, 'No matching run directory for run foo'
+    ):
+      self.plugin._run_dir('foo')
+
+  def test_run_dir_invalid_profile_run_directory(self):
+    # This test verifies that no error is raised if the TB run directory exists,
+    # even if the specific profile run subfolder does not.
+    expected_path = os.path.join(
+        self.logdir, 'plugins', 'profile', 'non_existent_run'
+    )
+    run_dir = self.plugin._run_dir('non_existent_run')
+    self.assertEqual(run_dir, expected_path)
+
+  def test_run_dir_invalid_tb_run_directory(self):
+    with self.assertRaisesRegex(
+        RuntimeError,
+        'No matching run directory for run non_existent_tb_run/run1',
+    ):
+      self.plugin._run_dir('non_existent_tb_run/run1')
+
+  def test_run_dir_with_custom_session(self):
+    self.plugin.custom_session = os.path.join(self.logdir, 'session_run')
+    os.mkdir(self.plugin.custom_session)
+    run_dir = self.plugin._run_dir('session_run')
+    self.assertEqual(
+        run_dir, os.path.join(self.logdir, 'session_run')
+    )
+
+  def test_run_dir_with_custom_run_path(self):
+    self.plugin.custom_run_path = os.path.join(self.logdir, 'base')
+    os.mkdir(self.plugin.custom_run_path)
+    run_dir = self.plugin._run_dir('base/run1')
+    self.assertEqual(run_dir, os.path.join(self.logdir, 'base', 'run1'))
+
+  def test_run_dir_default(self):
+    run_path = os.path.join(self.logdir, 'train')
+    os.mkdir(run_path)
+    plugin_dir = os.path.join(run_path, 'plugins', 'profile')
+    os.makedirs(plugin_dir)
+    run1_path = os.path.join(plugin_dir, 'run1')
+    os.mkdir(run1_path)
+    run_dir = self.plugin._run_dir('train/run1')
+    self.assertEqual(run_dir, run1_path)
+
 
 if __name__ == '__main__':
   absltest.main()

@@ -483,6 +483,9 @@ class ProfilePlugin(base_plugin.TBPlugin):
       context: A base_plugin.TBContext instance.
     """
     self.logdir = context.logdir
+    self.basedir = context.logdir
+    self.custom_session = None
+    self.custom_run_path = None
     self.data_provider = context.data_provider
     self.master_tpu_unsecure_channel = context.flags.master_tpu_unsecure_channel
     self.hide_capture_profile_button = getattr(
@@ -605,7 +608,18 @@ class ProfilePlugin(base_plugin.TBPlugin):
       request: Optional; werkzeug request used for grabbing ctx and experiment
         id for other host implementations
     """
-    return sorted(list(self.generate_runs()), reverse=True)
+    session = request.args.get('session') if request else None
+    run_path = request.args.get('run_path') if request and not session else None
+    self.custom_session = session
+    self.custom_run_path = run_path
+    self.logdir = session if session else self.basedir
+    if self.custom_session or self.custom_run_path:
+      runs_generator = self._generate_runs_from_path_params(
+          session=self.custom_session, run_path=self.custom_run_path
+      )
+    else:
+      runs_generator = self.generate_runs()
+    return sorted(list(runs_generator), reverse=True)
 
   # pytype: disable=wrong-arg-types
   @wrappers.Request.application
@@ -914,6 +928,12 @@ class ProfilePlugin(base_plugin.TBPlugin):
       except (RuntimeError, ValueError) as err:
         return respond({'error': str(err)}, 'application/json', code=500)
 
+    if not self.logdir:
+      return respond(
+          {'error': 'logdir is not set, abort capturing.'},
+          'application/json',
+          code=500,
+      )
     try:
       # The core trace call remains, now with cleanly resolved parameters.
       _pywrap_profiler_plugin.trace(
@@ -976,12 +996,77 @@ class ProfilePlugin(base_plugin.TBPlugin):
     if not tb_run_name:
       tb_run_name = '.'
     tb_run_directory = _tb_run_directory(self.logdir, tb_run_name)
-    if not epath.Path(tb_run_directory).is_dir():
+    if not self.logdir or not epath.Path(tb_run_directory).is_dir():
       raise RuntimeError('No matching run directory for run %s' % run)
-
+    if self.custom_session or self.custom_run_path:
+      return os.path.join(tb_run_directory, profile_run_name)
     plugin_directory = plugin_asset_util.PluginDirectory(
-        tb_run_directory, PLUGIN_NAME)
+        tb_run_directory, PLUGIN_NAME
+    )
     return os.path.join(plugin_directory, profile_run_name)
+
+  def _generate_runs_from_path_params(
+      self, session: Optional[str] = None, run_path: Optional[str] = None
+  ) -> Iterator[str]:
+    """Generator for a list of runs from path parameters.
+
+    This function handles two specific scenarios for specifying profile data
+    locations:
+    1.  `session`: A direct path to a directory containing XPlane files for a
+        single profiling session. The directory's name becomes the run name.
+    2.  `run_path`: A path to a directory that contains multiple session
+        directories. Each subdirectory that contains XPlane files is treated
+        as a profiling session, and its name becomes a run name.
+
+    Example Directory Structures:
+
+    Scenario 1: Using `session`
+    If `session` is `/path/to/my_session_dir`:
+    ```
+    /path/to/
+      my_session_dir/
+        hostA.xplane.pb
+        hostB.xplane.pb
+    ```
+    This would yield a single run: "my_session_dir".
+
+    Scenario 2: Using `run_path`
+    If `run_path` is `/path/to/my_runs`:
+    ```
+    /path/to/
+      my_runs/
+        session_alpha/
+          host1.xplane.pb
+        session_beta/
+          host2.xplane.pb
+        other_dir/  (ignored if no *.xplane.pb)
+    ```
+    This would yield runs: "session_alpha", "session_beta".
+
+    Args:
+      session: An optional path string to a specific profiling session
+        directory.
+      run_path: An optional path string to a directory containing multiple
+        profiling session subdirectories.
+
+    Yields:
+      A sequence of string that are "frontend run names" derived from the
+      provided path parameters.
+    """
+
+    if session:
+      session = epath.Path(session)
+      run_name = session.name
+      self.logdir = str(session.parent)
+      self._run_to_profile_run_dir[run_name] = str(session)
+      yield run_name
+    elif run_path:
+      run_path = epath.Path(run_path)
+      self.logdir = str(run_path)
+      for session in run_path.iterdir():
+        if session.is_dir() and any(session.glob('*.xplane.pb')):
+          self._run_to_profile_run_dir[session.name] = str(session)
+          yield session.name
 
   def generate_runs(self) -> Iterator[str]:
     """Generator for a list of runs.
@@ -1033,6 +1118,10 @@ class ProfilePlugin(base_plugin.TBPlugin):
         "run1", "train/run1", "train/run2", "validation/run1",
         "new_job/tensorboard/run1"
     """
+    self.logdir = self.basedir
+    if not self.logdir:
+      return
+
     # Ensure that we check the root logdir and all subdirectories.
     # Note that we check if logdir is a directory to handle case where
     # it's actually a multipart directory spec, which this plugin does not
@@ -1079,8 +1168,8 @@ class ProfilePlugin(base_plugin.TBPlugin):
         if tb_run_name == '.':
           frontend_run = profile_run
         else:
-          frontend_run = os.path.join(tb_run_name, profile_run)
-        profile_run_dir = os.path.join(tb_plugin_dir, profile_run)
+          frontend_run = str(epath.Path(tb_run_name) / profile_run)
+        profile_run_dir = str(epath.Path(tb_plugin_dir) / profile_run)
         if epath.Path(profile_run_dir).is_dir():
           self._run_to_profile_run_dir[frontend_run] = profile_run_dir
           if frontend_run not in visited_runs:

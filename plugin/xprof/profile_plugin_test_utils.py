@@ -73,16 +73,20 @@ class DataRequestOptions:
     resolution: Trace resolution.
     start_time_ms: Start time in milliseconds.
     end_time_ms: End time in milliseconds.
+    session: Path to a single session.
+    run_path: Path to a directory containing multiple sessions.
   """
 
-  run: str
-  tool: str
+  run: str | None = None
+  tool: str | None = None
   host: str | None = None
   use_saved_result: bool | None = None
   full_dma: bool | None = None
   resolution: int | None = None
   start_time_ms: int | None = None
   end_time_ms: int | None = None
+  session: str | None = None
+  run_path: str | None = None
 
 
 def make_data_request(options: DataRequestOptions) -> Request:
@@ -95,7 +99,11 @@ def make_data_request(options: DataRequestOptions) -> Request:
     A werkzeug.Request to pass to ProfilePlugin.data_impl.
   """
   req = Request({})
-  req.args = {'run': options.run, 'tag': options.tool}
+  req.args = {}
+  if options.run:
+    req.args['run'] = options.run
+  if options.tool:
+    req.args['tag'] = options.tool
   if options.host:
     req.args['host'] = options.host
   if options.use_saved_result is not None:
@@ -108,4 +116,8 @@ def make_data_request(options: DataRequestOptions) -> Request:
     req.args['start_time_ms'] = options.start_time_ms
   if options.end_time_ms is not None:
     req.args['end_time_ms'] = options.end_time_ms
+  if options.session:
+    req.args['session'] = options.session
+  if options.run_path:
+    req.args['run_path'] = options.run_path
   return req
