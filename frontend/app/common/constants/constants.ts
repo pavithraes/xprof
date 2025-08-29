@@ -86,13 +86,6 @@ export const GRAPH_TYPE_DEFAULT = 'xla';
 export const HLO_TOOLS =
     ['memory_viewer', 'graph_viewer'];
 
-/** The query parameter keys used in trace viewer */
-// TODO(yinzz): update the key in tf-trace-viewr.html to this one for
-// consistency
-export const TRACE_VIEWER_QUERY_PARAMS_KEYS = {
-  'host': 'host',
-};
-
 /** The query parameter keys used in graph viewer */
 export const GRAPHVIZ_PAN_ZOOM_CONTROL = '&pan_zoom=1&pan_zoom_controls=1';
 

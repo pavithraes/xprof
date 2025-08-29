@@ -1389,8 +1389,12 @@ dashboard would integrate trace viewer app using iframe.
 
     _perfettoButtonOnclickCallback: function() {
       const sessionPerfettoUrl = new URL(`/perfetto/${this._sessionId}`, window.location.href);
-      if (this._selectedHosts.length) {
-        sessionPerfettoUrl.searchParams.set('hosts', this._selectedHosts.join(','));
+      const relatedParams = ['host', 'hosts', 'host_index', 'trace_filter_config'];
+      for (const param of relatedParams) {
+        const value = this._buildBaseURL().searchParams.get(param);
+        if (value) {
+          sessionPerfettoUrl.searchParams.set(param, value);
+        }
       }
       window.open(sessionPerfettoUrl.toString());
     },
