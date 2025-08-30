@@ -22,29 +22,33 @@ build:macos --copt=-DGRPC_BAZEL_BUILD
 build:macos --linkopt=-Wl,-undefined,dynamic_lookup
 build:macos --host_linkopt=-Wl,-undefined,dynamic_lookup
 build:macos --config=clang_local
+build:macos --apple_crosstool_top=@local_config_apple_cc//:toolchain
+build:macos --crosstool_top=@local_config_apple_cc//:toolchain
+build:macos --host_crosstool_top=@local_config_apple_cc//:toolchain
 
-build:windows --compiler=clang-cl
-build:windows --copt=/W0
-build:windows --host_copt=/W0
-build:windows --copt=/Zc:__cplusplus
-build:windows --host_copt=/Zc:__cplusplus
+# XLA uses M_* math constants that only get defined by MSVC headers if
+# _USE_MATH_DEFINES is defined.
 build:windows --copt=/D_USE_MATH_DEFINES
 build:windows --host_copt=/D_USE_MATH_DEFINES
-build:windows --features=compiler_param_file
-build:windows --features=archive_param_file
-build:windows --cxxopt=/std:c++17
-build:windows --host_cxxopt=/std:c++17
+# Make sure to include as little of windows.h as possible
 build:windows --copt=-DWIN32_LEAN_AND_MEAN
 build:windows --host_copt=-DWIN32_LEAN_AND_MEAN
 build:windows --copt=-DNOGDI
 build:windows --host_copt=-DNOGDI
+# https://devblogs.microsoft.com/cppblog/announcing-full-support-for-a-c-c-conformant-preprocessor-in-msvc/
+# otherwise, there will be some compiling error due to preprocessing.
+build:windows --copt=/Zc:preprocessor
+build:windows --cxxopt=/std:c++17
+build:windows --host_cxxopt=/std:c++17
+# Generate PDB files, to generate useful PDBs, in opt compilation_mode
+# --copt /Z7 is needed.
 build:windows --linkopt=/DEBUG
 build:windows --host_linkopt=/DEBUG
 build:windows --linkopt=/OPT:REF
 build:windows --host_linkopt=/OPT:REF
 build:windows --linkopt=/OPT:ICF
 build:windows --host_linkopt=/OPT:ICF
-build:windows --config=clang_local
+build:windows --incompatible_strict_action_env=true
 
 # Windows x86 CI configs
 build:avx_windows --copt=/arch:AVX
