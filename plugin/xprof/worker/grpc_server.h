@@ -18,7 +18,7 @@ limitations under the License.
 
 namespace xprof {
 namespace profiler {
-
+// TODO: b/442301153 - Add ShutdownGrpcServer() as well.
 void InitializeGrpcServer(int port);
 
 }  // namespace profiler

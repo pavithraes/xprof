@@ -16,7 +16,7 @@ class ServerTest(googletest.TestCase, parameterized.TestCase):
   def setUp(self):
     super().setUp()
     self.mock_launch_server = self.enter_context(
-        mock.patch.object(server, 'launch_server', autospec=True)
+        mock.patch.object(server, '_launch_server', autospec=True)
     )
     self.mock_path = self.enter_context(
         mock.patch.object(epath, 'Path', autospec=True)
@@ -57,11 +57,21 @@ class ServerTest(googletest.TestCase, parameterized.TestCase):
               'logdir_opt': None,
               'logdir_pos': None,
               'port': 1234,
+              'grpc_port': 50051,
+              'worker_service_address': '0.0.0.0:50051',
+              'use_distributed_processing': False,
               'hide_capture_profile_button': False,
           },
           True,
           0,
-          (None, 1234, server.FeatureConfig(hide_capture_profile_button=False)),
+          server.ServerConfig(
+              logdir=None,
+              port=1234,
+              grpc_port=50051,
+              worker_service_address='0.0.0.0:50051',
+              use_distributed_processing=False,
+              hide_capture_profile_button=False,
+          ),
           True,
       ),
       (
@@ -70,14 +80,20 @@ class ServerTest(googletest.TestCase, parameterized.TestCase):
               'logdir_opt': '/tmp/log',
               'logdir_pos': None,
               'port': 5678,
+              'grpc_port': 50051,
+              'worker_service_address': '0.0.0.0:50051',
+              'use_distributed_processing': False,
               'hide_capture_profile_button': False,
           },
           True,
           0,
-          (
-              '/tmp/log',
-              5678,
-              server.FeatureConfig(hide_capture_profile_button=False),
+          server.ServerConfig(
+              logdir='/tmp/log',
+              port=5678,
+              grpc_port=50051,
+              worker_service_address='0.0.0.0:50051',
+              use_distributed_processing=False,
+              hide_capture_profile_button=False,
           ),
           True,
       ),
@@ -87,14 +103,20 @@ class ServerTest(googletest.TestCase, parameterized.TestCase):
               'logdir_opt': None,
               'logdir_pos': '/tmp/log',
               'port': 9012,
+              'grpc_port': 50051,
+              'worker_service_address': '0.0.0.0:50051',
+              'use_distributed_processing': False,
               'hide_capture_profile_button': False,
           },
           True,
           0,
-          (
-              '/tmp/log',
-              9012,
-              server.FeatureConfig(hide_capture_profile_button=False),
+          server.ServerConfig(
+              logdir='/tmp/log',
+              port=9012,
+              grpc_port=50051,
+              worker_service_address='0.0.0.0:50051',
+              use_distributed_processing=False,
+              hide_capture_profile_button=False,
           ),
           True,
       ),
@@ -104,6 +126,9 @@ class ServerTest(googletest.TestCase, parameterized.TestCase):
               'logdir_opt': '/tmp/log',
               'logdir_pos': None,
               'port': 3456,
+              'grpc_port': 50051,
+              'worker_service_address': '0.0.0.0:50051',
+              'use_distributed_processing': False,
               'hide_capture_profile_button': False,
           },
           False,
@@ -111,13 +136,82 @@ class ServerTest(googletest.TestCase, parameterized.TestCase):
           None,
           False,
       ),
+      (
+          'distributed_processing_enabled',
+          {
+              'logdir_opt': None,
+              'logdir_pos': None,
+              'port': 1234,
+              'grpc_port': 50051,
+              'worker_service_address': '0.0.0.0:50051',
+              'use_distributed_processing': True,
+              'hide_capture_profile_button': False,
+          },
+          True,
+          0,
+          server.ServerConfig(
+              logdir=None,
+              port=1234,
+              grpc_port=50051,
+              worker_service_address='0.0.0.0:50051',
+              use_distributed_processing=True,
+              hide_capture_profile_button=False,
+          ),
+          True,
+      ),
+      (
+          'hide_capture_button_enabled',
+          {
+              'logdir_opt': None,
+              'logdir_pos': None,
+              'port': 1234,
+              'grpc_port': 50051,
+              'worker_service_address': '0.0.0.0:50051',
+              'use_distributed_processing': False,
+              'hide_capture_profile_button': True,
+          },
+          True,
+          0,
+          server.ServerConfig(
+              logdir=None,
+              port=1234,
+              grpc_port=50051,
+              worker_service_address='0.0.0.0:50051',
+              use_distributed_processing=False,
+              hide_capture_profile_button=True,
+          ),
+          True,
+      ),
+      (
+          'all_features_enabled',
+          {
+              'logdir_opt': '/tmp/log',
+              'logdir_pos': None,
+              'port': 1234,
+              'grpc_port': 50051,
+              'worker_service_address': '0.0.0.0:50051',
+              'use_distributed_processing': True,
+              'hide_capture_profile_button': True,
+          },
+          True,
+          0,
+          server.ServerConfig(
+              logdir='/tmp/log',
+              port=1234,
+              grpc_port=50051,
+              worker_service_address='0.0.0.0:50051',
+              use_distributed_processing=True,
+              hide_capture_profile_button=True,
+          ),
+          True,
+      ),
   )
   def test_main(
       self,
       mock_args_dict,
       path_exists,
       expected_result,
-      launch_server_args,
+      expected_config,
       should_launch_server,
   ):
     # Arrange
@@ -131,7 +225,7 @@ class ServerTest(googletest.TestCase, parameterized.TestCase):
     # Assert
     self.assertEqual(result, expected_result)
     if should_launch_server:
-      self.mock_launch_server.assert_called_once_with(*launch_server_args)
+      self.mock_launch_server.assert_called_once_with(expected_config)
     else:
       self.mock_launch_server.assert_not_called()
 
