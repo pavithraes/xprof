@@ -31,15 +31,13 @@ class FrameworkOpStatsProcessor : public OpStatsProcessor {
       const tensorflow::profiler::ToolOptions& options)
       : options_(options) {}
 
+  absl::Status ProcessSession(
+      const tensorflow::profiler::SessionSnapshot& session_snapshot,
+      const tensorflow::profiler::ToolOptions& options) override;
+
   absl::Status ProcessCombinedOpStats(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
       const tensorflow::profiler::OpStats& combined_op_stats) override;
-
-  bool ShouldUseWorkerService(
-      const tensorflow::profiler::SessionSnapshot& session_snapshot,
-      const tensorflow::profiler::ToolOptions& options) const override {
-    return true;
-  }
 
  private:
   tensorflow::profiler::ToolOptions options_;

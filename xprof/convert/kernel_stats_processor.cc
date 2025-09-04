@@ -16,19 +16,34 @@ limitations under the License.
 
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "xla/tsl/platform/errors.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
-#include "xprof/convert/xplane_to_kernel_stats_db.h"
+#include "xprof/convert/multi_xplanes_to_op_stats.h"
 #include "xprof/convert/repository.h"
+#include "xprof/convert/xplane_to_kernel_stats_db.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
 
 namespace xprof {
 
+using tensorflow::profiler::ConvertMultiXSpaceToCombinedOpStatsWithCache;
+using tensorflow::profiler::KernelStatsToDataTableJson;
 using tensorflow::profiler::OpStats;
 using tensorflow::profiler::SessionSnapshot;
 
+absl::Status KernelStatsProcessor::ProcessSession(
+    const SessionSnapshot& session_snapshot,
+    const tensorflow::profiler::ToolOptions& options) {
+  OpStats combined_op_stats;
+  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
+      session_snapshot, &combined_op_stats));
+  auto json_output =
+      KernelStatsToDataTableJson(combined_op_stats.kernel_stats_db());
+  SetOutput(json_output, "application/json");
+  return absl::OkStatus();
+}
+
 absl::Status KernelStatsProcessor::ProcessCombinedOpStats(
     const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
-
   std::string kernel_stats_json =
       KernelStatsToDataTableJson(combined_op_stats.kernel_stats_db());
   SetOutput(kernel_stats_json, "application/json");

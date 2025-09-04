@@ -190,14 +190,13 @@ INSTANTIATE_TEST_SUITE_P(
     ProfileProcessorTests, ProfileProcessorTest,
     ::testing::ValuesIn<ProfileProcessorTestParam>({
         {"OverviewPage", "overview_page"},
-        // TODO(b/442301821): Enable these tests once the tools are supported.
-        // {"InputPipelineAnalyzer", "input_pipeline_analyzer"},
-        // {"KernelStats", "kernel_stats"},
-        // {"PodViewer", "pod_viewer"},
-        // {"HloStats", "hlo_stats"},
-        // {"RooflineModel", "roofline_model"},
-        // {"FrameworkOpStats", "framework_op_stats"},
-        // {"OpProfile", "op_profile"},
+        {"InputPipelineAnalyzer", "input_pipeline_analyzer"},
+        {"KernelStats", "kernel_stats"},
+        {"PodViewer", "pod_viewer"},
+        {"HloStats", "hlo_stats"},
+        {"RooflineModel", "roofline_model"},
+        {"FrameworkOpStats", "framework_op_stats"},
+        {"OpProfile", "op_profile"},
     }),
     [](const ::testing::TestParamInfo<ProfileProcessorTest::ParamType>& info) {
       return info.param.test_name;

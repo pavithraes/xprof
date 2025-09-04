@@ -14,18 +14,43 @@ limitations under the License.
 
 #include <string>
 
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "absl/log/log.h"
-#include "xprof/convert/op_stats_to_pod_viewer.h"
+#include "xla/tsl/platform/errors.h"
 #include "tsl/platform/protobuf.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
+#include "xprof/convert/multi_xplanes_to_op_stats.h"
+#include "xprof/convert/op_stats_to_pod_viewer.h"
 #include "xprof/convert/repository.h"
+#include "xprof/convert/tool_options.h"
 
 namespace xprof {
 
+using tensorflow::profiler::ConvertMultiXSpaceToCombinedOpStatsWithCache;
 using tensorflow::profiler::OpStats;
 using tensorflow::profiler::SessionSnapshot;
+
+absl::Status PodViewerProcessor::ProcessSession(
+    const SessionSnapshot& session_snapshot,
+    const tensorflow::profiler::ToolOptions& options) {
+  OpStats combined_op_stats;
+  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
+      session_snapshot, &combined_op_stats));
+
+  std::string json_output;
+  tsl::protobuf::util::JsonPrintOptions opts;
+  opts.always_print_fields_with_no_presence = true;
+  auto encode_status = tsl::protobuf::util::MessageToJsonString(
+      ConvertOpStatsToPodViewer(combined_op_stats), &json_output, opts);
+  if (!encode_status.ok()) {
+    const auto& error_message = encode_status.message();
+    return tsl::errors::Internal(
+        "Could not convert pod viewer to json. Error: ", error_message);
+  }
+  SetOutput(json_output, "application/json");
+  return absl::OkStatus();
+}
 
 absl::Status PodViewerProcessor::ProcessCombinedOpStats(
     const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {

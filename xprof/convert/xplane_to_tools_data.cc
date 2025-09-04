@@ -43,9 +43,14 @@ limitations under the License.
 #include "tsl/platform/protobuf.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
 #include "xprof/convert/compute_inference_latency.h"
+#include "xprof/convert/framework_op_stats_processor.h"
+#include "xprof/convert/hlo_stats_processor.h"
 #include "xprof/convert/hlo_to_tools_data.h"
+#include "xprof/convert/input_pipeline_processor.h"
+#include "xprof/convert/kernel_stats_processor.h"
 #include "xprof/convert/multi_xplanes_to_op_stats.h"
 #include "xprof/convert/multi_xspace_to_inference_stats.h"
+#include "xprof/convert/op_profile_processor.h"
 #include "xprof/convert/op_stats_to_hlo_stats.h"
 #include "xprof/convert/op_stats_to_input_pipeline_analysis.h"
 #include "xprof/convert/op_stats_to_op_profile.h"
@@ -54,11 +59,13 @@ limitations under the License.
 #include "xprof/convert/op_stats_to_roofline_model.h"
 #include "xprof/convert/op_stats_to_tf_stats.h"
 #include "xprof/convert/overview_page_processor.h"
+#include "xprof/convert/pod_viewer_processor.h"
 #include "xprof/convert/preprocess_single_host_xplane.h"
 #include "xprof/convert/process_megascale_dcn.h"
 #include "xprof/convert/profile_processor.h"
 #include "xprof/convert/profile_processor_factory.h"
 #include "xprof/convert/repository.h"
+#include "xprof/convert/roofline_model_processor.h"
 #include "xprof/convert/smart_suggestion/all_rules.h"
 #include "xprof/convert/smart_suggestion/signal_provider.h"
 #include "xprof/convert/smart_suggestion/smart_suggestion_engine.h"
@@ -198,29 +205,23 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToOverviewPage(
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToInputPipeline(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  InputPipelineAnalysisResult result =
-      ConvertOpStatsToInputPipelineAnalysis(combined_op_stats);
-  return InputPipelineAnalysisResultToDataTableJson(result);
+  xprof::InputPipelineProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToTfStats(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  TfStatsDatabase tf_stats_db = ConvertOpStatsToTfStats(combined_op_stats);
-  return TfStatsToDataTableJson(tf_stats_db);
+  xprof::FrameworkOpStatsProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToKernelStats(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  return KernelStatsToDataTableJson(combined_op_stats.kernel_stats_db());
+  xprof::KernelStatsProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertXSpaceToMemoryProfile(
@@ -242,22 +243,9 @@ absl::StatusOr<std::string> ConvertXSpaceToMemoryProfile(
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToPodViewer(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-
-  std::string json_output;
-  tsl::protobuf::util::JsonPrintOptions opts;
-  opts.always_print_fields_with_no_presence = true;
-  auto encode_status = tsl::protobuf::util::MessageToJsonString(
-      ConvertOpStatsToPodViewer(combined_op_stats), &json_output, opts);
-  if (!encode_status.ok()) {
-    const auto& error_message = encode_status.message();
-    return tsl::errors::Internal(
-        "Could not convert pod viewer to json. Error: ",
-        absl::string_view(error_message.data(), error_message.length()));
-  }
-  return json_output;
+  xprof::PodViewerProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToTfDataBottleneckAnalysis(
@@ -290,52 +278,23 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToTfDataBottleneckAnalysis(
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToHloStats(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  hlo_stats::HloStatsDatabase hlo_stats_db =
-      ConvertOpStatsToHloStats(combined_op_stats);
-  return HloStatsToDataTableJson(hlo_stats_db);
+  xprof::HloStatsProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToRooflineModel(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  RooflineModelDatabase result =
-      ConvertOpStatsToRooflineModel(combined_op_stats, true);
-  RooflineModelDatabase result_without_infeed_outfeed =
-      ConvertOpStatsToRooflineModel(combined_op_stats, false);
-  result.mutable_roofline_model_record()->MergeFrom(
-      result_without_infeed_outfeed.roofline_model_record());
-  return RooflineModelToDataTableJson(result);
+  xprof::RooflineModelProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToOpProfileViewer(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-
-  tensorflow::profiler::op_profile::Profile profile;
-  ConvertOpStatsToOpProfile(
-      combined_op_stats,
-      ParseHardwareType(combined_op_stats.run_environment().device_type()),
-      profile);
-  std::string json_output;
-  tsl::protobuf::util::JsonPrintOptions opts;
-  opts.always_print_fields_with_no_presence = true;
-
-  auto encode_status =
-      tsl::protobuf::util::MessageToJsonString(profile, &json_output, opts);
-  if (!encode_status.ok()) {
-    const auto& error_message = encode_status.message();
-    return tsl::errors::Internal(
-        "Could not convert op profile proto to json. Error: ",
-        absl::string_view(error_message.data(), error_message.length()));
-  }
-  return json_output;
+  xprof::OpProfileProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> PreprocessXSpace(

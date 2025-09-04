@@ -16,22 +16,41 @@ limitations under the License.
 
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "xla/tsl/platform/errors.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
+#include "xprof/convert/multi_xplanes_to_op_stats.h"
 #include "xprof/convert/op_stats_to_roofline_model.h"
 #include "xprof/convert/repository.h"
-#include "plugin/xprof/protobuf/roofline_model.pb.h"
+#include "xprof/convert/tool_options.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
+#include "plugin/xprof/protobuf/roofline_model.pb.h"
 
 namespace xprof {
 
+using tensorflow::profiler::ConvertMultiXSpaceToCombinedOpStatsWithCache;
+using tensorflow::profiler::OpStats;
 using tensorflow::profiler::RooflineModelDatabase;
 using tensorflow::profiler::RooflineModelToDataTableJson;
-using tensorflow::profiler::OpStats;
 using tensorflow::profiler::SessionSnapshot;
+
+absl::Status RooflineModelProcessor::ProcessSession(
+    const SessionSnapshot& session_snapshot,
+    const tensorflow::profiler::ToolOptions& options) {
+  OpStats combined_op_stats;
+  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
+      session_snapshot, &combined_op_stats));
+  RooflineModelDatabase result =
+      ConvertOpStatsToRooflineModel(combined_op_stats, true);
+  RooflineModelDatabase result_without_infeed_outfeed =
+      ConvertOpStatsToRooflineModel(combined_op_stats, false);
+  result.mutable_roofline_model_record()->MergeFrom(
+      result_without_infeed_outfeed.roofline_model_record());
+  SetOutput(RooflineModelToDataTableJson(result), "application/json");
+  return absl::OkStatus();
+}
 
 absl::Status RooflineModelProcessor::ProcessCombinedOpStats(
     const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
-
   RooflineModelDatabase result =
       ConvertOpStatsToRooflineModel(combined_op_stats, true);
   RooflineModelDatabase result_without_infeed_outfeed =

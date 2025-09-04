@@ -2,7 +2,7 @@
 load("//defs:backend_defs.bzl", "if_oss", "tf_profiler_alias")
 
 package(
-    # copybara:uncomment default_applicable_licenses = ["@org_tensorflow//tensorflow:license"],
+    # copybara:uncomment default_applicable_licenses = ["//xprof:license"],
     default_visibility = ["//visibility:public"],  # TODO(matthurd): Update to profiler:internal after xprof migration.
     licenses = ["notice"],
 )
@@ -292,6 +292,7 @@ cc_library(
     srcs = ["kernel_stats_processor.cc"],
     hdrs = ["kernel_stats_processor.h"],
     deps = [
+        ":multi_xplanes_to_op_stats",
         ":op_stats_processor",
         ":profile_processor_factory",
         ":repository",
@@ -301,6 +302,7 @@ cc_library(
         "@com_google_absl//absl/strings:string_view",
         "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
     ],
     alwayslink = 1,
 )
@@ -310,6 +312,7 @@ cc_library(
     srcs = ["pod_viewer_processor.cc"],
     hdrs = ["pod_viewer_processor.h"],
     deps = [
+        ":multi_xplanes_to_op_stats",
         ":op_stats_processor",
         ":op_stats_to_pod_viewer",
         ":profile_processor_factory",
@@ -321,6 +324,7 @@ cc_library(
         "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
         "@tsl//tsl/platform:protobuf",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
     ],
     alwayslink = 1,
 )
@@ -330,6 +334,7 @@ cc_library(
     srcs = ["op_profile_processor.cc"],
     hdrs = ["op_profile_processor.h"],
     deps = [
+        ":multi_xplanes_to_op_stats",
         ":op_stats_processor",
         ":op_stats_to_op_profile",
         ":profile_processor_factory",
@@ -352,16 +357,17 @@ cc_library(
     srcs = ["hlo_stats_processor.cc"],
     hdrs = ["hlo_stats_processor.h"],
     deps = [
+        ":multi_xplanes_to_op_stats",
         ":op_stats_processor",
         ":op_stats_to_hlo_stats",
         ":profile_processor_factory",
         ":repository",
         ":tool_options",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:string_view",
         "@org_xprof//plugin/xprof/protobuf:hlo_stats_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
     ],
     alwayslink = 1,
 )
@@ -371,6 +377,7 @@ cc_library(
     srcs = ["roofline_model_processor.cc"],
     hdrs = ["roofline_model_processor.h"],
     deps = [
+        ":multi_xplanes_to_op_stats",
         ":op_stats_processor",
         ":op_stats_to_roofline_model",
         ":profile_processor_factory",
@@ -381,6 +388,7 @@ cc_library(
         "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:roofline_model_proto_cc",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
     ],
     alwayslink = 1,
 )
@@ -390,6 +398,7 @@ cc_library(
     srcs = ["framework_op_stats_processor.cc"],
     hdrs = ["framework_op_stats_processor.h"],
     deps = [
+        ":multi_xplanes_to_op_stats",
         ":op_stats_processor",
         ":op_stats_to_tf_stats",
         ":profile_processor_factory",
@@ -400,6 +409,7 @@ cc_library(
         "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:tf_stats_proto_cc",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
     ],
     alwayslink = 1,
 )
@@ -409,6 +419,7 @@ cc_library(
     srcs = ["input_pipeline_processor.cc"],
     hdrs = ["input_pipeline_processor.h"],
     deps = [
+        ":multi_xplanes_to_op_stats",
         ":op_stats_processor",
         ":op_stats_to_input_pipeline_analysis",
         ":profile_processor_factory",
@@ -419,6 +430,7 @@ cc_library(
         "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/platform:errors",
     ],
     alwayslink = 1,
 )

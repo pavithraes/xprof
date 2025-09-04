@@ -47,9 +47,9 @@ class OpStatsProcessor : public ProfileProcessor {
       const std::vector<std::string>& map_output_files) final;
 
   // Default implementation for tools that don't need a worker service.
-  absl::Status ProcessSession(
+  virtual absl::Status ProcessSession(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
-      const tensorflow::profiler::ToolOptions& options) override;
+      const tensorflow::profiler::ToolOptions& options) = 0;
 
   // Tool-specific processing using the combined OpStats.
   virtual absl::Status ProcessCombinedOpStats(

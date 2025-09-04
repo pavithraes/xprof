@@ -16,17 +16,33 @@ limitations under the License.
 
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "xla/tsl/platform/errors.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
+#include "xprof/convert/multi_xplanes_to_op_stats.h"
 #include "xprof/convert/op_stats_to_tf_stats.h"
 #include "xprof/convert/repository.h"
-#include "plugin/xprof/protobuf/tf_stats.pb.h"
+#include "xprof/convert/tool_options.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
+#include "plugin/xprof/protobuf/tf_stats.pb.h"
 
 namespace xprof {
 
-using tensorflow::profiler::TfStatsDatabase;
+using tensorflow::profiler::ConvertMultiXSpaceToCombinedOpStatsWithCache;
 using tensorflow::profiler::OpStats;
 using tensorflow::profiler::SessionSnapshot;
+using tensorflow::profiler::TfStatsDatabase;
+
+absl::Status FrameworkOpStatsProcessor::ProcessSession(
+    const SessionSnapshot& session_snapshot,
+    const tensorflow::profiler::ToolOptions& options) {
+  OpStats combined_op_stats;
+  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
+      session_snapshot, &combined_op_stats));
+  TfStatsDatabase tf_stats_db = ConvertOpStatsToTfStats(combined_op_stats);
+  auto json_output = TfStatsToDataTableJson(tf_stats_db);
+  SetOutput(json_output, "application/json");
+  return absl::OkStatus();
+}
 
 absl::Status FrameworkOpStatsProcessor::ProcessCombinedOpStats(
     const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
