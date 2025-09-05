@@ -1673,6 +1673,7 @@ cc_library(
     deps = [
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@org_xprof//plugin/xprof/protobuf:dcn_collective_info_proto_cc",
