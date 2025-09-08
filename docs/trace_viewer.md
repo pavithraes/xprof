@@ -5,8 +5,7 @@ during the profiling session. It displays the durations of operations executed
 by your model on different parts of the system, such as the host (CPU) and
 accelerators (GPUs or TPUs). This enables you to understand how your model
 utilizes hardware resources, identify performance bottlenecks, and optimize your
-model for faster execution. The Trace Viewer UI is based on the one used in
-`chrome://tracing` and therefore requires that you use the Chrome browser.
+model for faster execution.
 
 ![Trace Viewer](images/trace_viewer.png)
 
@@ -96,7 +95,7 @@ Trace Viewer provides the following sections and tracks.
     *   **XLA Ops**: Shows the XLA HLO operations that ran on the TPU core. Each
         higher-level framework operation (JAX, Tensorflow, or PyTorch, for
         example) is translated into one or several XLA operations, which are
-        then compiled to run on the TPU. 
+        then compiled to run on the TPU.
     *   **XLA TraceMe**: User-specified annotations in their code describing
         logical units of work they intend to track. You may still see data here
         even if you didn’t add any annotations; those are typically added by XLA
