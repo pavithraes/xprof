@@ -880,6 +880,68 @@ TEST(ConvertXPlaneToOpStats, HandleSparseCoreBusyOpMetrics) {
             20);
 }
 
+TEST(ConvertXPlaneToOpStats, HandleInputPipelineSlownessCausingDeviceIdleness) {
+  auto space = std::make_unique<XSpace>();
+  constexpr int64_t kGroupId = 1;
+
+  // Create a TPU XPlane with a single step and a single compute op.
+  XPlaneBuilder tpu_plane_builder(
+      GetOrCreateTpuXPlane(space.get(), /*device_ordinal=*/0, "TPU V4", 0, 0));
+  tpu_plane_builder.SetId(0);
+  tpu_plane_builder.ReserveLines(2);
+
+  // TPU Step Line
+  XLineBuilder tpu_step_line = tpu_plane_builder.GetOrCreateLine(0);
+  tpu_step_line.SetName(tsl::profiler::kStepLineName);
+  CreateXEvent(&tpu_plane_builder, &tpu_step_line, "Step 1", /*offset_ps=*/1000,
+               /*duration_ps=*/10000, {{StatType::kGroupId, kGroupId}});
+
+  // TPU XLA Op Line
+  XLineBuilder tpu_op_line = tpu_plane_builder.GetOrCreateLine(1);
+  tpu_op_line.SetName(kXlaOpLineName);
+  CreateXEventMetadata(&tpu_plane_builder, "op.1",
+                       {{StatType::kHloCategory, "arithmetic"},
+                        {StatType::kProgramId, 1},
+                        {StatType::kSymbolId, 1},
+                        {StatType::kFlops, 1000}});
+  CreateXEvent(&tpu_plane_builder, &tpu_op_line, "op.1",
+               /*offset_ps=*/2000,
+               /*duration_ps=*/8000, {{StatType::kGroupId, kGroupId}});
+
+  // Create a Host XPlane with a single input pipeline op.
+  XPlaneBuilder host_plane_builder(GetOrCreateHostXPlane(space.get()));
+  host_plane_builder.ReserveLines(1);
+
+  // Host Main Thread Line
+  XLineBuilder host_main_thread = host_plane_builder.GetOrCreateLine(0);
+  host_main_thread.SetName("main");
+  CreateXEvent(&host_plane_builder, &host_main_thread,
+               "Iterator::Batch::Map::TFRecord",
+               /*offset_ps=*/500,
+               /*duration_ps=*/2300,
+               {{StatType::kGroupId, kGroupId},
+                {StatType::kInputPipelineStageId, 1},
+                {StatType::kInputPipelineStageName, "TFRecord"}});
+
+  OpStats op_stats = ConvertXSpaceToOpStats(
+      *space,
+      OpStatsOptions{.generate_op_metrics_db = true, .generate_step_db = true});
+  EXPECT_EQ(op_stats.step_db().step_sequence_size(), 1);
+  EXPECT_EQ(op_stats.step_db().step_sequence(0).step_info_per_core_size(), 1);
+  auto step_info_per_core =
+      op_stats.step_db().step_sequence(0).step_info_per_core();
+  auto step_info = step_info_per_core[0];
+  GenericStepBreakdown step_breakdown;
+  ASSERT_TRUE(step_info.step_breakdown().UnpackTo(&step_breakdown));
+  auto category_ps = step_breakdown.category_ps();
+  ASSERT_TRUE(category_ps.contains("IDLE"));
+  EXPECT_EQ(step_breakdown.category_ps().at("IDLE"), 0);
+  ASSERT_TRUE(category_ps.contains("infeed"));
+  EXPECT_EQ(step_breakdown.category_ps().at("infeed"), 2000);
+  ASSERT_TRUE(category_ps.contains("arithmetic"));
+  EXPECT_EQ(step_breakdown.category_ps().at("arithmetic"), 8000);
+}
+
 }  // namespace
 }  // namespace profiler
 }  // namespace tensorflow

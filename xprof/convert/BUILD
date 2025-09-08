@@ -874,6 +874,7 @@ cc_library(
         ":duty_cycle_tracker",
         ":model_tracker",
         ":op_metrics_db_combiner",
+        ":op_stats_to_input_pipeline_analysis",
         ":step_events_to_steps_db",
         ":xplane_to_kernel_stats_db",
         ":xplane_to_op_metrics_db",
