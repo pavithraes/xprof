@@ -1,3 +1,5 @@
+# load("//third_party/bazel_rules/rules_cc/cc:cc_test.bzl", "cc_test")
+
 package(
     # copybara:uncomment default_applicable_licenses = ["@org_tensorflow//tensorflow:license"],
     default_visibility = ["//visibility:public"],
@@ -598,6 +600,30 @@ cc_library(
         ":hlo_cost_analysis_wrapper",
         "@com_google_absl//absl/strings:string_view",
         "@xla//xla/service:hlo_cost_analysis",
+    ],
+)
+
+cc_library(
+    name = "xla_op_utils",
+    srcs = ["xla_op_utils.cc"],
+    hdrs = ["xla_op_utils.h"],
+    deps = [
+        "@com_github_nlohmann_json//:json",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/hlo/parser:hlo_parser",
+    ],
+)
+
+cc_test(
+    name = "xla_op_utils_test",
+    srcs = ["xla_op_utils_test.cc"],
+    deps = [
+        ":xla_op_utils",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

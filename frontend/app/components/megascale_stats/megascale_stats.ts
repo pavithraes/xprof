@@ -1,6 +1,7 @@
 import {Component, inject, OnDestroy} from '@angular/core';
 import {ActivatedRoute, Params} from '@angular/router';
 import {Store} from '@ngrx/store';
+import {Throbber} from 'org_xprof/frontend/app/common/classes/throbber';
 import {ChartDataInfo} from 'org_xprof/frontend/app/common/interfaces/chart';
 import {SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {Diagnostics} from 'org_xprof/frontend/app/common/interfaces/diagnostics';
@@ -27,6 +28,7 @@ export class MegascaleStats extends Dashboard implements OnDestroy {
   tool = 'megascale_stats';
   /** Handles on-destroy Subject, used to unsubscribe. */
   private readonly destroyed = new ReplaySubject<void>(1);
+  private readonly throbber = new Throbber(this.tool);
   private readonly dataService: DataServiceV2Interface =
       inject(DATA_SERVICE_INTERFACE_TOKEN);
 
@@ -68,9 +70,12 @@ export class MegascaleStats extends Dashboard implements OnDestroy {
       }
     }));
 
+    this.throbber.start();
+
     this.dataService.getData(this.sessionId, this.tool, this.host)
         .pipe(takeUntil(this.destroyed))
         .subscribe((data) => {
+          this.throbber.stop();
           this.store.dispatch(setLoadingStateAction({
             loadingState: {
               loading: false,

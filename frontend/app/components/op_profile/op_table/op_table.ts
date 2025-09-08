@@ -23,6 +23,9 @@ export class OpTable implements OnDestroy {
   /** The number of children nodes to be shown. */
   @Input() childrenCount: number = 10;
 
+  /** The property to use uncapped flops. */
+  @Input() useUncappedFlops = false;
+
   selectedNode?: Node;
 
   constructor(private readonly store: Store<{}>) {}

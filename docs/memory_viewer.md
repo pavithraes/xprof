@@ -105,5 +105,9 @@ The Memory Viewer tool consists of several key components:
         *   Allocation type: Categorizes the buffer allocations into the
             following types: Parameter, Output, Thread-local, and Temporary
             (e.g., buffer allocation inside a fusion).
+        *   Source: Shows the source code location (file and line number) for
+            the operation that created the buffer.
+        *   Source Stack: Displays the full call stack for the operation,
+            providing the execution context that led to the buffer allocation.
 
-![Memory Viewer buffer charts](images/memory_viewer_2.png)
+        ![Memory Viewer buffer charts](images/memory_viewer_2.png)

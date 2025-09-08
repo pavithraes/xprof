@@ -27,14 +27,13 @@ VERSION = version.__version__
 REQUIRED_PACKAGES = [
     'gviz_api >= 1.9.0',
     'protobuf >= 3.19.6',
-    'ratelimit >= 2.2.1',
     'setuptools >= 41.0.0',
     'six >= 1.10.0',
     'werkzeug >= 0.11.15',
     'etils[epath] >= 1.0.0',
     'cheroot >= 10.0.1',
-    'fsspec[gcs] >= 2024.10.0',
-    'packaging >= 25.0',
+    'fsspec >= 2024.3.1',
+    'gcsfs >= 2024.3.1',
 ]
 
 
@@ -59,7 +58,7 @@ setuptools.setup(
     ),
     package_data={
         'xprof': ['static/**'],
-        '': ['_pywrap_profiler_plugin.so'],
+        '': ['_pywrap_profiler_plugin.so', '_pywrap_profiler_plugin.pyd'],
     },
     entry_points={
         'tensorboard_plugins': [

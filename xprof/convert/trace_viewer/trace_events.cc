@@ -20,13 +20,13 @@ limitations under the License.
 #include <cstring>
 #include <functional>
 #include <iterator>
-#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "absl/base/internal/endian.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -39,11 +39,12 @@ limitations under the License.
 #include "xla/tsl/platform/errors.h"
 #include "xla/tsl/platform/file_system.h"
 #include "xla/tsl/platform/macros.h"
-#include "xla/tsl/profiler/utils/timespan.h"
 #include "xla/tsl/platform/types.h"
-#include "xprof/convert/trace_viewer/trace_events_filter_interface.h"
+#include "xla/tsl/profiler/utils/timespan.h"
+#include "xprof/convert/trace_viewer/prefix_trie.h"
 #include "xprof/convert/trace_viewer/trace_events_util.h"
 #include "xprof/convert/trace_viewer/trace_viewer_visibility.h"
+#include "xprof/convert/xprof_thread_pool_executor.h"
 #include "plugin/xprof/protobuf/trace_events.pb.h"
 #include "plugin/xprof/protobuf/trace_events_raw.pb.h"
 
@@ -52,51 +53,6 @@ namespace profiler {
 using tsl::kint64max;
 
 namespace {
-
-constexpr uint64_t kLayerResolutions[] = {
-    1000000000000ull,  // 1 second.
-    100000000000ull,  10000000000ull, 1000000000ull, 100000000ull,
-    10000000ull,      1000000ull,     100000ull,     10000ull,
-    1000ull,          100ull,         10ull,         1ull,
-};
-
-constexpr int NumLevels() { return TF_ARRAYSIZE(kLayerResolutions); }
-// Constants used by the LevelDB Table-based efficient trace viewer storage.
-static constexpr char kTraceMetadataKey[] = "/trace";
-static constexpr absl::string_view kLevelKey("123456789ABCDEFGHIJKLMNOPQ");
-static constexpr size_t kLevelDbKeyLength = 10;
-
-// Level Db table don't allow duplicated keys, so we add a tie break at the last
-// bytes. the format is zoom[1B] + timestamp[8B] + repetition[1B]
-std::string LevelDbTableKey(int zoom_level, uint64_t timestamp,
-                            uint64_t repetition) {
-  if (repetition >= 256) return std::string();
-  std::string output(kLevelDbKeyLength, 0);
-  char* ptr = output.data();
-  ptr[0] = kLevelKey[zoom_level];
-  // The big-endianness preserve the monotonic order of timestamp when convert
-  // to lexigraphical order (of Sstable key namespace).
-  uint64_t timestamp_bigendian = absl::big_endian::FromHost64(timestamp);
-  memcpy(ptr + 1, &timestamp_bigendian, sizeof(uint64_t));
-  ptr[9] = repetition;
-  return output;
-}
-
-uint64_t TimestampFromLevelDbTableKey(absl::string_view level_db_table_key) {
-  DCHECK_EQ(level_db_table_key.size(), kLevelDbKeyLength);
-  uint64_t value;  // big endian representation of timestamp.
-  memcpy(&value, level_db_table_key.data() + 1, sizeof(uint64_t));
-  return absl::big_endian::ToHost64(value);
-}
-
-bool ReadTraceMetadata(tsl::table::Iterator* iterator,
-                       absl::string_view metadata_key, Trace* trace) {
-  if (!iterator->Valid()) return false;
-  if (iterator->key() != metadata_key) return false;
-  auto serialized_trace = iterator->value();
-  return trace->ParseFromArray(serialized_trace.data(),
-                               serialized_trace.size());
-}
 
 // Returns the total number of events.
 inline int32_t NumEvents(
@@ -126,6 +82,38 @@ void MaybeAddEventUniqueId(std::vector<TraceEvent*>& events) {
 }
 
 }  // namespace
+
+bool ReadTraceMetadata(tsl::table::Iterator* iterator,
+                       absl::string_view metadata_key, Trace* trace) {
+  if (!iterator->Valid()) return false;
+  if (iterator->key() != metadata_key) return false;
+  auto serialized_trace = iterator->value();
+  return trace->ParseFromArray(serialized_trace.data(),
+                               serialized_trace.size());
+}
+
+uint64_t TimestampFromLevelDbTableKey(absl::string_view level_db_table_key) {
+  DCHECK_EQ(level_db_table_key.size(), kLevelDbKeyLength);
+  uint64_t value;  // big endian representation of timestamp.
+  memcpy(&value, level_db_table_key.data() + 1, sizeof(uint64_t));
+  return absl::big_endian::ToHost64(value);
+}
+
+// Level Db table don't allow duplicated keys, so we add a tie break at the last
+// bytes. the format is zoom[1B] + timestamp[8B] + repetition[1B]
+std::string LevelDbTableKey(int zoom_level, uint64_t timestamp,
+                            uint64_t repetition) {
+  if (repetition >= 256) return std::string();
+  std::string output(kLevelDbKeyLength, 0);
+  char* ptr = output.data();
+  ptr[0] = kLevelKey[zoom_level];
+  // The big-endianness preserve the monotonic order of timestamp when convert
+  // to lexigraphical order (of Sstable key namespace).
+  uint64_t timestamp_bigendian = absl::big_endian::FromHost64(timestamp);
+  memcpy(ptr + 1, &timestamp_bigendian, sizeof(uint64_t));
+  ptr[9] = repetition;
+  return output;
+}
 
 uint64_t LayerResolutionPs(unsigned level) {
   // This sometimes gets called in a tight loop, so levels are precomputed.
@@ -216,6 +204,84 @@ absl::Status ReadFileTraceMetadata(std::string& filepath, Trace* trace) {
   return absl::OkStatus();
 }
 
+absl::Status CreateAndSavePrefixTrie(
+    tsl::WritableFile* trace_events_prefix_trie_file,
+    const std::vector<std::vector<const TraceEvent*>>& events_by_level) {
+  PrefixTrie prefix_trie;
+  for (int zoom_level = 0; zoom_level < events_by_level.size(); ++zoom_level) {
+    for (const TraceEvent* event : events_by_level[zoom_level]) {
+      std::string event_id =
+          LevelDbTableKey(zoom_level, event->timestamp_ps(), event->serial());
+      if (!event_id.empty()) {
+        prefix_trie.Insert(event->name(), event_id);
+      }
+    }
+  }
+  return prefix_trie.SaveAsLevelDbTable(trace_events_prefix_trie_file);
+}
+
+absl::Status DoStoreAsLevelDbTables(
+    const std::vector<std::vector<const TraceEvent*>>& events_by_level,
+    const Trace& trace,
+    std::unique_ptr<tsl::WritableFile>& trace_events_file,
+    std::unique_ptr<tsl::WritableFile>& trace_events_metadata_file,
+    std::unique_ptr<tsl::WritableFile>& trace_events_prefix_trie_file) {
+  auto executor = std::make_unique<XprofThreadPoolExecutor>(
+      "StoreAsLevelDbTables", /*num_threads=*/3);
+  absl::Status trace_events_status, trace_events_metadata_status;
+  executor->Execute(
+      [&trace_events_file, &trace, &events_by_level, &trace_events_status]() {
+        trace_events_status =
+            DoStoreAsLevelDbTable(trace_events_file, trace, events_by_level,
+              GenerateTraceEventCopyForPersistingEventWithoutMetadata);
+      });
+  executor->Execute([&trace_events_metadata_file, &events_by_level, &trace,
+                     &trace_events_metadata_status]() {
+    trace_events_metadata_status = DoStoreAsLevelDbTable(
+        trace_events_metadata_file, trace, events_by_level,
+        GenerateTraceEventCopyForPersistingOnlyMetadata);
+  });
+  absl::Status trace_events_prefix_trie_status;
+  executor->Execute([&trace_events_prefix_trie_file, &events_by_level,
+                     &trace_events_prefix_trie_status]() {
+    trace_events_prefix_trie_status =
+        CreateAndSavePrefixTrie(trace_events_prefix_trie_file.get(),
+                                events_by_level);
+  });
+  executor->JoinAll();
+  trace_events_status.Update(trace_events_metadata_status);
+  trace_events_status.Update(trace_events_prefix_trie_status);
+  return trace_events_status;
+}
+
+TraceEvent GenerateTraceEventCopyForPersistingFullEvent(
+    const TraceEvent* event) {
+  TraceEvent event_copy = *event;
+  // To reduce file size, clear the timestamp from the value. It is
+  // redundant info because the timestamp is part of the key.
+  event_copy.clear_timestamp_ps();
+  return event_copy;
+}
+
+TraceEvent GenerateTraceEventCopyForPersistingEventWithoutMetadata(
+    const TraceEvent* event) {
+  TraceEvent event_copy = *event;
+  // To reduce file size, clear the timestamp from the value. It is
+  // redundant info because the timestamp is part of the key.
+  event_copy.clear_timestamp_ps();
+  // To reduce file size, clear the raw data from the value. It is
+  // redundant info because the raw data is stored in the metadata file.
+  event_copy.clear_raw_data();
+  return event_copy;
+}
+
+TraceEvent GenerateTraceEventCopyForPersistingOnlyMetadata(
+    const TraceEvent* event) {
+  TraceEvent event_copy;
+  event_copy.set_raw_data(event->raw_data());
+  return event_copy;
+}
+
 // Store the contents of this container in an sstable file. The format is as
 // follows:
 //
@@ -230,7 +296,10 @@ absl::Status ReadFileTraceMetadata(std::string& filepath, Trace* trace) {
 // eligible for.
 absl::Status DoStoreAsLevelDbTable(
     std::unique_ptr<tsl::WritableFile>& file, const Trace& trace,
-    const std::vector<std::vector<const TraceEvent*>>& events_by_level) {
+    const std::vector<std::vector<const TraceEvent*>>& events_by_level,
+    std::function<TraceEvent(const TraceEvent*)> generate_event_copy_fn) {
+  LOG(INFO) << "Storing " << trace.num_events()
+            << " events to LevelDb table fast file: ";
   tsl::table::Options options;
   options.block_size = 20 * 1024 * 1024;
   options.compression = tsl::table::kSnappyCompression;
@@ -245,23 +314,12 @@ absl::Status DoStoreAsLevelDbTable(
     // breaker. The hidden assumption was that there are not too many identical
     // timestamp per resolution, (if there are such duplications, we dropped
     // them if it overflow the last byte).
-    uint64_t last_timestamp = std::numeric_limits<uint64_t>::max();
-    uint64_t last_timestamp_repetition = 0;
     for (const TraceEvent* event : events_by_level[zoom_level]) {
       uint64_t timestamp = event->timestamp_ps();
-      if (timestamp != last_timestamp) {
-        last_timestamp = timestamp;
-        last_timestamp_repetition = 0;
-      } else {
-        ++last_timestamp_repetition;
-      }
       std::string key =
-          LevelDbTableKey(zoom_level, timestamp, last_timestamp_repetition);
+          LevelDbTableKey(zoom_level, timestamp, event->serial());
       if (!key.empty()) {
-        // To reduce file size, clear the timestamp from the value. It is
-        // redundant info because the timestamp is part of the key.
-        TraceEvent event_copy = *event;
-        event_copy.clear_timestamp_ps();
+        TraceEvent event_copy = generate_event_copy_fn(event);
         builder.Add(key, event_copy.SerializeAsString());
       } else {
         ++num_of_events_dropped;
@@ -278,124 +336,32 @@ absl::Status DoStoreAsLevelDbTable(
   return file->Close();
 }
 
-absl::Status DoLoadFromLevelDbTable(
-    const std::string& filename,
-    std::unique_ptr<TraceEventsFilterInterface> filter,
-    std::unique_ptr<TraceVisibilityFilter> visibility_filter,
-    int64_t filter_by_visibility_threshold, Trace& trace,
-    bool& filter_by_visibility,
-    const std::function<TraceEvent*(const TraceEvent&)>& copy_event_to_arena,
-    const std::function<void(TraceEvent*)>& add_arena_event) {
+absl::Status OpenLevelDbTable(const std::string& filename,
+                               tsl::table::Table** table,
+                               std::unique_ptr<tsl::RandomAccessFile>& file) {
   uint64_t file_size;
   TF_RETURN_IF_ERROR(tsl::Env::Default()->GetFileSize(filename, &file_size));
-
   tsl::FileSystem* file_system;
   TF_RETURN_IF_ERROR(
       tsl::Env::Default()->GetFileSystemForFile(filename, &file_system));
-
-  std::unique_ptr<tsl::RandomAccessFile> file;
   TF_RETURN_IF_ERROR(file_system->NewRandomAccessFile(filename, &file));
-
   tsl::table::Options options;
   options.block_size = 20 * 1024 * 1024;
-  tsl::table::Table* table = nullptr;
   TF_RETURN_IF_ERROR(
-      tsl::table::Table::Open(options, file.get(), file_size, &table));
-  std::unique_ptr<tsl::table::Table> table_deleter(table);
-  std::unique_ptr<tsl::table::Iterator> iterator(table->NewIterator());
-  if (iterator == nullptr) return tsl::errors::Unknown("Could not open table");
-
-  // Read the metadata.
-  iterator->SeekToFirst();
-  if (!ReadTraceMetadata(iterator.get(), kTraceMetadataKey, &trace)) {
-    return absl::UnknownError(
-        "Could not parse Trace proto to read trace metadata");
-  }
-
-  if (filter) filter->SetUp(trace);
-
-  tsl::profiler::Timespan visible_span;
-  uint64_t container_resolution_ps = 0;
-
-  filter_by_visibility = filter_by_visibility_threshold == -1LL ||
-                         !trace.has_num_events() ||
-                         trace.num_events() >= filter_by_visibility_threshold;
-  if (visibility_filter) {
-    if (!filter_by_visibility) {
-      // disable streaming
-      visibility_filter->UpdateVisibility(0);
-    }
-    visibility_filter->SetUp(trace);
-    visible_span = visibility_filter->VisibleSpan();
-    container_resolution_ps = visibility_filter->ResolutionPs();
-  } else {
-    visible_span = TraceSpan(trace);
-  }
-
-  // Read events at the different zoom levels.
-  std::vector<std::unique_ptr<std::vector<TraceEvent*>>> loaded_events_by_level;
-  size_t filtered = 0;
-  TraceEvent event;  // Declared outside of the loop to avoid repeated calls to
-                     // the constructor and destructor in the loop body. Cleared
-                     // by every call to ParseFromCord.
-  for (int i = 0;; ++i) {
-    loaded_events_by_level.emplace_back(
-        std::make_unique<std::vector<TraceEvent*>>());
-    auto& loaded_events = *loaded_events_by_level.back();
-    uint64_t resolution_ps = LayerResolutionPs(i);
-    // Seek to the first element that might be in range. For the initial zoom
-    // level, we don't know any bounds as events might be arbitrarily large.
-    uint64_t min_timestamp_ps = 0;
-    if (i > 0 && visible_span.begin_ps() > LayerResolutionPs(i - 1)) {
-      min_timestamp_ps = visible_span.begin_ps() - LayerResolutionPs(i - 1);
-    }
-    iterator->Seek(LevelDbTableKey(i, i == 0 ? 0 : min_timestamp_ps, 0));
-    while (iterator->Valid() && iterator->key().at(0) == kLevelKey[i]) {
-      auto serialized_event = iterator->value();
-      if (!event.ParseFromArray(serialized_event.data(),
-                                serialized_event.size())) {
-        return tsl::errors::Unknown("Could not parse TraceEvent proto");
-      }
-      uint64_t timestamp = TimestampFromLevelDbTableKey(iterator->key());
-      event.set_timestamp_ps(timestamp);
-      if (event.timestamp_ps() > visible_span.end_ps()) {
-        // This (and all following) events are outside of our window.
-        break;
-      }
-      // Filter before copying to the arena as it does not require sorting.
-      if (!filter || !filter->Filter(event)) {
-        loaded_events.push_back(copy_event_to_arena(event));
-      } else {
-        ++filtered;
-      }
-      iterator->Next();
-    }
-    if (container_resolution_ps >= resolution_ps) {
-      // No need to read further, the resolution we just loaded already exceeds
-      // the desired resolution.
-      break;
-    }
-  }
-
-  // We have loaded events from different zoom levels. Sort them by timestamp
-  // so visibility filtering works as expected.
-  std::vector<TraceEvent*> loaded_events;
-  nway_merge(loaded_events_by_level, std::back_inserter(loaded_events),
-             TraceEventsComparator());
-  loaded_events_by_level.clear();
-
-  LOG(INFO) << "Loaded " << loaded_events.size() << " events after filtering "
-            << filtered << " events from LevelDb fast file: " << filename;
-  size_t visible_events_count = 0;
-  for (TraceEvent* event : loaded_events) {
-    if (!visibility_filter || !visibility_filter->Filter(*event)) {
-      add_arena_event(event);
-      ++visible_events_count;
-    }
-  }
-  LOG(INFO) << "Added " << visible_events_count
-            << " visible events from LevelDb fast file: " << filename;
+      tsl::table::Table::Open(options, file.get(), file_size, table));
   return absl::OkStatus();
+}
+
+void PurgeIrrelevantEntriesInTraceNameTable(
+    Trace& trace,
+    const absl::flat_hash_set<uint64_t>& required_event_references) {
+  google::protobuf::Map<uint64_t, std::string> new_name_table;
+  for (const auto& reference : required_event_references) {
+    if (trace.name_table().contains(reference)) {
+      new_name_table.insert({reference, trace.name_table().at(reference)});
+    }
+  }
+  trace.mutable_name_table()->swap(new_name_table);
 }
 
 }  // namespace profiler

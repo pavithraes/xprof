@@ -48,6 +48,7 @@ export class BufferDetails implements OnDestroy {
     return this.instructionName && this.selectedModule && this.sessionId;
   }
 
+  // TODO(xprof): Update this to proper path to graph viewer in OSS.
   getGraphViewerLink() {
     return `/graph_viewer/${this.sessionId}?module_name=${
         this.selectedModule}&node_name=${this.instructionName}`;

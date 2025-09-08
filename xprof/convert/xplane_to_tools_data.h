@@ -33,6 +33,14 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToToolData(
     const SessionSnapshot& session_snapshot, absl::string_view tool_name,
     const ToolOptions& options);
 
+// Convert XSpace protos to a tool specific data using the new ProfileProcessor
+// interface.
+// Return the serialized string of tool specific data when the conversion is
+// successful, else return error status.
+absl::StatusOr<std::string> ConvertMultiXSpacesToToolDataWithProfileProcessor(
+    const SessionSnapshot& session_snapshot, absl::string_view tool_name,
+    const ToolOptions& options);
+
 }  // namespace profiler
 }  // namespace tensorflow
 

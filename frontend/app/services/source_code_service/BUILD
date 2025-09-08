@@ -33,6 +33,7 @@ xprof_ng_module(
     deps = [
         "@npm//@angular/core",
         "@npm//rxjs",
+        "@org_xprof//frontend/app/common/interfaces",
     ],
 )
 

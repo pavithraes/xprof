@@ -25,6 +25,7 @@ limitations under the License.
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/log.h"
+#include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -112,15 +113,16 @@ std::string HostCollectiveKey(int index_on_host,
 
 DcnCollectiveInfoProto GetDcnCollectiveInfoProto(const XEventVisitor& xevent) {
   DcnCollectiveInfoProto dcn_collective_info;
-  xevent.Metadata().ForEachStat([&](const XStatVisitor& xstat) {
-    if (static_cast<StatType>(*xstat.Type()) == StatType::kDcnCollectiveInfo) {
-      absl::string_view byte_value = xstat.BytesValue();
-      if (!dcn_collective_info.ParseFromArray(byte_value.data(),
-                                              byte_value.size())) {
-        LOG(WARNING) << "Could not parse DcnCollectiveInfoProto from metadata.";
-      }
+  if (auto dcn_collective_stat =
+          xevent.Metadata().GetStat(StatType::kDcnCollectiveInfo);
+      dcn_collective_stat.has_value()) {
+    absl::string_view byte_value = dcn_collective_stat->BytesValue();
+    if (!dcn_collective_info.ParseFromArray(byte_value.data(),
+                                            byte_value.size())) {
+      LOG_EVERY_POW_2(WARNING)
+          << "Could not parse DcnCollectiveInfoProto from metadata.";
     }
-  });
+  }
 
   return dcn_collective_info;
 }
@@ -169,8 +171,19 @@ absl::StatusOr<InstrMetadata> DcnTracker::GetInstrMetadataFromHloModule(
   dcn_analysis_internal::InstrMetadata instr_metadata;
   auto instr = FindInstruction(*hlo_module, std::string(instr_name));
 
+  if (instr == nullptr) {
+    return absl::NotFoundError(
+        absl::StrCat("Instruction not found: ", instr_name));
+  }
+
   instr_metadata.opcode = instr->opcode();
-  instr_metadata.channel_id = instr->channel_id().value();
+  if (instr->channel_id().has_value()) {
+    instr_metadata.channel_id = instr->channel_id().value();
+  } else {
+    LOG_EVERY_POW_2(WARNING)
+        << "Instruction does not have a channel id: " << instr_name;
+    instr_metadata.channel_id = 0;
+  }
   instr_metadata.rendezvous_name = GetRendezvous(instr);
   instr_metadata.transfer_type = GetTransferType(instr);
   instr_metadata.size = 0;
@@ -440,9 +453,10 @@ int DcnTracker::GetLocalIndex(int dcn_device_id) {
   if (global_chip_id_to_local_index_map_.contains(global_device_id)) {
     return global_chip_id_to_local_index_map_[global_device_id];
   }
-  LOG(WARNING) << "Could not map dcn_device_id to Local index, Using "
-                  "dcn_device_id : "
-               << global_device_id;
+  LOG_EVERY_POW_2(WARNING)
+      << "Could not map dcn_device_id to Local index, Using "
+         "dcn_device_id : "
+      << global_device_id;
   return global_device_id;
 }
 
@@ -484,16 +498,11 @@ DcnSlackAnalysis ConvertXSpaceToDcnSlackAnalysis(const XSpace& xspace,
     if (xline.Name() == kXlaOpLineName) {
       xline.ForEachEvent([&](const XEventVisitor& xevent) {
         std::string_view hlo_category;
-
-        xevent.Metadata().ForEachStat([&](const XStatVisitor& xstat) {
-          switch (static_cast<StatType>(*xstat.Type())) {
-            case StatType::kHloCategory:
-              hlo_category = xstat.StrOrRefValue();
-              break;
-            default:
-              break;
-          }
-        });
+        if (auto category = xevent.Metadata().GetStat(
+                tsl::profiler::StatType::kHloCategory);
+            category.has_value()) {
+          hlo_category = category->StrOrRefValue();
+        }
         auto module =
             hlo_module_context.GetContainingEvent(xevent.GetTimespan());
         if (!module.has_value()) return;

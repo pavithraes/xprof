@@ -3289,6 +3289,13 @@ negotiator@0.6.3, negotiator@^0.6.3:
   resolved "https://registry.yarnpkg.com/negotiator/-/negotiator-0.6.3.tgz#58e323a72fedc0d6f9cd4d31fe49f51479590ccd"
   integrity sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==
 
+ngx-json-viewer@^3.2.1:
+  version "3.2.1"
+  resolved "https://registry.yarnpkg.com/ngx-json-viewer/-/ngx-json-viewer-3.2.1.tgz#20e5e42c4cdf8aaae763a6ac59f9821d2081ab5b"
+  integrity sha512-TTHtXsrBX+IXPqqAIsxklHPqSNmyGeQaziFZbCDJq1PnPOQmTrEHfwNrzN3LnWGhf7UxeM1cK0njegVPChwEcg==
+  dependencies:
+    tslib "^2.3.0"
+
 nise@^1.5.2:
   version "1.5.3"
   resolved "https://registry.yarnpkg.com/nise/-/nise-1.5.3.tgz#9d2cfe37d44f57317766c6e9408a359c5d3ac1f7"

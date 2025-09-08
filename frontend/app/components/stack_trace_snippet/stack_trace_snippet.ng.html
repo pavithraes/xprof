@@ -1,8 +1,11 @@
 <mat-accordion class="stack-trace-snippet" multi="true">
   <ng-container *ngIf="sourceCodeSnippetAddresses && sourceCodeSnippetAddresses.length > 0; else emptyState">
+    <!-- We assume that the top of the stack is the first element in the list. -->
     <stack-frame-snippet
-      *ngFor="let addr of sourceCodeSnippetAddresses; trackBy: trackByIndex"
-      [sourceCodeSnippetAddress]="addr">
+      *ngFor="let addr of sourceCodeSnippetAddresses; let isFirst = first; trackBy: trackByIndex"
+      [sourceCodeSnippetAddress]="addr"
+      [topOfStack]="isFirst"
+      [usingSourceFileAndLineNumber]="usingSourceFileAndLineNumber">
     </stack-frame-snippet>
   </ng-container>
 

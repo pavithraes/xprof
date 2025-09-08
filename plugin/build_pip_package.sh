@@ -84,6 +84,10 @@ find . -name "*.bak" -exec rm {} \;
 
 cp ${build_workspace}/bazel-bin/xprof/pywrap/_pywrap_profiler_plugin.so xprof/convert/
 
+if [[ "$(uname)" == *MSYS_NT* ]]; then
+  mv xprof/convert/_pywrap_profiler_plugin.so xprof/convert/_pywrap_profiler_plugin.pyd
+fi
+
 # Copy static files.
 cd xprof
 mkdir -p static

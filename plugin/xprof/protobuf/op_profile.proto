@@ -65,6 +65,9 @@ message Node {
         string semantics = 3;  // What the dimension represents, e.g. "spatial".
       }
     }
+    // Xprof kernel metadata extracted from the HLO expression's frontend
+    // attributes.
+    optional string xprof_kernel_metadata = 10;
   }
 }
 
@@ -77,7 +80,11 @@ message Metrics {
   //  - utilization is flops/time
   //  - wasted potential flops is proportional to time - flops
   //  - it does not reveal the peak core FLOPS of the hardware
+  //  - it is capped at 1.0
   double flops = 2;
+
+  // Uncapped FLOPs.
+  double uncapped_flops = 19;
 
   // The memory bandwidth used to load operands, as a fraction of
   // thereotical memory bandwidth on the specific hardware.

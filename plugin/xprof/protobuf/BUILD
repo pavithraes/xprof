@@ -1,7 +1,6 @@
 # Description:
 #  Protobufs used by TensorBoard profile plugin.
 
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@xla//xla/tsl/platform:build_config.bzl", xprof_proto_library = "tf_proto_library")
 
 package(
@@ -42,6 +41,13 @@ xprof_proto_library(
 )
 
 xprof_proto_library(
+    name = "worker_service_proto",
+    srcs = ["worker_service.proto"],
+    has_services = True,
+    create_grpc_library = True,
+)
+
+xprof_proto_library(
     name = "hlo_stats_proto",
     srcs = ["hlo_stats.proto"],
     protodeps = [":source_info_proto"],
@@ -74,6 +80,11 @@ xprof_proto_library(
 )
 
 xprof_proto_library(
+    name = "source_stats_proto",
+    srcs = ["source_stats.proto"],
+)
+
+xprof_proto_library(
     name = "memory_viewer_preprocess_proto",
     srcs = ["memory_viewer_preprocess.proto"],
     protodeps = [":source_info_proto"],
@@ -98,6 +109,7 @@ xprof_proto_library(
         ":hardware_types_proto",
         ":op_metrics_proto",
         ":power_metrics_proto",
+        ":source_stats_proto",
         ":steps_db_proto",
         ":tf_function_proto",
         ":topology_proto",
@@ -196,6 +208,11 @@ xprof_proto_library(
 )
 
 xprof_proto_library(
+    name = "prefix_trie_node_proto",
+    srcs = ["prefix_trie_node.proto"],
+)
+
+xprof_proto_library(
     name = "trace_events_proto",
     srcs = ["trace_events.proto"],
     protodeps = [":task_proto"],
@@ -218,6 +235,11 @@ xprof_proto_library(
 )
 
 xprof_proto_library(
+    name = "trace_filter_config_proto",
+    srcs = ["trace_filter_config.proto"],
+)
+
+xprof_proto_library(
     name = "protos_all",
     create_go_proto = False,
     create_java_proto = False,
@@ -233,6 +255,7 @@ xprof_proto_library(
         ":memory_profile_proto",
         ":memory_viewer_preprocess_proto",
         ":source_info_proto",
+        ":source_stats_proto",
         ":op_metrics_proto",
         ":op_profile_proto",
         ":op_stats_proto",
@@ -253,6 +276,7 @@ xprof_proto_library(
         ":trace_events_old_proto",
         ":trace_events_raw_proto",
         ":smart_suggestion_proto",
+        ":trace_filter_config_proto",
     ],
 )
 
@@ -278,6 +302,7 @@ exports_files(
         "roofline_model.proto",
         "smart_suggestion.proto",
         "source_info.proto",
+        "source_stats.proto",
         "steps_db.proto",
         "task.proto",
         "tf_data_stats.proto",
@@ -289,6 +314,7 @@ exports_files(
         "trace_events.proto",
         "trace_events_old.proto",
         "trace_events_raw.proto",
+        "trace_filter_config.proto",
     ],
     visibility = [
         "@org_xprof//plugin/xprof/protobuf:__pkg__",

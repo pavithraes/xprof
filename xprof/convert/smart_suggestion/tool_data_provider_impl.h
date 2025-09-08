@@ -20,13 +20,15 @@ limitations under the License.
 #include <utility>
 
 #include "absl/status/statusor.h"
+#include "xla/tsl/platform/errors.h"
 #include "xprof/convert/multi_xplanes_to_op_stats.h"
+#include "xprof/convert/op_stats_to_input_pipeline_analysis.h"
 #include "xprof/convert/op_stats_to_overview_page.h"
 #include "xprof/convert/repository.h"
 #include "xprof/convert/smart_suggestion/tool_data_provider.h"
+#include "plugin/xprof/protobuf/input_pipeline.pb.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
 #include "plugin/xprof/protobuf/overview_page.pb.h"
-#include "util/task/status_macros.h"
 
 namespace tensorflow {
 namespace profiler {
@@ -40,7 +42,7 @@ class ToolDataProviderImpl : public ToolDataProvider {
   absl::StatusOr<const OverviewPage*> GetOverviewPage() override {
     if (!overview_page_cache_) {
       OpStats combined_op_stats;
-      RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
+      TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
           session_snapshot_, &combined_op_stats));
       OverviewPage overview_page =
           ConvertOpStatsToOverviewPage(combined_op_stats);
@@ -50,9 +52,25 @@ class ToolDataProviderImpl : public ToolDataProvider {
     return overview_page_cache_.get();
   }
 
+  absl::StatusOr<const InputPipelineAnalysisResult*>
+  GetInputPipelineAnalysisResult() override {
+    if (!input_pipeline_analysis_cache_) {
+      OpStats combined_op_stats;
+      TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
+          session_snapshot_, &combined_op_stats));
+      InputPipelineAnalysisResult input_pipeline_analysis =
+          ConvertOpStatsToInputPipelineAnalysis(combined_op_stats);
+      input_pipeline_analysis_cache_ =
+          std::make_unique<InputPipelineAnalysisResult>(
+              std::move(input_pipeline_analysis));
+    }
+    return input_pipeline_analysis_cache_.get();
+  }
+
  private:
   const SessionSnapshot& session_snapshot_;
   std::unique_ptr<OverviewPage> overview_page_cache_;
+  std::unique_ptr<InputPipelineAnalysisResult> input_pipeline_analysis_cache_;
 };
 
 }  // namespace profiler

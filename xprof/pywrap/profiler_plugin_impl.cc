@@ -1,4 +1,4 @@
-/* Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+/* Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,10 @@ limitations under the License.
 #include <utility>
 #include <vector>
 
+#include "absl/base/call_once.h"
+#include "absl/base/no_destructor.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/flags/flag.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -31,11 +35,35 @@ limitations under the License.
 #include "xprof/convert/repository.h"
 #include "xprof/convert/tool_options.h"
 #include "xprof/convert/xplane_to_tools_data.h"
+#include "plugin/xprof/worker/grpc_server.h"
+
+ABSL_FLAG(bool, use_profile_processor, false,
+          "Use ProfileProcessor for tool data conversion");
+
+static const absl::NoDestructor<absl::flat_hash_set<std::string>>
+    kProfileProcessorSupportedTools({
+        "overview_page",
+        "input_pipeline_analyzer",
+        "kernel_stats",
+        "pod_viewer",
+        "hlo_stats",
+        "roofline_model",
+        "framework_op_stats",
+        "megascale_stats",
+        "memory_viewer",
+        "inference_profile",
+        "graph_viewer",
+        "memory_profile",
+        "trace_viewer",
+        "trace_viewer@",
+        "op_profile",
+    });
 
 namespace xprof {
 namespace pywrap {
 
 using ::tensorflow::profiler::ConvertMultiXSpacesToToolData;
+using ::tensorflow::profiler::ConvertMultiXSpacesToToolDataWithProfileProcessor;
 using ::tensorflow::profiler::GetParam;
 using ::tensorflow::profiler::SessionSnapshot;
 using ::tensorflow::profiler::ToolOptions;
@@ -57,9 +85,17 @@ absl::StatusOr<std::pair<std::string, bool>> SessionSnapshotToToolsData(
     TF_RETURN_IF_ERROR(status_or_session_snapshot->ClearCacheFiles());
   }
 
-  absl::StatusOr<std::string> status_or_tool_data =
-      ConvertMultiXSpacesToToolData(status_or_session_snapshot.value(),
-                                    tool_name, tool_options);
+  absl::StatusOr<std::string> status_or_tool_data;
+  bool use_profile_processor = absl::GetFlag(FLAGS_use_profile_processor);
+  bool is_supported_tool = kProfileProcessorSupportedTools->contains(tool_name);
+  if (use_profile_processor && is_supported_tool) {
+    status_or_tool_data = ConvertMultiXSpacesToToolDataWithProfileProcessor(
+        status_or_session_snapshot.value(), tool_name, tool_options);
+  } else {
+    status_or_tool_data = ConvertMultiXSpacesToToolData(
+        status_or_session_snapshot.value(), tool_name, tool_options);
+  }
+
   if (!status_or_tool_data.ok()) {
     LOG(ERROR) << status_or_tool_data.status().message();
     return std::make_pair(std::string(status_or_tool_data.status().message()),
@@ -78,6 +114,14 @@ absl::Status Monitor(const char* service_addr, int duration_ms,
                                               display_timestamp, result));
   }
   return absl::OkStatus();
+}
+
+static absl::once_flag server_init_flag;
+
+void StartGrpcServer(int port) {
+  absl::SetFlag(&FLAGS_use_profile_processor, true);
+  absl::call_once(server_init_flag, ::xprof::profiler::InitializeGrpcServer,
+                  port);
 }
 
 absl::StatusOr<std::pair<std::string, bool>> XSpaceToToolsData(

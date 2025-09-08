@@ -68,6 +68,7 @@ export class OperationLevelAnalysis extends Dashboard implements OnInit,
   @ViewChild('table', {read: ElementRef, static: false})
   chartElementRef: ElementRef|undefined = undefined;
   private readonly renderer: Renderer2 = inject(Renderer2);
+  sourceFileAndLineNumber = '';
   stackTrace = '';
   showStackTrace = false;
   sourceCodeServiceIsAvailable = false;
@@ -101,6 +102,7 @@ export class OperationLevelAnalysis extends Dashboard implements OnInit,
         if (target instanceof HTMLElement) {
           if (target.classList.contains('source-info-cell')) {
             this.zone.run(() => {
+              this.sourceFileAndLineNumber = target.textContent || '';
               this.stackTrace = target.getAttribute('title') || '';
             });
           }

@@ -27,6 +27,7 @@ xprof_ng_module(
         "@org_xprof//frontend/app/common/angular:angular_material_select",
         "@org_xprof//frontend/app/common/angular:angular_material_slide_toggle",
         "@org_xprof//frontend/app/common/angular:angular_material_tooltip",
+        "@org_xprof//frontend/app/common/classes",
         "@org_xprof//frontend/app/common/constants",
         "@org_xprof//frontend/app/common/interfaces",
         "@org_xprof//frontend/app/common/interfaces:chart",

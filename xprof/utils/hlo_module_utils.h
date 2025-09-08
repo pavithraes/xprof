@@ -93,8 +93,8 @@ inline std::string GetOpLocationStack(int32_t frame_id,
     if (frame.empty()) {
       break;
     }
-    stack_lines.insert(0, absl::StrCat(frame.file_name, ":", frame.line, ":",
-                                       frame.column, "\n"));
+    absl::StrAppend(&stack_lines, frame.file_name, ":", frame.line, ":",
+                    frame.column, "\n");
     frame_id = frame.parent_frame_id;
   }
 

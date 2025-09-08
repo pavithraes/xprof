@@ -17,11 +17,13 @@ limitations under the License.
 
 #include <vector>
 
-#include "absl/container/flat_hash_map.h"
-#include "xla/tsl/platform/types.h"
 #include "<gtest/gtest.h>"
+#include "absl/container/flat_hash_map.h"
+#include "google/protobuf/util/message_differencer.h"
+#include "xla/tsl/platform/types.h"
 #include "plugin/xprof/protobuf/hardware_types.pb.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
+#include "plugin/xprof/protobuf/power_metrics.pb.h"
 #include "plugin/xprof/protobuf/steps_db.pb.h"
 #include "xprof/utils/step_intersection.h"
 
@@ -48,7 +50,7 @@ TEST(CombineAllOpStatsTest, CombineRunEnvironment) {
 
   // Construct dummy step_intersection.
   StepDatabaseResult dummy_step_db_result;
-  absl::flat_hash_map<uint32 /*=host_id*/, const StepDatabaseResult*> result;
+  absl::flat_hash_map<uint32 /*host_id*/, const StepDatabaseResult*> result;
   result.insert({0, &dummy_step_db_result});
   StepIntersection dummy_step_intersection = StepIntersection(1, result);
 
@@ -72,7 +74,7 @@ TEST(CombineAllOpStatsTest, CombineRunEnvironmentWithUnknownDevice) {
 
   // Construct dummy step_intersection.
   StepDatabaseResult dummy_step_db_result;
-  absl::flat_hash_map<uint32 /*=host_id*/, const StepDatabaseResult*> result;
+  absl::flat_hash_map<uint32 /*host_id*/, const StepDatabaseResult*> result;
   result.insert({0, &dummy_step_db_result});
   StepIntersection dummy_step_intersection = StepIntersection(1, result);
 
@@ -87,7 +89,7 @@ TEST(CombineAllOpStatsTest, CombinePerfEnvOrderZero) {
   op_stats_1.mutable_perf_env()->set_peak_tera_flops_per_second(100);
   op_stats_2.mutable_perf_env()->set_peak_tera_flops_per_second(0);
   // Construct dummy step_intersection which is required by CombineAllOpStats().
-  absl::flat_hash_map<uint32 /*=host_id*/, const StepDatabaseResult*> result;
+  absl::flat_hash_map<uint32 /*host_id*/, const StepDatabaseResult*> result;
   StepIntersection dummy_step_intersection = StepIntersection(1, result);
 
   OpStatsInfo op_stats_info_1(&op_stats_1, TPU, 0),
@@ -118,6 +120,82 @@ TEST(CombineAllOpStatsTest, CombineRunEnvironmentWithMismatchHardwareType) {
                      OpStatsInfo(&device_op_stats, TPU, 1)},
                     StepIntersection(1, {}), &dst_op_stats);
   EXPECT_EQ(dst_op_stats.run_environment().hardware_type(), HardwareType::TPU);
+}
+
+TEST(CombineAllOpStatsTest, CombineRunEnvironmentPowerMetricsSingleHost) {
+  OpStats dst_op_stats, src_op_stats;
+  PowerComponentMetrics* component_metric =
+      src_op_stats.mutable_run_environment()
+          ->mutable_power_metrics()
+          ->add_power_component_metrics();
+  component_metric->set_component_name("HBM");
+  component_metric->set_max_power(100);
+  component_metric->set_avg_power(50);
+
+  OpStatsInfo op_stats_info(&src_op_stats, TPU, 0);
+  std::vector<OpStatsInfo> all_op_stats_info = {op_stats_info};
+
+  // Construct dummy step_intersection.
+  StepDatabaseResult dummy_step_db_result;
+  absl::flat_hash_map<uint32 /*host_id*/, const StepDatabaseResult*> result;
+  result.insert({0, &dummy_step_db_result});
+  StepIntersection dummy_step_intersection = StepIntersection(1, result);
+
+  CombineAllOpStats(all_op_stats_info, dummy_step_intersection, &dst_op_stats);
+
+  EXPECT_TRUE(
+      google::protobuf::util::MessageDifferencer::Equals(dst_op_stats, src_op_stats));
+}
+
+TEST(CombineAllOpStatsTest, CombineRunEnvironmentPowerMetricsMultipleHost) {
+  OpStats dst_op_stats, src_op_stats_1, src_op_stats_2;
+
+  // Source OpStats 1
+  RunEnvironment* env_1 = src_op_stats_1.mutable_run_environment();
+  env_1->mutable_hostnames()->insert({"host1", true});
+  PowerComponentMetrics* component_metric_1 =
+      src_op_stats_1.mutable_run_environment()
+          ->mutable_power_metrics()
+          ->add_power_component_metrics();
+  component_metric_1->set_component_name("HBM");
+  component_metric_1->set_max_power(100);
+  component_metric_1->set_avg_power(50);
+
+  // Source OpStats 2
+  RunEnvironment* env_2 = src_op_stats_2.mutable_run_environment();
+  env_2->mutable_hostnames()->insert({"host2", true});
+  PowerComponentMetrics* component_metric_2 =
+      src_op_stats_2.mutable_run_environment()
+          ->mutable_power_metrics()
+          ->add_power_component_metrics();
+  component_metric_2->set_component_name("HBM");
+  component_metric_2->set_max_power(120);
+  component_metric_2->set_avg_power(60);
+
+  OpStatsInfo op_stats_info_1(&src_op_stats_1, TPU, 0);
+  OpStatsInfo op_stats_info_2(&src_op_stats_2, TPU, 1);
+
+  std::vector<OpStatsInfo> all_op_stats_info = {op_stats_info_1,
+                                                op_stats_info_2};
+
+  // Construct dummy step_intersection.
+  StepDatabaseResult dummy_step_db_result;
+  absl::flat_hash_map<uint32 /*host_id*/, const StepDatabaseResult*> result;
+  result.insert({0, &dummy_step_db_result});
+  StepIntersection dummy_step_intersection = StepIntersection(1, result);
+
+  CombineAllOpStats(all_op_stats_info, dummy_step_intersection, &dst_op_stats);
+
+  const auto& dst_power_metrics =
+      dst_op_stats.run_environment().power_metrics();
+  EXPECT_EQ(1, dst_power_metrics.power_component_metrics_size());
+  EXPECT_EQ("HBM",
+            dst_power_metrics.power_component_metrics(0).component_name());
+  EXPECT_EQ(120, dst_power_metrics.power_component_metrics(0).max_power());
+  // Calculation:
+  // Iter 1: dst={} src=op1(50) -> dst=50
+  // Iter 2: dst=op1(50) src=op2(60) -> dst = 50 * 1/2 + 60 * 1/2 = 55
+  EXPECT_EQ(55, dst_power_metrics.power_component_metrics(0).avg_power());
 }
 
 }  // namespace

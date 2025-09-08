@@ -1,4 +1,4 @@
-/* Copyright 2020 The TensorFlow Authors. All Rights Reserved.
+/* Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,26 +20,37 @@ limitations under the License.
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/string_view.h"
+#include "grpcpp/client_context.h"
+#include "grpcpp/support/status.h"
 #include "xla/tsl/platform/env.h"
 #include "xla/tsl/platform/errors.h"
 #include "xla/tsl/platform/file_system.h"
 #include "xla/tsl/platform/statusor.h"
+#include "xla/tsl/platform/threadpool.h"
 #include "xla/tsl/profiler/convert/xplane_to_trace_events.h"
 #include "xla/tsl/profiler/utils/timespan.h"
 #include "xla/tsl/profiler/utils/xplane_schema.h"
 #include "xla/tsl/profiler/utils/xplane_utils.h"
+#include "tsl/platform/path.h"
 #include "tsl/platform/protobuf.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
 #include "xprof/convert/compute_inference_latency.h"
+#include "xprof/convert/framework_op_stats_processor.h"
+#include "xprof/convert/hlo_stats_processor.h"
 #include "xprof/convert/hlo_to_tools_data.h"
+#include "xprof/convert/input_pipeline_processor.h"
+#include "xprof/convert/kernel_stats_processor.h"
 #include "xprof/convert/multi_xplanes_to_op_stats.h"
 #include "xprof/convert/multi_xspace_to_inference_stats.h"
+#include "xprof/convert/op_profile_processor.h"
 #include "xprof/convert/op_stats_to_hlo_stats.h"
 #include "xprof/convert/op_stats_to_input_pipeline_analysis.h"
 #include "xprof/convert/op_stats_to_op_profile.h"
@@ -47,11 +58,23 @@ limitations under the License.
 #include "xprof/convert/op_stats_to_pod_viewer.h"
 #include "xprof/convert/op_stats_to_roofline_model.h"
 #include "xprof/convert/op_stats_to_tf_stats.h"
+#include "xprof/convert/overview_page_processor.h"
+#include "xprof/convert/pod_viewer_processor.h"
 #include "xprof/convert/preprocess_single_host_xplane.h"
 #include "xprof/convert/process_megascale_dcn.h"
+#include "xprof/convert/profile_processor.h"
+#include "xprof/convert/profile_processor_factory.h"
 #include "xprof/convert/repository.h"
+#include "xprof/convert/roofline_model_processor.h"
+#include "xprof/convert/smart_suggestion/all_rules.h"
+#include "xprof/convert/smart_suggestion/signal_provider.h"
+#include "xprof/convert/smart_suggestion/smart_suggestion_engine.h"
+#include "xprof/convert/smart_suggestion/smart_suggestion_rule_factory.h"
+#include "xprof/convert/smart_suggestion/tool_data_provider_impl.h"
 #include "xprof/convert/tool_options.h"
+#include "xprof/convert/trace_viewer/trace_events.h"
 #include "xprof/convert/trace_viewer/trace_events_to_json.h"
+#include "xprof/convert/trace_viewer/trace_options.h"
 #include "xprof/convert/trace_viewer/trace_viewer_visibility.h"
 #include "xprof/convert/xplane_to_dcn_collective_stats.h"
 #include "xprof/convert/xplane_to_hlo.h"
@@ -71,12 +94,16 @@ limitations under the License.
 #include "plugin/xprof/protobuf/roofline_model.pb.h"
 #include "plugin/xprof/protobuf/tf_data_stats.pb.h"
 #include "plugin/xprof/protobuf/tf_stats.pb.h"
+#include "plugin/xprof/worker/grpc_utils.h"
+#include "plugin/xprof/worker/stub_factory.h"
 #include "xprof/utils/hardware_type_utils.h"
 
 namespace tensorflow {
 namespace profiler {
 
 namespace {
+
+constexpr absl::string_view kXplaneFileName = ".xplane.pb";
 
 struct TraceViewOption {
   uint64_t resolution = 0;
@@ -136,65 +163,65 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
     }
     TF_ASSIGN_OR_RETURN(TraceViewOption trace_option,
                         GetTraceViewOption(options));
+    tensorflow::profiler::TraceOptions profiler_trace_options =
+        TraceOptionsFromToolOptions(options);
     auto visibility_filter = std::make_unique<TraceVisibilityFilter>(
         tsl::profiler::MilliSpan(trace_option.start_time_ms,
                                  trace_option.end_time_ms),
-        trace_option.resolution);
+        trace_option.resolution, profiler_trace_options);
     TraceEventsContainer trace_container;
     // Trace smaller than threshold will be disabled from streaming.
     constexpr int64_t kDisableStreamingThreshold = 500000;
+    auto trace_events_filter =
+        CreateTraceEventsFilterFromTraceOptions(profiler_trace_options);
+    TraceEventsLevelDbFilePaths file_paths;
+    file_paths.trace_events_file_path = *sstable_path;
     TF_RETURN_IF_ERROR(trace_container.LoadFromLevelDbTable(
-        *sstable_path, /*filter=*/nullptr, std::move(visibility_filter),
-        kDisableStreamingThreshold));
-    JsonTraceOptions options;
+        file_paths, std::move(trace_events_filter),
+        std::move(visibility_filter), kDisableStreamingThreshold));
+    JsonTraceOptions json_trace_options;
+
+    tensorflow::profiler::TraceDeviceType device_type =
+        tensorflow::profiler::TraceDeviceType::kUnknownDevice;
+    if (IsTpuTrace(trace_container.trace())) {
+      device_type = TraceDeviceType::kTpu;
+    }
+    json_trace_options.details =
+        TraceOptionsToDetails(device_type, profiler_trace_options);
     IOBufferAdapter adapter(&content);
     TraceEventsToJson<IOBufferAdapter, TraceEventsContainer, RawData>(
-        options, trace_container, &adapter);
+        json_trace_options, trace_container, &adapter);
     return content;
   }
 }
 
+// TODO(b/442320796) - Remove this once ProfileProcessor is the default.
 absl::StatusOr<std::string> ConvertMultiXSpacesToOverviewPage(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  OverviewPage overview_page = ConvertOpStatsToOverviewPage(combined_op_stats);
-  if (!combined_op_stats.run_environment().is_training()) {
-    InferenceStats inference_stats;
-    TF_RETURN_IF_ERROR(ConvertMultiXSpaceToInferenceStats(
-        session_snapshot, "", "", &inference_stats));
-    *overview_page.mutable_inference_latency() =
-        ComputeInferenceLatencyResult(inference_stats);
-  }
-  return OverviewPageToJson(overview_page);
+  xprof::OverviewPageProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToInputPipeline(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  InputPipelineAnalysisResult result =
-      ConvertOpStatsToInputPipelineAnalysis(combined_op_stats);
-  return InputPipelineAnalysisResultToDataTableJson(result);
+  xprof::InputPipelineProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToTfStats(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  TfStatsDatabase tf_stats_db = ConvertOpStatsToTfStats(combined_op_stats);
-  return TfStatsToDataTableJson(tf_stats_db);
+  xprof::FrameworkOpStatsProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToKernelStats(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  return KernelStatsToDataTableJson(combined_op_stats.kernel_stats_db());
+  xprof::KernelStatsProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertXSpaceToMemoryProfile(
@@ -216,22 +243,9 @@ absl::StatusOr<std::string> ConvertXSpaceToMemoryProfile(
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToPodViewer(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-
-  std::string json_output;
-  tsl::protobuf::util::JsonPrintOptions opts;
-  opts.always_print_primitive_fields = true;
-  auto encode_status = tsl::protobuf::util::MessageToJsonString(
-      ConvertOpStatsToPodViewer(combined_op_stats), &json_output, opts);
-  if (!encode_status.ok()) {
-    const auto& error_message = encode_status.message();
-    return tsl::errors::Internal(
-        "Could not convert pod viewer to json. Error: ",
-        absl::string_view(error_message.data(), error_message.length()));
-  }
-  return json_output;
+  xprof::PodViewerProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToTfDataBottleneckAnalysis(
@@ -264,52 +278,23 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToTfDataBottleneckAnalysis(
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToHloStats(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  hlo_stats::HloStatsDatabase hlo_stats_db =
-      ConvertOpStatsToHloStats(combined_op_stats);
-  return HloStatsToDataTableJson(hlo_stats_db);
+  xprof::HloStatsProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToRooflineModel(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-  RooflineModelDatabase result =
-      ConvertOpStatsToRooflineModel(combined_op_stats, true);
-  RooflineModelDatabase result_without_infeed_outfeed =
-      ConvertOpStatsToRooflineModel(combined_op_stats, false);
-  result.mutable_roofline_model_record()->MergeFrom(
-      result_without_infeed_outfeed.roofline_model_record());
-  return RooflineModelToDataTableJson(result);
+  xprof::RooflineModelProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToOpProfileViewer(
     const SessionSnapshot& session_snapshot) {
-  OpStats combined_op_stats;
-  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
-      session_snapshot, &combined_op_stats));
-
-  tensorflow::profiler::op_profile::Profile profile;
-  ConvertOpStatsToOpProfile(
-      combined_op_stats,
-      ParseHardwareType(combined_op_stats.run_environment().device_type()),
-      profile);
-  std::string json_output;
-  tsl::protobuf::util::JsonPrintOptions opts;
-  opts.always_print_primitive_fields = true;
-
-  auto encode_status =
-      tsl::protobuf::util::MessageToJsonString(profile, &json_output, opts);
-  if (!encode_status.ok()) {
-    const auto& error_message = encode_status.message();
-    return tsl::errors::Internal(
-        "Could not convert op profile proto to json. Error: ",
-        absl::string_view(error_message.data(), error_message.length()));
-  }
-  return json_output;
+  xprof::OpProfileProcessor processor({});
+  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
+  return processor.GetData();
 }
 
 absl::StatusOr<std::string> PreprocessXSpace(
@@ -342,7 +327,7 @@ absl::StatusOr<std::string> ConvertDcnCollectiveStatsToToolData(
       DcnSlackAnalysis dcnSlackAnalysis,
       GetDcnSlackAnalysisByHostName(session_snapshot, hostname.value()));
 
-  return dcnSlackAnalysis.SerializeAsString();
+  return GenerateMegaScaleJson(dcnSlackAnalysis);
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToInferenceStats(
@@ -355,6 +340,119 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToInferenceStats(
   TF_RETURN_IF_ERROR(ConvertMultiXSpaceToInferenceStats(
       session_snapshot, request_column, batch_column, &inference_stats));
   return InferenceStatsToDataTableJson(inference_stats);
+}
+
+std::string GetXSpaceFilePath(const SessionSnapshot& session_snapshot,
+                              const std::string& hostname) {
+  return tsl::io::JoinPath(session_snapshot.GetSessionRunDir(),
+                           hostname + kXplaneFileName.data());
+}
+
+xprof::pywrap::WorkerProfileDataRequest CreateWorkerProfileDataRequest(
+    const std::string& xspace_path, const absl::string_view tool_name,
+    const ToolOptions& options) {
+  ::xprof::pywrap::WorkerProfileDataRequest request;
+  request.mutable_origin_request()->set_session_id(xspace_path);
+  request.mutable_origin_request()->set_tool_name(std::string(tool_name));
+  for (const auto& option : options) {
+    const auto& [key, value] = option;
+    if (std::holds_alternative<std::string>(value)) {
+      request.mutable_origin_request()->mutable_parameters()->insert(
+          {key, std::get<std::string>(value)});
+    } else if (std::holds_alternative<int>(value)) {
+      request.mutable_origin_request()->mutable_parameters()->insert(
+          {key, std::to_string(std::get<int>(value))});
+    } else if (std::holds_alternative<bool>(value)) {
+      request.mutable_origin_request()->mutable_parameters()->insert(
+          {key, std::get<bool>(value) ? "true" : "false"});
+    }
+  }
+  return request;
+}
+
+absl::StatusOr<std::string> CallWorkerService(const std::string& xspace_path,
+                                              const absl::string_view tool_name,
+                                              const ToolOptions& options) {
+  ::xprof::pywrap::WorkerProfileDataRequest request =
+      CreateWorkerProfileDataRequest(xspace_path, tool_name, options);
+
+  ::grpc::ClientContext context;
+  ::xprof::pywrap::WorkerProfileDataResponse response;
+  auto stub = ::xprof::profiler::GetNextStub();
+  if (!stub) {
+    return absl::InternalError("No worker service stub available.");
+  }
+  ::grpc::Status grpc_status =
+      stub->GetProfileData(&context, request, &response);
+
+  if (!grpc_status.ok()) {
+    return ::xprof::profiler::ToAbslStatus(grpc_status);
+  }
+  return response.output();
+}
+
+absl::Status RunMapReduce(const SessionSnapshot& session_snapshot,
+                          const absl::string_view tool_name,
+                          xprof::ProfileProcessor* processor,
+                          const ToolOptions& options) {
+  const int num_hosts = session_snapshot.XSpaceSize();
+  std::vector<absl::StatusOr<std::string>> map_outputs(num_hosts);
+
+  {
+    tsl::thread::ThreadPool thread_pool(tsl::Env::Default(), __FUNCTION__,
+                                        num_hosts);
+    for (int i = 0; i < num_hosts; ++i) {
+      thread_pool.Schedule([&session_snapshot, &tool_name, &options,
+                            &map_outputs, i] {
+        std::string hostname = session_snapshot.GetHostname(i);
+        std::string xspace_path = GetXSpaceFilePath(session_snapshot, hostname);
+        map_outputs[i] = CallWorkerService(xspace_path, tool_name, options);
+      });
+    }
+  }
+
+  std::vector<std::string> map_output_files;
+  map_output_files.reserve(num_hosts);
+  for (int i = 0; i < num_hosts; ++i) {
+    TF_RETURN_IF_ERROR(map_outputs[i].status());
+    map_output_files.push_back(*std::move(map_outputs[i]));
+  }
+  return processor->Reduce(session_snapshot, map_output_files);
+}
+
+absl::Status ProcessSession(xprof::ProfileProcessor* processor,
+                            const SessionSnapshot& session_snapshot,
+                            const ToolOptions& options) {
+  TF_RETURN_IF_ERROR(processor->ProcessSession(session_snapshot, options));
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::string> ConvertMultiXSpacesToSmartSuggestion(
+    const SessionSnapshot& session_snapshot) {
+  SmartSuggestionEngine engine;
+  SmartSuggestionRuleFactory rule_factory;
+  RegisterAllRules(&rule_factory);
+
+  auto tool_data_provider =
+      std::make_unique<ToolDataProviderImpl>(session_snapshot);
+  SignalProvider signal_provider(std::move(tool_data_provider));
+
+  TF_ASSIGN_OR_RETURN(SmartSuggestionReport report,
+                      engine.Run(signal_provider, rule_factory));
+  std::string json_output;
+  tsl::protobuf::util::JsonPrintOptions opts;
+  opts.always_print_fields_with_no_presence = true;
+  // Perform the Proto to JSON conversion.
+  auto encode_status =
+      tsl::protobuf::util::MessageToJsonString(report, &json_output, opts);
+  if (!encode_status.ok()) {
+    const auto& error_message = encode_status.message();
+    return tsl::errors::Internal(
+        "Could not convert smart suggestion report to json. Error: ",
+        absl::string_view(error_message.data(), error_message.length()));
+  }
+  // Return the generated JSON string.
+  return json_output;
 }
 
 }  // namespace
@@ -401,11 +499,43 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToToolData(
     return PreprocessXSpace(session_snapshot);
   } else if (tool_name == "inference_profile") {
     return ConvertMultiXSpacesToInferenceStats(session_snapshot, options);
+  } else if (tool_name == "smart_suggestion") {
+    return ConvertMultiXSpacesToSmartSuggestion(session_snapshot);
   } else {
     return tsl::errors::InvalidArgument(
         "Can not find tool: ", tool_name,
         ". Please update to the latest version of Tensorflow.");
   }
+}
+
+absl::StatusOr<std::string> ConvertMultiXSpacesToToolDataWithProfileProcessor(
+    const SessionSnapshot& session_snapshot, const absl::string_view tool_name,
+    const ToolOptions& options) {
+  LOG(INFO) << "serving tool: " << tool_name
+            << " with options: " << DebugString(options)
+            << " using ProfileProcessor";
+
+  auto processor =
+      xprof::ProfileProcessorFactory::GetInstance().Create(tool_name, options);
+  if (!processor) {
+    return tsl::errors::InvalidArgument(
+        "Can not find tool: ", tool_name,
+        ". Please update to the latest version of Tensorflow.");
+  }
+
+  if (processor->ShouldUseWorkerService(session_snapshot, options)) {
+    // This branch is for the Map/Reduce flow, potentially distributed in the
+    // future.
+    LOG(INFO) << "Using worker service for tool: " << tool_name;
+    TF_RETURN_IF_ERROR(
+        RunMapReduce(session_snapshot, tool_name, processor.get(), options));
+  } else {
+    // This branch is for processing the session directly.
+    LOG(INFO) << "Using local processing for tool: " << tool_name;
+    TF_RETURN_IF_ERROR(
+        ProcessSession(processor.get(), session_snapshot, options));
+  }
+  return processor->GetData();
 }
 
 }  // namespace profiler

@@ -22,6 +22,12 @@ import {locationReplace} from 'safevalues/dom';
 const GRAPH_HTML_THRESHOLD = 1000000;  // bytes
 const CENTER_NODE_GROUP_KEY = 'centerNode';
 
+interface DefaultGraphOption {
+  moduleName: string;
+  opName: string;
+  tooltip: string;
+}
+
 /** A graph viewer component. */
 @Component({
   standalone: false,
@@ -66,8 +72,11 @@ export class GraphViewer implements OnDestroy {
   loadingGraph = false;
   loadingModuleList = false;
   loadingOpProfile = false;
+  loadingOpProfileLight = false;
   loadingGraphvizUrl = false;
   opProfile: OpProfileProto|null = null;
+  // Root node in the by program exclude idle tree
+  defaultGraphOptions: DefaultGraphOption[] = [];
   rootNode?: Node;
   data = new OpProfileData();
   selectedNode: Node|null = null;
@@ -78,6 +87,7 @@ export class GraphViewer implements OnDestroy {
 
   private readonly injector: Injector = inject(Injector);
   sourceCodeServiceIsAvailable = false;
+  sourceFileAndLineNumber = '';
   stackTrace = '';
 
   constructor(
@@ -94,6 +104,7 @@ export class GraphViewer implements OnDestroy {
     });
     this.route.queryParams.pipe(takeUntil(this.destroyed))
         .subscribe((params) => {
+          this.resetPage();
           this.parseQueryParams(params);
           // Any graph viewer url query param change should trigger a potential
           // reload
@@ -144,6 +155,7 @@ export class GraphViewer implements OnDestroy {
   }
 
   initData() {
+    this.loadHloOpProfileDataLight();
     this.loadGraphTypes();
     this.loadModuleList();
     this.loadHloOpProfileData();
@@ -161,7 +173,7 @@ export class GraphViewer implements OnDestroy {
     // Graph Viewer initial loading complete: module list loaded
     this.throbber.start();
     this.loadingModuleList = true;
-    this.dataService.getModuleList(this.sessionId)
+    this.dataService.getModuleList(this.sessionId, this.graphType)
         .pipe(takeUntil(this.destroyed))
         .subscribe((moduleList) => {
           this.throbber.stop();
@@ -205,6 +217,82 @@ export class GraphViewer implements OnDestroy {
       return fullName.substring(0, openParenIndex).trim();
     }
     return fullName.trim();
+  }
+
+  // Check if a graph is already loaded or is currently loading.
+  // used as a signal to show hints for users to start with empty page.
+  hasGraphOrLoading() {
+    return this.loadingGraph || this.graphIframeLoaded();
+  }
+
+  showDefaultGraphOptions() {
+    return !this.hasGraphOrLoading() && this.defaultGraphOptions.length > 0;
+  }
+
+  defaultGraphOptionLabel(option: DefaultGraphOption) {
+    return `${option.moduleName} - ${option.opName}`;
+  }
+
+  onClickDefaultGraphOption(option: DefaultGraphOption) {
+    const {moduleName, opName} = option;
+    this.selectedModule = moduleName;
+    this.opName = opName;
+    this.onSearchGraph();
+  }
+
+  // Helper function to get the top ranking ops from the op profile data.
+  // Parsing based on the assumptions that op profile proto structure is not
+  // changed.
+  getDefaultGraphOptions(opProfileData: OpProfileProto|null) {
+    const options: DefaultGraphOption[] = [];
+    const maybeAddOp = (op: Node, program: Node) => {
+      const flopFraction = utils.flopsUtilization(op, program);
+      if (isNaN(flopFraction) || flopFraction < 0.0001) {
+        return;
+      }
+      const flopUtils = utils.percent(utils.flopsUtilization(op, program));
+      const timeFraction = utils.percent(utils.timeFraction(op, program));
+      const tooltip = `Flops Utilization: ${flopUtils}; \n Time Fraction: ${
+          timeFraction} \n`;
+      options.push({
+        moduleName: program.name || '',
+        opName: op.name || '',
+        tooltip,
+      });
+    };
+    if (opProfileData) {
+      opProfileData.byProgramExcludeIdle?.children?.forEach((program) => {
+        program.children?.forEach((category) => {
+          category.children?.forEach((opOrDuplicates) => {
+            if (opOrDuplicates.name?.includes('and its duplicate(s)')) {
+              opOrDuplicates.children?.forEach((op) => {
+                maybeAddOp(op, program);
+              });
+            } else {
+              maybeAddOp(opOrDuplicates, program);
+            }
+          });
+        });
+      });
+    }
+    return options;
+  }
+
+  // Data service call to get light op profile data for default graph painting.
+  loadHloOpProfileDataLight() {
+    this.loadingOpProfileLight = true;
+    const params = new Map<string, string>();
+    params.set('op_profile_limit', '1');
+    params.set('use_xplane', '1');
+    this.dataService.getOpProfileData(this.sessionId, this.host, params)
+        .pipe(takeUntil(this.destroyed))
+        .subscribe((data) => {
+          if (data) {
+            this.defaultGraphOptions =
+                this.getDefaultGraphOptions(data as OpProfileProto | null);
+          }
+          this.loadingOpProfileLight = false;
+        });
   }
 
   loadHloOpProfileData() {
@@ -328,6 +416,9 @@ export class GraphViewer implements OnDestroy {
 
   private updateStackTrace(node: Node|null) {
     this.zone.run(() => {
+      this.sourceFileAndLineNumber =
+          `${node?.xla?.sourceInfo?.fileName || ''}:${
+              node?.xla?.sourceInfo?.lineNumber || -1}`;
       this.stackTrace = node?.xla?.sourceInfo?.stackFrame || '';
     });
   }
@@ -467,6 +558,16 @@ export class GraphViewer implements OnDestroy {
       relativeTo: this.route,
       queryParams: this.getGraphSearchParams(),
     });
+  }
+
+  onGraphTypeSelectionChange(graphType: string) {
+    if (graphType === this.graphType) return;
+    this.graphType = graphType;
+    this.zone.run(() => {
+      this.moduleList = [];
+      this.selectedModule = '';
+    });
+    this.loadModuleList();
   }
 
   // Event handler for module selection change in graph config form,

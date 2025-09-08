@@ -525,6 +525,13 @@ dashboard would integrate trace viewer app using iframe.
       _loadedRange: Object,
       _loadedTraceEents: Object,
       _fullBounds: Object,
+      // TODO(yinzz/rahulnayar): Refactor the use of _isLoading.
+      // It is used inconsistently across different data fetching functions.
+      // _isLoading should only be set to false after both _updateModel and
+      // _updateView (and any other related async operations) are fully completed
+      // to prevent race conditions. For example, in _searchAndAddTraceEvents,
+      // _isLoading is set to false immediately after the data fetch, before
+      // _updateModel and _updateView are finished.
       _isLoading: {type: Boolean, value: false},
       _dirty: {type: Boolean, value: false},
       _tasks: Object,
@@ -712,20 +719,21 @@ dashboard would integrate trace viewer app using iframe.
         });
     },
 
-    createStackTraceSnippetLink: function(hloModule, hloOp, stackTrace) {
-      if (!stackTrace || !this._sourceCodeServiceIsAvailable) return;
-      // LINT.IfChange(stack_trace_page_keys)
+    createStackTraceSnippetLink: function(hloModule, hloOp, sourceFileAndLineNumber, stackTrace) {
+      if (!this._sourceCodeServiceIsAvailable) return;
+      if (!sourceFileAndLineNumber && !stackTrace) return;
       const hloModuleKey = 'hlo_module';
       const hloOpKey = 'hlo_op';
+      const sourceKey = 'source';
       const stackTraceKey = 'stack_trace';
-      // LINT.ThenChange(//depot/google3/third_party/xprof/frontend/app/components/stack_trace_page/stack_trace_page.ts:keys)
       this.createCrossToolLink(
           'stack_trace_page',
           'Stack Trace Source Code Snippet',
           {
             [hloModuleKey]: hloModule,
             [hloOpKey]: hloOp,
-            [stackTraceKey]: stackTrace,
+            [sourceKey]: sourceFileAndLineNumber || '',
+            [stackTraceKey]: stackTrace || '',
           },
           'Open in a new page');
     },
@@ -851,8 +859,12 @@ dashboard would integrate trace viewer app using iframe.
           if (event.args?.source && this._codeLink) {
             this.createCodeSearchLink(event.args?.source);
           }
-          if (event.args?.source_stack) {
-            this.createStackTraceSnippetLink(hloModule, hloOp,event.args?.source_stack);
+          if (event.args?.source || event.args?.source_stack) {
+            this.createStackTraceSnippetLink(
+                hloModule,
+                hloOp,
+                event.args?.source,
+                event.args?.source_stack);
           }
         } else if ('Source code' === event.parentContainer.name && event.title && this._codeLink) {
           this.createCodeSearchLink(event.title);
@@ -1310,11 +1322,14 @@ dashboard would integrate trace viewer app using iframe.
         // Overwrite the event args in the ThreadSlice.
         const fullEvent = data.traceEvents[data.traceEvents.length - 1];
         event.args = fullEvent.args;
-        const stackFrameName = data.stackFrames[1]?.name;
+        let stackFrameName = data.stackFrames[1]?.name;
         if (stackFrameName) {
+          if (stackFrameName.startsWith('@@')) {
+            stackFrameName = stackFrameName.substr(2);
+          }
           event.startStackFrame =
             new tr.model.StackFrame(/* parentFrame */ undefined, "g1",
-                                    stackFrameName.substr(2), 13);
+                                    stackFrameName, 13);
         }
       } else if (event instanceof tr.model.AsyncSlice &&
                  data.traceEvents[data.traceEvents.length - 2].ph == "b") {
@@ -1372,8 +1387,12 @@ dashboard would integrate trace viewer app using iframe.
 
     _perfettoButtonOnclickCallback: function() {
       const sessionPerfettoUrl = new URL(`/perfetto/${this._sessionId}`, window.location.href);
-      if (this._selectedHosts.length) {
-        sessionPerfettoUrl.searchParams.set('hosts', this._selectedHosts.join(','));
+      const relatedParams = ['host', 'hosts', 'host_index', 'trace_filter_config'];
+      for (const param of relatedParams) {
+        const value = this._buildBaseURL().searchParams.get(param);
+        if (value) {
+          sessionPerfettoUrl.searchParams.set(param, value);
+        }
       }
       window.open(sessionPerfettoUrl.toString());
     },
@@ -1693,9 +1712,7 @@ dashboard would integrate trace viewer app using iframe.
             await this._getDefaults();
           }
           this._createBackendToggleButton();
-          if (this._useNewBackend) {
-            this._updateSearchBehavior();
-          }
+          this._updateSearchBehavior();
         }
       }
       let initialRequestedRange = null;
@@ -1918,7 +1935,8 @@ dashboard would integrate trace viewer app using iframe.
       return key;
     },
 
-    // Decodes the JSON trace events, removes all events that were loaded before
+    // Decodes the JSON trace and specifically exclude counter events,
+    // removes all events that were loaded before
     // and serializes to JSON again.
     _filterKnownTraceEvents: function(traceEvents) {
       if (this._loadedTraceEvents.size == 0) {
@@ -2006,11 +2024,38 @@ dashboard would integrate trace viewer app using iframe.
         detailsSelector.style.display = 'flex';
         delete jsonData['details'];
       }
-
-      jsonData.traceEvents = this._filterKnownTraceEvents(jsonData.traceEvents || []);
+      let otherEvents = [];
+      let counterEvents = [];
+      // Only counter events have entries.
+      const isCounterEvent = (event) => !!event.entries;
+      jsonData.traceEvents.forEach(event => {
+        if (isCounterEvent(event)) {
+          counterEvents.push(event);
+        } else {
+          otherEvents.push(event);
+        }
+      });
+      otherEvents = this._filterKnownTraceEvents(otherEvents);
+      // We intentionally bypass filtering for counter events to prevent a potential
+      // stalling of the UI ,see https://issues.chromium.org/issues/42201829.
+      // A large counter event can generate a hash key that exceeds the maximum safe
+      // value for a number, which throws a RangeError.
+      const ungroupedCounterEvents = counterEvents.flatMap(event => {
+        const argName = event.event_stats;
+        return event.entries.map(entry => ({
+            pid: event.pid,
+            name: event.name,
+            ph: event.ph,
+            ts: entry[0],
+            args: {
+              [argName]: entry[1],
+            },
+          }));
+      });
+      jsonData.traceEvents = [...otherEvents, ...ungroupedCounterEvents];
+      var opt = new tr.importer.ImportOptions();
+      opt.shiftWorldToZero = false;
       if (jsonData.traceEvents.length > 0) {
-        var opt = new tr.importer.ImportOptions();
-        opt.shiftWorldToZero = false;
         new tr.importer.Import(this._model, opt).importTraces([jsonData]);
         this._dirty = true;
       }
@@ -2073,6 +2118,11 @@ dashboard would integrate trace viewer app using iframe.
 
     _addUpdateViewLatency: function(latency) {
       const node = parent.document.getElementById('update-view-latency');
+      node.value = latency;
+    },
+
+    _addProcessGroupCouterLatency: function(latency) {
+      const node = parent.document.getElementById('process-group-counter-latency');
       node.value = latency;
     },
 

@@ -1,11 +1,13 @@
 import {CommonModule} from '@angular/common';
 import {NgModule} from '@angular/core';
+import {MatChipsModule} from '@angular/material/chips';
 import {MatOptionModule} from '@angular/material/core';
 import {MatExpansionModule} from '@angular/material/expansion';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {MatSidenavModule} from '@angular/material/sidenav';
 import {MatSnackBarModule} from '@angular/material/snack-bar';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {DownloadHloModule} from 'org_xprof/frontend/app/components/controls/download_hlo/download_hlo_module';
 import {DiagnosticsViewModule} from 'org_xprof/frontend/app/components/diagnostics_view/diagnostics_view_module';
 import {GraphConfigModule} from 'org_xprof/frontend/app/components/graph_viewer/graph_config/graph_config_module';
@@ -18,10 +20,22 @@ import {GraphViewer} from './graph_viewer';
 
 @NgModule({
   imports: [
-    CommonModule, DiagnosticsViewModule, MatOptionModule, MatProgressBarModule,
-    MatSidenavModule, PipesModule, GraphConfigModule, HloTextViewModule,
-    OpDetailsModule, MatProgressSpinnerModule, MatSnackBarModule,
-    DownloadHloModule, MatExpansionModule, StackTraceSnippetModule,
+    CommonModule,
+    DiagnosticsViewModule,
+    MatOptionModule,
+    MatProgressBarModule,
+    MatSidenavModule,
+    PipesModule,
+    GraphConfigModule,
+    HloTextViewModule,
+    OpDetailsModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+    DownloadHloModule,
+    MatExpansionModule,
+    StackTraceSnippetModule,
+    MatChipsModule,
+    MatTooltipModule,
   ],
   declarations: [GraphViewer],
   exports: [GraphViewer]

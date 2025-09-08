@@ -35,6 +35,7 @@ limitations under the License.
 #include "plugin/xprof/protobuf/op_profile.pb.h"
 #include "plugin/xprof/protobuf/source_info.pb.h"
 #include "xprof/utils/op_metrics_db_utils.h"
+#include "xprof/utils/xla_op_utils.h"
 
 namespace tensorflow {
 namespace profiler {
@@ -52,6 +53,8 @@ void PopulateSymbolNode(const OpMetrics& op_metrics, Node* node) {
   Node::XLAInstruction& xla = *node->mutable_xla();
   xla.set_program_id(op_metrics.hlo_module_id());
   xla.set_expression(op_metrics.long_name());
+  xla.set_xprof_kernel_metadata(
+      tensorflow::profiler::ExtractXprofKernelMetadata(op_metrics.long_name()));
   xla.set_fingerprint(op_metrics.fingerprint());
   xla.set_category(op_metrics.category());
   xla.set_provenance(op_metrics.provenance());
@@ -101,6 +104,12 @@ void CopySymbolDetailsToDeduplicatedNode(Node* top_child_node,
   const Node::XLAInstruction& top_child_node_xla = top_child_node->xla();
   xla.set_program_id(top_child_node_xla.program_id());
   xla.set_expression(top_child_node_xla.expression());
+  if (top_child_node_xla.has_xprof_kernel_metadata()) {
+    xla.set_xprof_kernel_metadata(top_child_node_xla.xprof_kernel_metadata());
+  }
+  if (top_child_node_xla.has_source_info()) {
+    *xla.mutable_source_info() = top_child_node_xla.source_info();
+  }
   xla.set_fingerprint(top_child_node_xla.fingerprint());
   xla.set_category(top_child_node_xla.category());
   if (IsFusion(top_child_node_xla.category())) return;
@@ -193,14 +202,17 @@ void PopulateOpMetricsNode(
   metrics->set_avg_time_ps(tsl::profiler::SafeDivide(op_metrics.time_ps(),
                                                      op_metrics.occurrences()));
 
-  double flops_utilization = CapUtilization(
+  double uncapped_flops_utilization =
       tsl::profiler::SafeDivide(GigaFlopsPerSecondPerCore(op_metrics),
-                                peak_gigaflops_per_second_per_core));
+                                peak_gigaflops_per_second_per_core);
+
+  double flops_utilization = CapUtilization(uncapped_flops_utilization);
   // The UI expects flops_utilization = flop_util / time_fraction. See:
   // https://github.com/tensorflow/profiler/blob/master/frontend/app/common/utils/utils.ts
   const double time_fraction =
       tsl::profiler::SafeDivide(op_metrics.time_ps(), total_time_ps);
   metrics->set_flops(flops_utilization * time_fraction);
+  metrics->set_uncapped_flops(uncapped_flops_utilization * time_fraction);
 
   // Capture both on-chip and off-chip memory utilization.
   const double hbm_gibibytes_per_second =

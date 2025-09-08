@@ -16,9 +16,11 @@ limitations under the License.
 #ifndef THIRD_PARTY_XPROF_CONVERT_TRACE_VIEWER_TRACE_EVENTS_H_
 #define THIRD_PARTY_XPROF_CONVERT_TRACE_VIEWER_TRACE_EVENTS_H_
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -32,14 +34,26 @@ limitations under the License.
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
 #include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "xla/tsl/lib/io/iterator.h"
+#include "xla/tsl/lib/io/table.h"
+#include "xla/tsl/lib/io/table_builder.h"
+#include "xla/tsl/lib/io/table_options.h"
+#include "xla/tsl/platform/env.h"
+#include "xla/tsl/platform/errors.h"
 #include "xla/tsl/platform/file_system.h"
+#include "xla/tsl/platform/macros.h"
 #include "xla/tsl/profiler/utils/timespan.h"
+#include "tsl/platform/cpu_info.h"
 #include "tsl/profiler/lib/context_types.h"
+#include "xprof/convert/trace_viewer/prefix_trie.h"
 #include "xprof/convert/trace_viewer/trace_events_filter_interface.h"
 #include "xprof/convert/trace_viewer/trace_events_util.h"
 #include "xprof/convert/trace_viewer/trace_viewer_visibility.h"
+#include "xprof/convert/xprof_thread_pool_executor.h"
 #include "plugin/xprof/protobuf/task.pb.h"
 #include "plugin/xprof/protobuf/trace_events.pb.h"
 
@@ -49,22 +63,499 @@ namespace profiler {
 // A track of events in the trace-viewer.
 using TraceEventTrack = std::vector<TraceEvent*>;
 
+static constexpr absl::string_view kTraceMetadataKey = "/trace";
+// Constants used by the LevelDB Table-based efficient trace viewer storage.
+static constexpr absl::string_view kLevelKey("123456789ABCDEFGHIJKLMNOPQ");
+
+constexpr uint64_t kLayerResolutions[] = {
+    1000000000000ull,  // 1 second.
+    100000000000ull,  10000000000ull, 1000000000ull, 100000000ull,
+    10000000ull,      1000000ull,     100000ull,     10000ull,
+    1000ull,          100ull,         10ull,         1ull,
+};
+
+constexpr int NumLevels() { return TF_ARRAYSIZE(kLayerResolutions); }
+static constexpr size_t kLevelDbKeyLength = 10;
+static constexpr int kSearchParallelizationThreshold = 100;
+
 // Merge-sorts the given event tracks. Each track must be sorted.
 std::vector<TraceEvent*> MergeEventTracks(
     const std::vector<const TraceEventTrack*>& event_tracks);
 
 absl::Status DoStoreAsLevelDbTable(
     std::unique_ptr<tsl::WritableFile>& file, const Trace& trace,
-    const std::vector<std::vector<const TraceEvent*>>& events_by_level);
+    const std::vector<std::vector<const TraceEvent*>>& events_by_level,
+    std::function<TraceEvent(const TraceEvent*)> generate_event_copy_fn);
 
+absl::Status DoStoreAsLevelDbTables(
+    const std::vector<std::vector<const TraceEvent*>>& events_by_level,
+    const Trace& trace, std::unique_ptr<tsl::WritableFile>& trace_events_file,
+    std::unique_ptr<tsl::WritableFile>& trace_events_metadata_file,
+    std::unique_ptr<tsl::WritableFile>& trace_events_prefix_trie_file);
+
+// Generates a copy of the event to be persisted in the trace events file.
+// This is the copy of the passed event without the timestamp_ps field.
+TraceEvent GenerateTraceEventCopyForPersistingFullEvent(
+    const TraceEvent* event);
+
+// Generates a copy of the event to be persisted in the trace events file.
+// This is the copy of the passed event without the raw_data and timestamp_ps
+// fields.
+TraceEvent GenerateTraceEventCopyForPersistingEventWithoutMetadata(
+    const TraceEvent* event);
+
+// It generates a copy of the event to be persisted in the trace events metadata
+// file. This only has the raw_data field set.
+TraceEvent GenerateTraceEventCopyForPersistingOnlyMetadata(
+    const TraceEvent* event);
+
+// Opens the level db table from the given filename. The table is owned by the
+// caller.
+absl::Status OpenLevelDbTable(const std::string& filename,
+                              tsl::table::Table** table,
+                              std::unique_ptr<tsl::RandomAccessFile>& file);
+
+struct TraceEventsLevelDbFilePaths {
+  std::string trace_events_file_path;
+  std::string trace_events_metadata_file_path;
+  std::string trace_events_prefix_trie_file_path;
+};
+
+uint64_t TimestampFromLevelDbTableKey(absl::string_view level_db_table_key);
+
+uint64_t LayerResolutionPs(unsigned level);
+
+std::string LevelDbTableKey(int zoom_level, uint64_t timestamp,
+                            uint64_t repetition);
+
+bool ReadTraceMetadata(tsl::table::Iterator* iterator,
+                       absl::string_view metadata_key, Trace* trace);
+
+void PurgeIrrelevantEntriesInTraceNameTable(
+    Trace& trace,
+    const absl::flat_hash_set<uint64_t>& required_event_references);
+
+template <typename RawDataType>
+absl::StatusOr<absl::flat_hash_set<uint64_t>>
+GetEventReferencesInTraceNameTable(const TraceEvent& event) {
+  absl::flat_hash_set<uint64_t> event_references;
+  if (event.has_name_ref()) {
+    event_references.insert(event.name_ref());
+  }
+  if (event.has_raw_data()) {
+    RawDataType raw_data;
+    if (!raw_data.ParseFromString(event.raw_data())) {
+      return absl::InternalError("Failed to parse raw_data for event: " +
+                                 event.name());
+    }
+    for (const auto& arg : raw_data.args().arg()) {
+      if (arg.has_ref_value()) {
+        event_references.insert(arg.ref_value());
+      }
+    }
+  }
+  return event_references;
+}
+
+template <typename RawDataType>
 absl::Status DoLoadFromLevelDbTable(
-    const std::string& filename,
+    const TraceEventsLevelDbFilePaths& file_paths,
     std::unique_ptr<TraceEventsFilterInterface> filter,
     std::unique_ptr<TraceVisibilityFilter> visibility_filter,
     int64_t filter_by_visibility_threshold, Trace& trace,
     bool& filter_by_visibility,
     const std::function<TraceEvent*(const TraceEvent&)>& copy_event_to_arena,
-    const std::function<void(TraceEvent*)>& add_arena_event);
+    const std::function<void(TraceEvent*)>& add_arena_event) {
+  std::string filename = file_paths.trace_events_file_path;
+  bool trace_events_metadata_file_exists = false;
+  if (!file_paths.trace_events_metadata_file_path.empty()) {
+    trace_events_metadata_file_exists =
+        tsl::Env::Default()
+            ->FileExists(file_paths.trace_events_metadata_file_path)
+            .ok();
+  }
+  uint64_t file_size;
+  TF_RETURN_IF_ERROR(tsl::Env::Default()->GetFileSize(filename, &file_size));
+
+  tsl::FileSystem* file_system;
+  TF_RETURN_IF_ERROR(
+      tsl::Env::Default()->GetFileSystemForFile(filename, &file_system));
+
+  std::unique_ptr<tsl::RandomAccessFile> file;
+  TF_RETURN_IF_ERROR(file_system->NewRandomAccessFile(filename, &file));
+
+  tsl::table::Options options;
+  options.block_size = 20 * 1024 * 1024;
+  tsl::table::Table* table = nullptr;
+  TF_RETURN_IF_ERROR(
+      tsl::table::Table::Open(options, file.get(), file_size, &table));
+  std::unique_ptr<tsl::table::Table> table_deleter(table);
+  std::unique_ptr<tsl::table::Iterator> iterator(table->NewIterator());
+  if (iterator == nullptr) return tsl::errors::Unknown("Could not open table");
+
+  // Read the metadata.
+  iterator->SeekToFirst();
+  if (!ReadTraceMetadata(iterator.get(), kTraceMetadataKey, &trace)) {
+    return absl::UnknownError(
+        "Could not parse Trace proto to read trace metadata");
+  }
+
+  if (filter) filter->SetUp(trace);
+
+  tsl::profiler::Timespan visible_span;
+  uint64_t container_resolution_ps = 0;
+
+  filter_by_visibility = filter_by_visibility_threshold == -1LL ||
+                         !trace.has_num_events() ||
+                         trace.num_events() >= filter_by_visibility_threshold;
+  if (visibility_filter) {
+    if (!filter_by_visibility) {
+      // disable streaming
+      visibility_filter->UpdateVisibility(0);
+    }
+    visibility_filter->SetUp(trace);
+    visible_span = visibility_filter->VisibleSpan();
+    container_resolution_ps = visibility_filter->ResolutionPs();
+  } else {
+    visible_span = TraceSpan(trace);
+  }
+
+  // Read events at the different zoom levels.
+  std::vector<std::unique_ptr<std::vector<TraceEvent*>>> loaded_events_by_level;
+  size_t filtered = 0;
+  TraceEvent event;  // Declared outside of the loop to avoid repeated calls to
+                     // the constructor and destructor in the loop body. Cleared
+                     // by every call to ParseFromCord.
+  for (int i = 0;; ++i) {
+    loaded_events_by_level.emplace_back(
+        std::make_unique<std::vector<TraceEvent*>>());
+    auto& loaded_events = *loaded_events_by_level.back();
+    uint64_t resolution_ps = LayerResolutionPs(i);
+    // Seek to the first element that might be in range. For the initial zoom
+    // level, we don't know any bounds as events might be arbitrarily large.
+    uint64_t min_timestamp_ps = 0;
+    if (i > 0 && visible_span.begin_ps() > LayerResolutionPs(i - 1)) {
+      min_timestamp_ps = visible_span.begin_ps() - LayerResolutionPs(i - 1);
+    }
+    iterator->Seek(LevelDbTableKey(i, i == 0 ? 0 : min_timestamp_ps, 0));
+    while (iterator->Valid() && iterator->key().at(0) == kLevelKey[i]) {
+      auto serialized_event = iterator->value();
+      if (!event.ParseFromArray(serialized_event.data(),
+                                serialized_event.size())) {
+        return tsl::errors::Unknown("Could not parse TraceEvent proto");
+      }
+      uint64_t timestamp = TimestampFromLevelDbTableKey(iterator->key());
+      event.set_timestamp_ps(timestamp);
+      if (event.timestamp_ps() > visible_span.end_ps()) {
+        // This (and all following) events are outside of our window.
+        break;
+      }
+      // Filter before copying to the arena as it does not require sorting.
+      if (!filter || !filter->Filter(event)) {
+        loaded_events.push_back(copy_event_to_arena(event));
+      } else {
+        ++filtered;
+      }
+      iterator->Next();
+    }
+    if (container_resolution_ps >= resolution_ps) {
+      // No need to read further, the resolution we just loaded already exceeds
+      // the desired resolution.
+      break;
+    }
+  }
+
+  // We have loaded events from different zoom levels. Sort them by timestamp
+  // so visibility filtering works as expected.
+  std::vector<TraceEvent*> loaded_events;
+  nway_merge(loaded_events_by_level, std::back_inserter(loaded_events),
+             TraceEventsComparator());
+  loaded_events_by_level.clear();
+
+  LOG(INFO) << "Loaded " << loaded_events.size() << " events after filtering "
+            << filtered << " events from LevelDb fast file: " << filename;
+  size_t visible_events_count = 0;
+  for (TraceEvent* event : loaded_events) {
+    if (!visibility_filter || !visibility_filter->Filter(*event)) {
+      if (trace_events_metadata_file_exists) {
+        event->clear_raw_data();
+        RawDataType raw_data;
+        tensorflow::profiler::TraceEventArguments::Argument* arg =
+            raw_data.mutable_args()->add_arg();
+        arg->set_name("uid");
+        arg->set_int_value(event->serial());
+        raw_data.SerializePartialToString(event->mutable_raw_data());
+      }
+      add_arena_event(event);
+      ++visible_events_count;
+    }
+  }
+  LOG(INFO) << "Added " << visible_events_count
+            << " visible events from LevelDb fast file: " << filename;
+  return absl::OkStatus();
+}
+
+template <typename RawDataType>
+absl::Status DoSearchInLevelDbTable(
+    const TraceEventsLevelDbFilePaths& file_paths,
+    absl::string_view event_name_prefix,
+    std::unique_ptr<TraceEventsFilterInterface> filter, Trace& trace,
+    const std::function<TraceEvent*(const TraceEvent&)>& copy_event_to_arena,
+    const std::function<void(TraceEvent*)>& add_arena_event) {
+  auto executor =
+      std::make_unique<XprofThreadPoolExecutor>("DoSearchInLevelDbTable", 2);
+  std::vector<PrefixSearchResult> search_results;
+  absl::Status search_results_status;
+  executor->Execute([&file_paths, &event_name_prefix, &search_results,
+                     &search_results_status] {
+    absl::StatusOr<std::vector<PrefixSearchResult>> search_results_or =
+        LoadTrieAsLevelDbTableAndSearch(
+            file_paths.trace_events_prefix_trie_file_path, event_name_prefix);
+    search_results_status = search_results_or.status();
+    // This is to maintain the backward compatibility for old profiles where
+    // prefix trie file is not present.
+    if (search_results_status.code() == absl::StatusCode::kNotFound) {
+      LOG(INFO) << "Prefix trie file not found: "
+                << file_paths.trace_events_prefix_trie_file_path;
+      search_results = {};
+      search_results_status = absl::OkStatus();
+      return;
+    }
+    if (!search_results_status.ok()) {
+      LOG(ERROR) << "Failed to load and search from the prefix trie file: "
+                 << file_paths.trace_events_prefix_trie_file_path
+                 << " with status: " << search_results_status;
+      return;
+    }
+    search_results = std::move(search_results_or.value());
+  });
+
+  tsl::table::Table* trace_events_table = nullptr;
+  std::unique_ptr<tsl::RandomAccessFile> trace_events_file;
+  absl::Status open_trace_events_table_status;
+  executor->Execute([&file_paths, &trace_events_table, &trace_events_file,
+                     &open_trace_events_table_status] {
+    open_trace_events_table_status =
+        OpenLevelDbTable(file_paths.trace_events_file_path, &trace_events_table,
+                         trace_events_file);
+  });
+  executor->JoinAll();
+
+  TF_RETURN_IF_ERROR(open_trace_events_table_status);
+  std::unique_ptr<tsl::table::Table> trace_events_table_deleter(
+      trace_events_table);
+  std::unique_ptr<tsl::table::Iterator> trace_events_iterator(
+      trace_events_table->NewIterator());
+
+  TF_RETURN_IF_ERROR(search_results_status);
+
+  if (trace_events_iterator == nullptr) {
+    return absl::UnknownError("Could not open trace events table");
+  }
+
+  trace_events_iterator->SeekToFirst();
+  if (!ReadTraceMetadata(trace_events_iterator.get(), kTraceMetadataKey,
+                         &trace)) {
+    return absl::UnknownError(
+        "Could not parse Trace proto to read trace metadata");
+  }
+  if (filter) filter->SetUp(trace);
+
+  std::vector<std::string> event_ids;
+  for (const auto& search_result : search_results) {
+    event_ids.insert(event_ids.end(), search_result.terminal_key_ids.begin(),
+                     search_result.terminal_key_ids.end());
+  }
+
+  if (event_ids.empty()) {
+    LOG(INFO) << "Matched 0 events from LevelDb fast file: "
+              << file_paths.trace_events_file_path;
+    return absl::OkStatus();
+  }
+
+  std::sort(event_ids.begin(), event_ids.end());
+  const int num_threads =
+      std::min(tsl::port::MaxParallelism(),
+               event_ids.size() < kSearchParallelizationThreshold
+                   ? 1
+                   : static_cast<int>(event_ids.size()));
+
+  executor = std::make_unique<XprofThreadPoolExecutor>("SearchEventRetrieval",
+                                                       num_threads);
+  std::vector<std::vector<TraceEvent>> thread_events(num_threads);
+  std::vector<absl::Status> thread_statuses(num_threads);
+
+  for (int i = 0; i < num_threads; ++i) {
+    executor->Execute([&, i] {
+      size_t start = (event_ids.size() * i) / num_threads;
+      size_t end = (event_ids.size() * (i + 1)) / num_threads;
+
+      std::unique_ptr<tsl::table::Iterator> iterator(
+          trace_events_table->NewIterator());
+      if (iterator == nullptr) {
+        thread_statuses[i] =
+            absl::UnknownError("Could not create table iterator");
+        return;
+      }
+
+      for (size_t j = start; j < end; ++j) {
+        iterator->Seek(event_ids[j]);
+        if (!iterator->Valid()) {
+          LOG(ERROR) << "Could not find trace event id: " << event_ids[j]
+                     << "in the trace events table";
+          continue;
+        }
+        TraceEvent event;
+        auto serialized_event = iterator->value();
+        if (!event.ParseFromArray(serialized_event.data(),
+                                  serialized_event.size())) {
+          LOG(ERROR) << "Could not parse TraceEvent proto for trace event id: "
+                     << event_ids[j];
+          continue;
+        }
+        uint64_t timestamp = TimestampFromLevelDbTableKey(event_ids[j]);
+        event.set_timestamp_ps(timestamp);
+        thread_events[i].push_back(std::move(event));
+      }
+      thread_statuses[i] = absl::OkStatus();
+    });
+  }
+  executor->JoinAll();
+
+  absl::Status final_status = absl::OkStatus();
+  for (const auto& status : thread_statuses) {
+    final_status.Update(status);
+  }
+  if (!final_status.ok()) {
+    LOG(ERROR) << "Failed to search events: " << final_status;
+    return final_status;
+  }
+
+  size_t matched_events_count = 0;
+  for (auto& events : thread_events) {
+    for (auto& event : events) {
+      if (!filter || !filter->Filter(event)) {
+        event.clear_raw_data();
+        RawDataType raw_data;
+        tensorflow::profiler::TraceEventArguments::Argument* arg =
+            raw_data.mutable_args()->add_arg();
+        arg->set_name("uid");
+        arg->set_int_value(event.serial());
+        raw_data.SerializePartialToString(event.mutable_raw_data());
+        add_arena_event(copy_event_to_arena(event));
+        ++matched_events_count;
+      }
+    }
+  }
+
+  LOG(INFO) << "Matched " << matched_events_count
+            << " events from LevelDb fast file: "
+            << file_paths.trace_events_file_path;
+  return absl::OkStatus();
+}
+
+// Read full event from the level db trace events and trace events metadata
+// tables. We iterate over all the zoom levels and try finding the event with
+// the given timestamp and unique id for this zoom level. If the required event
+// is found, we add it to the arena.
+template <typename RawDataType>
+absl::Status DoReadFullEventFromLevelDbTable(
+    const std::string& trace_events_metadata_filename,
+    const std::string& trace_events_filename, absl::string_view event_name,
+    int64_t timestamp_ps, int64_t duration_ps, int64_t unique_id, Trace& trace,
+    const std::function<TraceEvent*(const TraceEvent&)>& copy_event_to_arena,
+    const std::function<void(TraceEvent*)>& add_arena_event) {
+  tsl::table::Table* trace_events_table = nullptr;
+  tsl::table::Table* trace_events_metadata_table = nullptr;
+  std::unique_ptr<tsl::RandomAccessFile> trace_events_file;
+  std::unique_ptr<tsl::RandomAccessFile> trace_events_metadata_file;
+  auto executor = std::make_unique<XprofThreadPoolExecutor>(
+      "ReadFullEventFromLevelDbTable", /*num_threads=*/2);
+  absl::Status trace_events_status;
+  absl::Status trace_events_metadata_status;
+  executor->Execute([&trace_events_filename, &trace_events_table,
+                     &trace_events_file, &trace_events_status]() {
+    trace_events_status = OpenLevelDbTable(
+        trace_events_filename, &trace_events_table, trace_events_file);
+  });
+  executor->Execute([&trace_events_metadata_filename,
+                     &trace_events_metadata_table, &trace_events_metadata_file,
+                     &trace_events_metadata_status]() {
+    trace_events_metadata_status = OpenLevelDbTable(
+        trace_events_metadata_filename, &trace_events_metadata_table,
+        trace_events_metadata_file);
+  });
+  executor->JoinAll();
+  trace_events_status.Update(trace_events_metadata_status);
+  TF_RETURN_IF_ERROR(trace_events_status);
+
+  std::unique_ptr<tsl::table::Table> trace_events_table_deleter(
+      trace_events_table);
+  std::unique_ptr<tsl::table::Table> trace_events_metadata_table_deleter(
+      trace_events_metadata_table);
+  std::unique_ptr<tsl::table::Iterator> trace_events_iterator(
+      trace_events_table->NewIterator());
+  std::unique_ptr<tsl::table::Iterator> trace_events_metadata_iterator(
+      trace_events_metadata_table->NewIterator());
+  if (trace_events_iterator == nullptr ||
+      trace_events_metadata_iterator == nullptr) {
+    return absl::UnknownError("Could not open table");
+  }
+
+  trace_events_iterator->SeekToFirst();
+  if (!ReadTraceMetadata(trace_events_iterator.get(), kTraceMetadataKey,
+                         &trace)) {
+    return absl::UnknownError("Could not parse Trace proto");
+  }
+
+  for (int zoom_level = 0; zoom_level < NumLevels(); ++zoom_level) {
+    std::string level_db_table_key =
+        LevelDbTableKey(zoom_level, timestamp_ps, unique_id);
+    trace_events_iterator->Seek(level_db_table_key);
+    if (trace_events_iterator->Valid() &&
+        trace_events_iterator->key() == level_db_table_key) {
+      TraceEvent event;
+      if (!event.ParseFromArray(trace_events_iterator->value().data(),
+                                trace_events_iterator->value().size())) {
+        return absl::UnknownError("Could not parse TraceEvent proto");
+      }
+      if (event.has_name_ref()) {
+        auto it = trace.name_table().find(event.name_ref());
+        if (it != trace.name_table().end()) {
+          event.set_name(it->second);
+        }
+      }
+      if (event.name() != event_name || event.duration_ps() != duration_ps) {
+        continue;
+      }
+      trace_events_metadata_iterator->Seek(level_db_table_key);
+      if (!trace_events_metadata_iterator->Valid() ||
+          trace_events_metadata_iterator->key() != level_db_table_key) {
+        return absl::UnknownError("Could not find metadata for event");
+      }
+      TraceEvent event_metadata;
+      if (!event_metadata.ParseFromArray(
+              trace_events_metadata_iterator->value().data(),
+              trace_events_metadata_iterator->value().size())) {
+        return absl::UnknownError("Could not parse TraceEvent proto");
+      }
+      event.set_timestamp_ps(timestamp_ps);
+      event.set_raw_data(event_metadata.raw_data());
+      auto event_references_in_trace_name_table_or =
+          GetEventReferencesInTraceNameTable<RawDataType>(event);
+      if (!event_references_in_trace_name_table_or.ok()) {
+        return event_references_in_trace_name_table_or.status();
+      }
+      absl::flat_hash_set<uint64_t> event_references_in_trace_name_table =
+          event_references_in_trace_name_table_or.value();
+      PurgeIrrelevantEntriesInTraceNameTable(
+          trace, event_references_in_trace_name_table);
+      add_arena_event(copy_event_to_arena(event));
+      return absl::OkStatus();
+    }
+  }
+  return absl::NotFoundError("Event not found");
+}
 
 // Reads the trace metadata from a file with given path
 absl::Status ReadFileTraceMetadata(std::string& filepath, Trace* trace);
@@ -273,7 +764,25 @@ class TraceEventsContainerBase {
     Trace trace = trace_;
     trace.set_num_events(NumEvents());
     auto events_by_level = EventsByLevel();
-    return DoStoreAsLevelDbTable(file, trace, events_by_level);
+    return DoStoreAsLevelDbTable(file, trace, events_by_level,
+                                 GenerateTraceEventCopyForPersistingFullEvent);
+  }
+
+  // Stores the contents of this container in three level-db sstable files. The
+  // first file contains the full events except the metadata, the second
+  // file contains only the metadata and the third file contains the prefix
+  // trie index over trace event names that would be used for fast prefix
+  // search of events.
+  absl::Status StoreAsLevelDbTables(
+      std::unique_ptr<tsl::WritableFile> trace_events_file,
+      std::unique_ptr<tsl::WritableFile> trace_events_metadata_file,
+      std::unique_ptr<tsl::WritableFile> trace_events_prefix_trie_file) const {
+    Trace trace = trace_;
+    trace.set_num_events(NumEvents());
+    auto events_by_level = EventsByLevel();
+    return DoStoreAsLevelDbTables(events_by_level, trace, trace_events_file,
+                                  trace_events_metadata_file,
+                                  trace_events_prefix_trie_file);
   }
 
   std::vector<std::vector<const TraceEvent*>> GetTraceEventsByLevel() const {
@@ -284,13 +793,40 @@ class TraceEventsContainerBase {
   // In order to be efficient, requires resolution__ to be set.
   // If span_ is not set, it is initialized from the loaded trace_.
   absl::Status LoadFromLevelDbTable(
-      const std::string& filename,
+      const TraceEventsLevelDbFilePaths& trace_events_level_db_file_paths,
       std::unique_ptr<TraceEventsFilterInterface> filter = nullptr,
       std::unique_ptr<TraceVisibilityFilter> visibility = nullptr,
       int64_t filter_by_visibility_threshold = -1LL) {
-    return DoLoadFromLevelDbTable(
-        filename, std::move(filter), std::move(visibility),
-        filter_by_visibility_threshold, trace_, filter_by_visibility_,
+    return DoLoadFromLevelDbTable<RawData>(
+        trace_events_level_db_file_paths, std::move(filter),
+        std::move(visibility), filter_by_visibility_threshold, trace_,
+        filter_by_visibility_,
+        absl::bind_front(&TraceEventsContainerBase::CopyEventToArena, this),
+        absl::bind_front(&TraceEventsContainerBase::AddArenaEvent, this));
+  }
+
+  // Finds all event ids matching the given event name prefix using the prefix
+  // trie sstable file then loads the full events from the level-db sstable
+  // file.
+  absl::Status SearchInLevelDbTable(
+      const TraceEventsLevelDbFilePaths& trace_events_level_db_file_paths,
+      absl::string_view event_name_prefix,
+      std::unique_ptr<TraceEventsFilterInterface> filter = nullptr) {
+    return DoSearchInLevelDbTable<RawData>(
+        trace_events_level_db_file_paths, event_name_prefix, std::move(filter),
+        trace_,
+        absl::bind_front(&TraceEventsContainerBase::CopyEventToArena, this),
+        absl::bind_front(&TraceEventsContainerBase::AddArenaEvent, this));
+  }
+
+  // Reads full event from level-db sstable files.
+  absl::Status ReadFullEventFromLevelDbTable(
+      const std::string& trace_events_metadata_filename,
+      const std::string& trace_events_filename, absl::string_view event_name,
+      int64_t timestamp_ps, int64_t duration_ps, int64_t unique_id) {
+    return DoReadFullEventFromLevelDbTable<RawData>(
+        trace_events_metadata_filename, trace_events_filename, event_name,
+        timestamp_ps, duration_ps, unique_id, trace_,
         absl::bind_front(&TraceEventsContainerBase::CopyEventToArena, this),
         absl::bind_front(&TraceEventsContainerBase::AddArenaEvent, this));
   }

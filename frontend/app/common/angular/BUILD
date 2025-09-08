@@ -193,3 +193,11 @@ ts_library(
         "@npm//@angular/material",
     ],
 )
+
+ts_library(
+    name = "angular_material_chips",
+    srcs = [],
+    deps = [
+        "@npm//@angular/material",
+    ],
+)

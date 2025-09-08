@@ -45,6 +45,12 @@ std::string GetHostnameByPath(absl::string_view xspace_path) {
   absl::ConsumeSuffix(&file_name, ".xplane.pb");
   return std::string(file_name);
 }
+
+static auto* kHostDataSuffixes =
+    new std::vector<std::pair<StoredDataType, const char*>>(
+        {{StoredDataType::DCN_COLLECTIVE_STATS, ".dcn_collective_stats.pb"},
+         {StoredDataType::OP_STATS, ".op_stats.pb"}});
+
 }  // namespace
 
 absl::StatusOr<SessionSnapshot> SessionSnapshot::Create(

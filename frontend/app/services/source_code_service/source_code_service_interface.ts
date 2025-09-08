@@ -3,6 +3,7 @@
  */
 
 import {InjectionToken} from '@angular/core';
+import {LineMetric} from 'org_xprof/frontend/app/common/interfaces/source_stats';
 import {Observable} from 'rxjs';
 
 /**
@@ -27,34 +28,39 @@ export class Address {
       throw new Error(`linesAfter (${linesAfter}) must be >= 0`);
     }
   }
+
+  /**
+   * Returns the first line of the source code snippet.
+   *
+   * In general, this could be very different from
+   * `address.lineNumber - address.linesBefore`.
+   */
+  get firstLine(): number {
+    return Math.max(1, this.lineNumber - this.linesBefore);
+  }
 }
 
 /**
  * Content of a source code around a stack frame.
  *
  * @param address An address of the source code.
- * @param firstLine The first line of the source code. In general, this could
- *     be very different from `address.lineNumber - address.linesBefore`.
  * @param lines The lines of the source code snippet. There must be at least
- *     `address.lineNumber - firstLine + 1` lines in the array.
+ *     `address.lineNumber - address.firstLine + 1` lines in the array.
+ * @param metrics The available metrics for the source code snippet.
  *
  * @throws {Error} If the input `lines` does not contain the line requested in
  *     the address.
  */
 export class Content {
   constructor(
-      readonly address: Address, readonly firstLine: number,
-      readonly lines: readonly string[]) {
-    if (firstLine > address.lineNumber) {
-      throw new Error(
-          `The first line number ${firstLine} must be less than or equal to ` +
-          `the requested line number ${address.lineNumber}`);
-    }
-    if (lines.length <= address.lineNumber - firstLine) {
+      readonly address: Address, readonly lines: readonly string[],
+      readonly metrics: readonly LineMetric[]) {
+    if (lines.length <= address.lineNumber - address.firstLine) {
       throw new Error(
           `The input 'lines' has only ${lines.length} lines. Since the first ` +
-          `line number is ${firstLine}, the input lines does not contain the ` +
-          `requested line number in the address ${address.lineNumber}.`);
+          `line number is ${address.firstLine}, the input lines does not ` +
+          `contain the requested line number in the address ` +
+          `${address.lineNumber}.`);
     }
   }
 }

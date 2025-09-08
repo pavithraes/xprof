@@ -1,11 +1,20 @@
 <div class="form-container">
   <form (ngSubmit)="onSubmit()">
-    <div class="row" *ngIf="!isHloOssTool" id="xla-module-list-header">
-      <div [ngClass]="{ 'mat-subheading-2': true }">
-        XLA Modules ({{ moduleList.length }})
-      </div>
-    </div>
+    <mat-form-field *ngIf="graphTypes.length > 0" class="full-width" id="graph-type-selector" appearance="outline">
+      <mat-label>Graph Type</mat-label>
+      <mat-select
+        name="graphType"
+        panelClass="panel-override"
+        [(ngModel)]="graphType"
+        (selectionChange)="onGraphTypeSelectionChange($event)"
+      >
+        <mat-option *ngFor="let type of graphTypes" [value]="type.value">
+          {{ type.label }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
     <mat-form-field class="full-width" *ngIf="!isHloOssTool" id="xla-module-list-selector" appearance="outline">
+      <mat-label> XLA Modules ({{ loadingModuleList ? 'loading...' : moduleList.length }})</mat-label>
       <mat-select
         name="selectedModule"
         panelClass="panel-override"
@@ -17,23 +26,11 @@
         </mat-option>
       </mat-select>
     </mat-form-field>
-    <mat-form-field *ngIf="graphTypes.length > 0" class="full-width" id="graph-type-selector" appearance="outline">
-      <mat-label>Graph Type</mat-label>
-      <mat-select
-        name="graphType"
-        panelClass="panel-override"
-        [(ngModel)]="graphType"
-      >
-        <mat-option *ngFor="let type of graphTypes" [value]="type.value">
-          {{ type.label }}
-        </mat-option>
-      </mat-select>
-    </mat-form-field>
     <mat-form-field class="full-width">
-      <mat-label>Op Name</mat-label>
+      <mat-label>XLA Op Name</mat-label>
       <input
         matInput
-        matTooltip="Op name for the center node."
+        matTooltip="XLA Op name for the center node."
         aria-label="op-name"
         required
         autocomplete="off"

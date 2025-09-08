@@ -2,14 +2,15 @@ import {PlatformLocation} from '@angular/common';
 import {HttpClient, HttpErrorResponse, HttpParams} from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {Store} from '@ngrx/store';
-import {API_PREFIX, CAPTURE_PROFILE_API, DATA_API, GRAPH_TYPE_DEFAULT, GRAPHVIZ_PAN_ZOOM_CONTROL, HLO_MODULE_LIST_API, HOSTS_API, LOCAL_URL, PLUGIN_NAME, RUN_TOOLS_API, RUNS_API, USE_SAVED_RESULT} from 'org_xprof/frontend/app/common/constants/constants';
+import {API_PREFIX, CAPTURE_PROFILE_API, DATA_API, GRAPH_TYPE_DEFAULT, GRAPHVIZ_PAN_ZOOM_CONTROL, HLO_MODULE_LIST_API, HOSTS_API, LOCAL_URL, PLUGIN_NAME, RUN_TOOLS_API, RUNS_API, USE_SAVED_RESULT, CONFIG_API} from 'org_xprof/frontend/app/common/constants/constants';
 import {FileExtensionType} from 'org_xprof/frontend/app/common/constants/enums';
 import {CaptureProfileOptions, CaptureProfileResponse} from 'org_xprof/frontend/app/common/interfaces/capture_profile';
 import {DataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {HostMetadata} from 'org_xprof/frontend/app/common/interfaces/hosts';
+import {type SmartSuggestionReport} from 'org_xprof/frontend/app/common/interfaces/smart_suggestion.jsonpb_decls';
 import * as utils from 'org_xprof/frontend/app/common/utils/utils';
 import {OpProfileData, OpProfileSummary} from 'org_xprof/frontend/app/components/op_profile/op_profile_data';
-import {DataServiceV2Interface} from 'org_xprof/frontend/app/services/data_service_v2/data_service_v2_interface';
+import {DataServiceV2Interface, ProfilerConfig} from 'org_xprof/frontend/app/services/data_service_v2/data_service_v2_interface';
 import {setErrorMessageStateAction} from 'org_xprof/frontend/app/store/actions';
 import {Observable, of} from 'rxjs';
 import {catchError} from 'rxjs/operators';
@@ -19,17 +20,22 @@ import {catchError} from 'rxjs/operators';
 export class DataServiceV2 implements DataServiceV2Interface {
   isLocalDevelopment = false;
   pathPrefix = '';
-  // Assign the value here for backward compatibility. Remove the searchParams
-  // variable later.
-  searchParams = new URLSearchParams(
-      window.sessionStorage.getItem('searchParams') || '',
-  );
 
   constructor(
       private readonly httpClient: HttpClient,
       platformLocation: PlatformLocation,
       private readonly store: Store<{}>,
   ) {
+    // Clear previous searchParams from session storage
+    window.sessionStorage.removeItem('searchParams');
+
+    const searchParamsFromUrl = new URLSearchParams(platformLocation.search);
+    if (searchParamsFromUrl.toString()) {
+      window.sessionStorage.setItem(
+          'searchParams', searchParamsFromUrl.toString());
+      // Persist the query parameters in the URL.
+    }
+
     this.isLocalDevelopment = platformLocation.pathname === LOCAL_URL;
     if (String(platformLocation.pathname).includes(API_PREFIX + PLUGIN_NAME)) {
       this.pathPrefix =
@@ -47,13 +53,23 @@ export class DataServiceV2 implements DataServiceV2Interface {
         .pipe(
             catchError((error: HttpErrorResponse) => {
               console.log(error);
-              const url = new URL(error.url || '');
-              const errorMessage = 'There was an error in the requested URL ' +
-                  url.pathname + url.search + '.<br><br>' +
-                  '<b>message:</b> ' + error.message + '<br>' +
-                  '<b>status:</b> ' + String(error.status) + '<br>' +
-                  '<b>statusText:</b> ' + error.statusText + '<br>' +
-                  '<b>error:</b> ' + String(error.error);
+              let errorMessage = '';
+              if (error.status === 0) {
+                errorMessage = 'Request failed : Unable to get the profile data';
+              } else {
+                const urlObj = new URL(error.url || '');
+                const errorString = typeof error.error === 'object' ?
+                    String(error.error?.error?.message) :
+                    String(error.error);
+
+                errorMessage = 'There was an error in the requested URL ' +
+                    urlObj.pathname + urlObj.search + '.<br><br>' +
+                    '<b>message:</b> ' + error.message + '<br>' +
+                    '<b>status:</b> ' + String(error.status) + '<br>' +
+                    '<b>statusText:</b> ' + error.statusText + '<br>' +
+                    '<b>error:</b> ' + errorString;
+              }
+
               if (notifyError) {
                 this.store.dispatch(setErrorMessageStateAction({errorMessage}));
               }
@@ -65,6 +81,14 @@ export class DataServiceV2 implements DataServiceV2Interface {
   private getHttpParams(
       sessionId: string|null, tool: string|null, host?: string): HttpParams {
     let params = new HttpParams();
+    const searchParams = this.getSearchParams();
+    if (searchParams) {
+      searchParams.forEach((value, key) => {
+        params = params.set(key, value);
+      });
+    }
+    // Ensure the input arguments are populated at last to override the
+    // persistent query params in the session storage.
     if (sessionId) {
       params = params.set('run', sessionId);
     }
@@ -73,12 +97,6 @@ export class DataServiceV2 implements DataServiceV2Interface {
     }
     if (host) {
       params = params.set('host', host);
-    }
-    const searchParams = this.getSearchParams();
-    if (searchParams) {
-      searchParams.forEach((value, key) => {
-        params = params.set(key, value);
-      });
     }
     return params;
   }
@@ -106,6 +124,10 @@ export class DataServiceV2 implements DataServiceV2Interface {
     return params;
   }
 
+  getConfig(): Observable<ProfilerConfig|null> {
+    return this.get<ProfilerConfig>(this.pathPrefix + CONFIG_API);
+  }
+
   getData(
       sessionId: string, tool: string, host: string,
       parameters: Map<string, string> = new Map()):
@@ -116,9 +138,18 @@ export class DataServiceV2 implements DataServiceV2Interface {
         Observable<DataTable>;
   }
 
-  getModuleList(sessionId: string): Observable<string> {
-    let params = this.getHttpParams('', '');
-    params = params.set('run', sessionId);
+  getSmartSuggestions(
+      sessionId: string,
+      parameters: Map<string, string> = new Map()):
+      Observable<SmartSuggestionReport | null> {
+    return of(null);
+  }
+
+  getModuleList(sessionId: string, graphType = GRAPH_TYPE_DEFAULT):
+      Observable<string> {
+    const params = this.getHttpParams('', 'graph_viewer')
+                       .set('run', sessionId)
+                       .set('graph_type', graphType);
     return this.get(this.pathPrefix + HLO_MODULE_LIST_API, {
       'params': params,
       'responseType': 'text',
@@ -259,6 +290,8 @@ export class DataServiceV2 implements DataServiceV2Interface {
         'searchParams',
         new URLSearchParams(searchParams).toString(),
     );
+    const newUrl = window.location.pathname + '?' + searchParams.toString();
+    window.history.replaceState({}, '', newUrl);
   }
 
   exportDataAsCSV(sessionId: string, tool: string, host: string) {
@@ -296,8 +329,18 @@ export class DataServiceV2 implements DataServiceV2Interface {
   }
 
   /** Methods below are for 3P only */
-  getRuns() {
-    return this.get(this.pathPrefix + RUNS_API);
+  getRuns(): Observable<string[]|null> {
+    const searchParams = this.getSearchParams();
+    const session = searchParams.get('session');
+    const runPath = searchParams.get('run_path');
+    let params = new HttpParams();
+    if (session) {
+      params = params.set('session', session);
+    }
+    if (runPath) {
+      params = params.set('run_path', runPath);
+    }
+    return this.get<string[]>(this.pathPrefix + RUNS_API, {'params': params});
   }
 
   getRunTools(run: string): Observable<string[]> {
@@ -322,6 +365,7 @@ export class DataServiceV2 implements DataServiceV2Interface {
             .set('device_tracer_level', options.deviceTracerLevel.toString())
             .set('python_tracer_level', options.pythonTracerLevel.toString())
             .set('delay', options.delay.toString());
-    return this.httpClient.get(this.pathPrefix + CAPTURE_PROFILE_API, {params});
+    return this.httpClient.get<CaptureProfileResponse>(
+        this.pathPrefix + CAPTURE_PROFILE_API, {params});
   }
 }

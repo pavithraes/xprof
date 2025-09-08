@@ -1,4 +1,4 @@
-/* Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+/* Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ limitations under the License.
 #include "xla/tsl/platform/types.h"
 #include "xla/tsl/profiler/rpc/client/capture_profile.h"
 #include "xprof/convert/tool_options.h"
+#include "plugin/xprof/worker/stub_factory.h"
 #include "xprof/pywrap/profiler_plugin_impl.h"
 
 namespace py = ::pybind11;
@@ -62,7 +63,7 @@ PYBIND11_MODULE(_pywrap_profiler_plugin, m) {
         ToolOptions tool_options = ToolOptionsFromPythonDict(options);
         {
           py::gil_scoped_release release;
-          status = tsl::profiler::CaptureRemoteTraceWithBoolOpts(
+          status = tsl::profiler::CaptureRemoteTrace(
               service_addr, logdir, worker_list, include_dataset_ops,
               duration_ms, num_tracing_attempts, tool_options);
         }
@@ -147,6 +148,16 @@ PYBIND11_MODULE(_pywrap_profiler_plugin, m) {
                               py::bool_(result->second));
       },
       py::arg(), py::arg(), py::arg(), py::arg() = py::dict());
+
+  m.def("start_grpc_server", [](int port) {
+    py::gil_scoped_release release;
+    xprof::pywrap::StartGrpcServer(port);
+  });
+
+  m.def("initialize_stubs", [](const std::string& worker_service_addresses) {
+    py::gil_scoped_release release;
+    xprof::profiler::InitializeStubs(worker_service_addresses);
+  });
 };
 
 }  // namespace

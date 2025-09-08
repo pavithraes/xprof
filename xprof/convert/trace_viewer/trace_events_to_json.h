@@ -37,6 +37,7 @@ limitations under the License.
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
@@ -53,6 +54,11 @@ limitations under the License.
 
 namespace tensorflow {
 namespace profiler {
+
+// The JSON parser's 700MB limit is tested empirically to hold up to 16M
+// counter events. (go/xprof-event-counter-fix). Conservatively setting
+// this to 10M toward room for other events.
+inline constexpr size_t kMaxCounterEvents = 10'000'000;
 
 // JSON generation options.
 struct JsonTraceOptions {
@@ -263,7 +269,83 @@ class JsonEventWriter {
     return counter_.GetCounterEventCount();
   }
 
+  bool isMatchingLastCounterEvent(const TraceEvent& event) const {
+    const std::string& event_name =
+        event.has_name_ref() ? trace_.name_table().at(event.name_ref())
+                             : event.name();
+    auto key = std::make_pair(event.device_id(), event_name);
+    return last_counter_event_key_ == key;
+  }
+
+  void AddCounterEvent(const TraceEvent& event) {
+    counter_.Inc(JsonEventCounter::kCounterEvent);
+    const std::string& event_name =
+        event.has_name_ref() ? trace_.name_table().at(event.name_ref())
+                             : event.name();
+    auto key = std::make_pair(event.device_id(), event_name);
+    if (last_counter_event_key_ != key) {
+      last_counter_event_key_ = key;
+
+      std::string event_stats_str = "";
+      if (event.has_raw_data()) {
+        RawDataType data;
+        if (data.ParseFromString(event.raw_data()) && data.has_args()) {
+          if (data.args().arg_size() > 0) {
+            event_stats_str = absl::StrFormat(R"(,"event_stats":"%s")",
+                                              data.args().arg(0).name());
+          }
+        }
+      }
+      output_->Append(
+          absl::StrFormat(R"({"pid":%d,"name":"%s","ph":"C"%s,"entries":[)",
+                          event.device_id(), event_name, event_stats_str));
+    }
+
+    std::vector<std::string> entry_values;
+    if (event.has_raw_data()) {
+      RawDataType data;
+      if (!data.ParseFromString(event.raw_data())) {
+        LOG(WARNING) << "Failed to parse raw data for event: " << event_name;
+        return;
+      }
+      if (!data.has_args()) {
+        return;
+      }
+      for (const auto& arg : data.args().arg()) {
+        entry_values.push_back(GetArgValue(arg));
+      }
+    }
+    output_->Append(absl::StrFormat(R"([%.17g,%s])",
+                                    PicosToMicros(event.timestamp_ps()),
+                                    absl::StrJoin(entry_values, ",")));
+  }
+
  private:
+  std::string GetArgValue(const TraceEventArguments::Argument& arg) {
+    switch (arg.value_case()) {
+      case TraceEventArguments::Argument::kStrValue:
+        return JsonEscape(arg.str_value());
+      case TraceEventArguments::Argument::kIntValue:
+        return absl::StrCat(arg.int_value());
+      case TraceEventArguments::Argument::kUintValue:
+        return absl::StrCat(arg.uint_value());
+      case TraceEventArguments::Argument::kDoubleValue:
+        return absl::StrFormat("%.17g", arg.double_value());
+      case TraceEventArguments::Argument::kRefValue: {
+        const auto& it = trace_.name_table().find(arg.ref_value());
+        if (it != trace_.name_table().end()) {
+          return JsonEscape(it->second);
+        }
+        return "";
+      }
+      case TraceEventArguments::Argument::VALUE_NOT_SET:
+        LOG(WARNING) << "Value not set for argument: " << arg.name();
+        return "";
+      default:
+        LOG(WARNING) << "Unexpected value type for argument: " << arg.name();
+        return "";
+    }
+  }
   void WriteArgs(const TraceEvent& event) const {
     if (!event.has_group_id() && !event.has_raw_data()) {
       return;
@@ -381,6 +463,7 @@ class JsonEventWriter {
   const std::map<uint64_t, uint64_t>& references_;
   IOBuffer* output_;
   mutable JsonEventCounter counter_;
+  std::pair<uint32_t, std::string> last_counter_event_key_ = {0, ""};
 };
 
 template <typename IOBuffer>
@@ -621,18 +704,37 @@ void TraceEventsToJson(const JsonTraceOptions& options,
   // Write events.
   JsonEventWriter<IOBuffer, RawDataType> writer(colorer, trace, references,
                                                 output);
+  bool prev_was_counter = false;
   events.ForAllEvents([&](const TraceEvent& event) {
+    bool is_counter_event = !event.has_resource_id() && !event.has_flow_id();
+    if ((prev_was_counter && !is_counter_event) ||
+        (!writer.isMatchingLastCounterEvent(event) && is_counter_event &&
+         prev_was_counter)) {
+      output->Append("]}");
+    }
     separator.Add();
-    writer.WriteEvent(event);
+    if (is_counter_event) {
+      writer.AddCounterEvent(event);
+    } else {
+      writer.WriteEvent(event);
+    }
+    prev_was_counter = is_counter_event;
   });
+  if (prev_was_counter) {
+    output->Append("]}");
+  }
   size_t counter_event_count = writer.GetCounterEventCount();
   VLOG(1) << "Counter event count: " << counter_event_count;
-  if (counter_event_count == 2000000) {
+  if (counter_event_count == tensorflow::profiler::kMaxCounterEvents) {
     output->Append(
-        R"(], "showCounterMessage": "Only 2M counter events are shown. Zoom in or pan to see more." })");
+        R"(], "showCounterMessage": "Only )",
+        tensorflow::profiler::kMaxCounterEvents,
+        R"( counter events are shown. Zoom in or pan to see more." )");
   } else {
-    output->Append(R"(], "showCounterMessage": "" })");
+    output->Append(R"(], "showCounterMessage": "" )");
   }
+  output->Append(R"(,"totalCounterEvents":)", counter_event_count);
+  output->Append(R"(})");
 }
 
 class IOBufferAdapter {

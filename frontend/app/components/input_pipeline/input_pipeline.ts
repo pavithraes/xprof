@@ -1,6 +1,7 @@
 import {Component, inject, OnDestroy} from '@angular/core';
 import {ActivatedRoute, Params} from '@angular/router';
 import {Store} from '@ngrx/store';
+import {Throbber} from 'org_xprof/frontend/app/common/classes/throbber';
 import {STACK_CHART_FILL_COLORS} from 'org_xprof/frontend/app/common/constants/constants';
 import {InputPipelineDataTable, SimpleDataTable, } from 'org_xprof/frontend/app/common/interfaces/data_table';
 import {setLoadingState} from 'org_xprof/frontend/app/common/utils/utils';
@@ -43,6 +44,7 @@ export class InputPipeline extends InputPipelineCommon implements OnDestroy {
   readonly columnColors = STACK_CHART_FILL_COLORS;
   /** Handles on-destroy Subject, used to unsubscribe. */
   private readonly destroyed = new ReplaySubject<void>(1);
+  private readonly throbber = new Throbber(this.tool);
 
   constructor(route: ActivatedRoute, private readonly store: Store<{}>) {
     super();
@@ -61,10 +63,12 @@ export class InputPipeline extends InputPipelineCommon implements OnDestroy {
 
   update() {
     setLoadingState(true, this.store, 'Loading input pipeline data');
+    this.throbber.start();
 
     this.dataService.getData(this.sessionId, this.tool, this.host)
         .pipe(takeUntil(this.destroyed))
         .subscribe((data) => {
+          this.throbber.stop();
           setLoadingState(false, this.store);
           const inputPipelineData = (data || []) as InputPipelineDataTable[];
           this.parseCommonInputData(inputPipelineData);

@@ -35,6 +35,8 @@ export class SideNav implements OnInit, OnDestroy {
   selectedModuleInternal = '';
   navigationParams: {[key: string]: string|boolean} = {};
 
+  hideCaptureProfileButton = false;
+
   constructor(
       private readonly router: Router,
       // Using DataServiceV2 because methods used in sidenav is not defined in
@@ -136,6 +138,15 @@ export class SideNav implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.navigateWithUrl();
+    this.fetchProfilerConfig();
+  }
+
+  async fetchProfilerConfig() {
+    const config = await firstValueFrom(
+        this.dataService.getConfig().pipe(takeUntil(this.destroyed)));
+    if (config) {
+      this.hideCaptureProfileButton = config.hideCaptureProfileButton;
+    }
   }
 
   getNavigationEvent(): NavigationEvent {

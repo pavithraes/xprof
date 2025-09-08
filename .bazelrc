@@ -5,6 +5,13 @@ build --cxxopt=-std=c++17
 build --host_cxxopt=-std=c++17
 build --noenable_bzlmod
 
+build --incompatible_enable_cc_toolchain_resolution
+build --repo_env USE_HERMETIC_CC_TOOLCHAIN=1
+
+# TODO: Migrate for https://github.com/bazelbuild/bazel/issues/7260
+build:clang_local --noincompatible_enable_cc_toolchain_resolution
+build:clang_local --repo_env USE_HERMETIC_CC_TOOLCHAIN=0
+
 build:macos --apple_platform_type=macos
 build:macos --copt=-DGRPC_BAZEL_BUILD
 
@@ -14,28 +21,34 @@ build:macos --copt=-DGRPC_BAZEL_BUILD
 # https://github.com/bazelbuild/bazel/issues/19730.
 build:macos --linkopt=-Wl,-undefined,dynamic_lookup
 build:macos --host_linkopt=-Wl,-undefined,dynamic_lookup
+build:macos --config=clang_local
+build:macos --apple_crosstool_top=@local_config_apple_cc//:toolchain
+build:macos --crosstool_top=@local_config_apple_cc//:toolchain
+build:macos --host_crosstool_top=@local_config_apple_cc//:toolchain
 
-build:windows --compiler=clang-cl
-build:windows --copt=/W0
-build:windows --host_copt=/W0
-build:windows --copt=/Zc:__cplusplus
-build:windows --host_copt=/Zc:__cplusplus
+# XLA uses M_* math constants that only get defined by MSVC headers if
+# _USE_MATH_DEFINES is defined.
 build:windows --copt=/D_USE_MATH_DEFINES
 build:windows --host_copt=/D_USE_MATH_DEFINES
-build:windows --features=compiler_param_file
-build:windows --features=archive_param_file
-build:windows --cxxopt=/std:c++17
-build:windows --host_cxxopt=/std:c++17
+# Make sure to include as little of windows.h as possible
 build:windows --copt=-DWIN32_LEAN_AND_MEAN
 build:windows --host_copt=-DWIN32_LEAN_AND_MEAN
 build:windows --copt=-DNOGDI
 build:windows --host_copt=-DNOGDI
+# https://devblogs.microsoft.com/cppblog/announcing-full-support-for-a-c-c-conformant-preprocessor-in-msvc/
+# otherwise, there will be some compiling error due to preprocessing.
+build:windows --copt=/Zc:preprocessor
+build:windows --cxxopt=/std:c++17
+build:windows --host_cxxopt=/std:c++17
+# Generate PDB files, to generate useful PDBs, in opt compilation_mode
+# --copt /Z7 is needed.
 build:windows --linkopt=/DEBUG
 build:windows --host_linkopt=/DEBUG
 build:windows --linkopt=/OPT:REF
 build:windows --host_linkopt=/OPT:REF
 build:windows --linkopt=/OPT:ICF
 build:windows --host_linkopt=/OPT:ICF
+build:windows --incompatible_strict_action_env=true
 
 # Windows x86 CI configs
 build:avx_windows --copt=/arch:AVX
@@ -69,15 +82,8 @@ build:avx_linux --copt=-w
 # Flag to enable remote config
 common --experimental_repo_remote_exec
 
-# Linux cpu and cuda builds share the same toolchain now.
-build:ci_linux_x86_64 --host_crosstool_top="@local_config_cuda//crosstool:toolchain"
-build:ci_linux_x86_64 --crosstool_top="@local_config_cuda//crosstool:toolchain"
-build:ci_linux_x86_64 --extra_toolchains="@local_config_cuda//crosstool:toolchain-linux-x86_64"
-build:ci_linux_x86_64 --action_env=CLANG_CUDA_COMPILER_PATH="/usr/lib/llvm-18/bin/clang"
-build:ci_linux_x86_64 --repo_env=TF_SYSROOT="/dt9"
-build:ci_linux_x86_64 --extra_execution_platforms="@ubuntu20.04-clang_manylinux2014-cuda12.3-cudnn9.1_config_platform//:platform"
-build:ci_linux_x86_64 --host_platform="@ubuntu20.04-clang_manylinux2014-cuda12.3-cudnn9.1_config_platform//:platform"
-build:ci_linux_x86_64 --platforms="@ubuntu20.04-clang_manylinux2014-cuda12.3-cudnn9.1_config_platform//:platform"
+# Temporary flag to ensure ci_linux_x86_64 config still exists
+build:ci_linux_x86_64 --color=yes
 
 # Make Bazel not try to probe the host system for a C++ toolchain.
 build:rbe_base --config=resultstore
@@ -92,6 +98,9 @@ build:rbe_base --spawn_strategy=remote,worker,standalone,local
 build:rbe_base --remote_download_toplevel
 test:rbe_base --test_env=USER=anon
 
+build:rbe_linux --extra_execution_platforms="@ubuntu20.04-clang_manylinux2014-cuda12.3-cudnn9.1_config_platform//:platform"
+build:rbe_linux --host_platform="@ubuntu20.04-clang_manylinux2014-cuda12.3-cudnn9.1_config_platform//:platform"
+build:rbe_linux --platforms="@ubuntu20.04-clang_manylinux2014-cuda12.3-cudnn9.1_config_platform//:platform"
 build:rbe_linux --config=rbe_base
 build:rbe_linux --action_env=PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin"
 # Non-rbe settings we should include because we do not run configure

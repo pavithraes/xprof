@@ -2,6 +2,7 @@ import {Component, ElementRef, inject, Injector, NgZone, OnDestroy, Renderer2, V
 import {FormControl} from '@angular/forms';
 import {ActivatedRoute, Params} from '@angular/router';
 import {Store} from '@ngrx/store';
+import {Throbber} from 'org_xprof/frontend/app/common/classes/throbber';
 import {OpType} from 'org_xprof/frontend/app/common/constants/enums';
 import {ChartDataInfo} from 'org_xprof/frontend/app/common/interfaces/chart';
 import {SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
@@ -50,6 +51,7 @@ export class HloStats extends Dashboard implements OnDestroy {
   private readonly zone = inject(NgZone);
   /** Handles on-destroy Subject, used to unsubscribe. */
   private readonly destroyed = new ReplaySubject<void>(1);
+  private readonly throbber = new Throbber(this.tool);
   data: SimpleDataTable|null = null;
   hloOpNameSelected = '';
   programIdSelected = '';
@@ -119,6 +121,7 @@ export class HloStats extends Dashboard implements OnDestroy {
   @ViewChild('table', {read: ElementRef, static: false})
   chartElementRef: ElementRef|undefined = undefined;
   private readonly renderer: Renderer2 = inject(Renderer2);
+  sourceFileAndLineNumber = '';
   stackTrace = '';
   showStackTrace = false;
   sourceCodeServiceIsAvailable = false;
@@ -157,10 +160,12 @@ export class HloStats extends Dashboard implements OnDestroy {
 
   update() {
     setLoadingState(true, this.store, 'Loading hlo data');
+    this.throbber.start();
 
     this.dataService.getData(this.sessionId, this.tool, this.host)
         .pipe(takeUntil(this.destroyed))
         .subscribe((data) => {
+          this.throbber.stop();
           setLoadingState(false, this.store);
           this.data = data as SimpleDataTable | null;
           this.process(this.data);
@@ -170,11 +175,11 @@ export class HloStats extends Dashboard implements OnDestroy {
 
   onCheckInputParams() {
     this.hloOpNameSelected =
-        this.dataService.searchParams?.get('hlo_op_name') || '';
+        this.dataService.getSearchParams().get('hlo_op_name') || '';
     // Assumption: the program_id is in format like 'main(<program_id>)'
     // parsing with a regex to match content in the bracket
     const programIdParsed =
-        this.dataService.searchParams?.get('program_id')?.match(/\((.*)\)/);
+        this.dataService.getSearchParams().get('program_id')?.match(/\((.*)\)/);
     this.programIdSelected =
         programIdParsed?.length === 2 ? programIdParsed[1] : '';
   }
@@ -321,6 +326,7 @@ export class HloStats extends Dashboard implements OnDestroy {
         if (target instanceof HTMLElement) {
           if (target.classList.contains('source-info-cell')) {
             this.zone.run(() => {
+              this.sourceFileAndLineNumber = target.textContent || '';
               this.stackTrace = target.getAttribute('title') || '';
             });
           }

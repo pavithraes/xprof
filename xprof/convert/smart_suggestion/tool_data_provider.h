@@ -17,6 +17,7 @@ limitations under the License.
 #define THIRD_PARTY_XPROF_CONVERT_SMART_SUGGESTION_TOOL_DATA_PROVIDER_H_
 
 #include "absl/status/statusor.h"
+#include "plugin/xprof/protobuf/input_pipeline.pb.h"
 #include "plugin/xprof/protobuf/overview_page.pb.h"
 
 namespace tensorflow {
@@ -29,6 +30,10 @@ class ToolDataProvider {
 
   // Returns the OverviewPage data.
   virtual absl::StatusOr<const OverviewPage*> GetOverviewPage() = 0;
+
+  // Returns the InputPipelineAnalysisResult data.
+  virtual absl::StatusOr<const InputPipelineAnalysisResult*>
+  GetInputPipelineAnalysisResult() = 0;
 };
 
 }  // namespace profiler

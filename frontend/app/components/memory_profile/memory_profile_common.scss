@@ -20,6 +20,11 @@ mat-form-field {
   text-align: center;
 }
 
+.error-message span {
+  display: block;
+  padding: 15px;
+}
+
 .container {
   display: flex;
   flex-wrap: wrap;

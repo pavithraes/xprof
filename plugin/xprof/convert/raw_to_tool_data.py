@@ -26,14 +26,9 @@ from __future__ import print_function
 import logging
 
 from xprof.convert import csv_writer
-from xprof.convert import dcn_collective_stats_proto_to_gviz
 from xprof.convert import trace_events_json
 from xprof.protobuf import trace_events_old_pb2
-
-try:
-  from xprof.convert import _pywrap_profiler_plugin  # pylint: disable=g-import-not-at-top
-except ImportError:
-  from xprof.pywrap import _pywrap_profiler_plugin  # pylint: disable=g-import-not-at-top
+from xprof.convert import _pywrap_profiler_plugin
 
 
 logger = logging.getLogger('tensorboard')
@@ -220,9 +215,9 @@ def xspace_to_tool_data(
         content_type = 'text/html'
   elif tool == 'megascale_stats':
     options = {'host_name': params.get('host')}
-    raw_data, success = xspace_wrapper_func(xspace_paths, tool, options)
+    json_data, success = xspace_wrapper_func(xspace_paths, tool, options)
     if success:
-      data = dcn_collective_stats_proto_to_gviz.to_json(raw_data)
+      data = json_data
   elif tool == 'inference_profile':
     json_data, success = xspace_wrapper_func(xspace_paths, tool, options)
     if success:

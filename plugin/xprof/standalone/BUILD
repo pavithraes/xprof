@@ -1,7 +1,7 @@
 # Description:
 #   A collection of classes to bypass Tensorboard dependencies.
 
-load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_python//python:py_library.bzl", "py_library")
 
 visibility = ["//plugin:internal"]
@@ -44,7 +44,7 @@ py_library(
     srcs_version = "PY2AND3",
     deps = [
         ":plugin_asset_util",
-        requirement("etils"),
+        "@pypi//etils",
     ],
 )
 
@@ -65,4 +65,14 @@ py_library(
     srcs = ["context.py"],
     srcs_version = "PY2AND3",
     deps = [],
+)
+
+py_test(
+    name = "plugin_asset_util_test",
+    srcs = ["plugin_asset_util_test.py"],
+    deps = [
+        ":plugin_asset_util",
+        "//testing/pybase",
+        "//testing/pybase:parameterized",
+    ],
 )

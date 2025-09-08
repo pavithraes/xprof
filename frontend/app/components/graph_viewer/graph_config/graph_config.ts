@@ -1,3 +1,5 @@
+import 'org_xprof/frontend/app/common/interfaces/window';
+
 import {Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges} from '@angular/core';
 import {MatSelectChange} from '@angular/material/select';
 import {type GraphConfigInput, type GraphTypeObject} from 'org_xprof/frontend/app/common/interfaces/graph_viewer';
@@ -16,10 +18,12 @@ export class GraphConfig implements OnDestroy, OnChanges {
 
   @Output() readonly plot = new EventEmitter<Partial<GraphConfigInput>>();
   @Output() readonly updateSelectedModule = new EventEmitter<string>();
+  @Output() readonly updateGraphType = new EventEmitter<string>();
 
   /** Form inputs properties */
   @Input() initialInputs: GraphConfigInput|undefined = undefined;
   @Input() moduleList: string[] = [];
+  @Input() loadingModuleList = false;
   // Temparary indicator to hide the module name selection for 1vm graph viewer
   @Input() isHloOssTool = false;
   @Input() graphTypes: GraphTypeObject[] = [];
@@ -65,8 +69,7 @@ export class GraphConfig implements OnDestroy, OnChanges {
 
     // Update default module name once moduleList is updated
     if (changes.hasOwnProperty('moduleList') &&
-        changes['moduleList'].currentValue.length > 0 &&
-        !this.params.selectedModule) {
+        changes['moduleList'].currentValue.length > 0) {
       this.selectedModule = this.programId ?
           changes['moduleList'].currentValue.find(
               (module: string) => module.includes(this.programId),
@@ -102,6 +105,11 @@ export class GraphConfig implements OnDestroy, OnChanges {
 
   onModuleSelectionChange(e: MatSelectChange) {
     this.updateSelectedModule.emit(e.value);
+  }
+
+  onGraphTypeSelectionChange(e: MatSelectChange) {
+    this.selectedModule = '';
+    this.updateGraphType.emit(e.value);
   }
 
   isNewGraphViewer() {

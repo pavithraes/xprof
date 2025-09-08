@@ -41,7 +41,10 @@
         [inferenceLatencyData]="inferenceLatencyData"
         [class]="darkTheme ? 'dark-theme' : ''">
       </inference-latency-chart>
-      <ng-content select="[recommendationResultView]"></ng-content>
+      <smart-suggestion-view
+        [sessionId]="sessionId"
+        [darkTheme]="darkTheme">
+      </smart-suggestion-view>
       <ng-content select="[sblView]"></ng-content>
       <ng-content select="[tfDataView]"></ng-content>
     </div>

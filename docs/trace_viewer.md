@@ -105,12 +105,26 @@ Trace Viewer provides the following sections and tracks.
     *   **Framework Ops**: Displays framework operations (JAX, Tensorflow, or
         PyTorch, for example) executed on the TPU core, if appropriately
         annotated in the user program or framework.
-    *   **Source code**: Path to the source code being executed, if available in
-        the profile.
-*   One section for each Sparsecore node: Some TPU generations (e.g., TPU v5p
-    and TPU v6e) are
-    equipped with one or more SparseCore units in addition to the dense compute
-    MXU units;
+    *   **Framework Name Scope**: For each framework op, a visualization of the
+        stack trace. For brevity, this track only appears for a single device.
+    *   **Source code**: Path to the source code being executed, if available in the
+        profile.
+    *   **Scalar unit**: For TPUs, events executing on the scalar unit, depicted if
+        present in the profile.
+    *   **TensorCore Sync Flags**: Synchronization mechanism on TPUs, depicted if
+        present in the profile.
+    *   **Host Offload**: Ops that asynchronously move data between host memory and
+        accelerator memory. There are typically corresponding start and stop ops
+        that appear on the XLA Ops line indicating the accelerator getting
+        prepared for the data transfer (e.g., marking source/destination memory
+        regions as “in use” for the duration of the transfer). There may be
+        multiple host offload rows present if there are multiple offload ops
+        executing in parallel, requiring the trace viewer to concurrently
+        display multiple events.
+*   One section for each Sparsecore node: Some TPU generations (e.g.,
+    [TPU v5p](https://cloud.google.com/tpu/docs/v5p) and
+    [Trillium](https://cloud.google.com/tpu/docs/v6e)) are equipped with one or
+    more SparseCore units in addition to the dense compute MXU units;
     modules, ops, and TraceMes associated with these cores will appear in this
     section.
 *   One section for each GPU node, with the following tracks:

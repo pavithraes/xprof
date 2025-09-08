@@ -1,6 +1,7 @@
 import {Component, inject, OnDestroy, ViewChild} from '@angular/core';
 import {ActivatedRoute, Params} from '@angular/router';
 import {Store} from '@ngrx/store';
+import {Throbber} from 'org_xprof/frontend/app/common/classes/throbber';
 import {DEVICE_INFO, NUMERIC_DATA_FORMAT, PIE_CHART_PALETTE, ROOFLINE_NAMES, ROOFLINE_SERIES_NAMES, ROOFLINE_STYLES, SCATTER_CHART_AXIS, SCATTER_CHART_OPTIONS, } from 'org_xprof/frontend/app/common/constants/roofline_model_constants';
 import {RooflineModelData} from 'org_xprof/frontend/app/common/interfaces/roofline_model';
 import {getGigaflopsReadableString, setLoadingState} from 'org_xprof/frontend/app/common/utils/utils';
@@ -53,6 +54,8 @@ export class RooflineModel implements OnDestroy {
 
   /** Handles on-destroy Subject, used to unsubscribe. */
   private readonly destroyed = new ReplaySubject<void>(1);
+  private readonly throbber = new Throbber(this.tool);
+
   @ViewChild('programLevelAnalysis')
   programLevelAnalysis?: ProgramLevelAnalysis;
   @ViewChild('opLevelAnalysis') opLevelAnalysis?: OperationLevelAnalysis;
@@ -142,7 +145,7 @@ export class RooflineModel implements OnDestroy {
 
   parseUrlParams() {
     this.selectedOpName =
-      this.dataService.searchParams?.get('roofline_op_name') || '';
+        this.dataService.getSearchParams().get('roofline_op_name') || '';
   }
 
   refreshDashboards() {
@@ -158,12 +161,14 @@ export class RooflineModel implements OnDestroy {
 
   update() {
     setLoadingState(true, this.store, 'Loading roofline model data');
+    this.throbber.start();
     this.refreshDashboards();
 
     // get tool data
     this.dataService.getData(this.sessionId, this.tool, this.host)
         .pipe(takeUntil(this.destroyed))
         .subscribe((data) => {
+          this.throbber.stop();
           setLoadingState(false, this.store);
           this.parseData(data as RooflineModelData[]);
           // TODO(muditgokhale): Add support for roofline model link from trace

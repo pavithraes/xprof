@@ -18,45 +18,38 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import collections
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 import gzip
 import json
 import logging
 import os
 import re
 import threading
-import time
 from typing import Any, List, Optional, TypedDict
 
 from etils import epath
-from ratelimit import limits
-from ratelimit import sleep_and_retry
+import etils.epath.backend
 import six
 from werkzeug import wrappers
 
 from xprof import version
 from xprof.convert import raw_to_tool_data as convert
 from xprof.standalone.tensorboard_shim import base_plugin
-from xprof.standalone.tensorboard_shim import context as tb_context
 from xprof.standalone.tensorboard_shim import plugin_asset_util
+from xprof.convert import _pywrap_profiler_plugin
 
 
 logger = logging.getLogger('tensorboard')
 
 try:
   import tensorflow.compat.v2 as tf  # pylint: disable=g-import-not-at-top
-  from tensorflow.python.profiler import profiler_client  # pylint: disable=g-direct-tensorflow-import,g-import-not-at-top
-  from tensorflow.python.profiler import profiler_v2 as profiler  # pylint: disable=g-direct-tensorflow-import,g-import-not-at-top
 
   tf.enable_v2_behavior()
 except ImportError:
   logger.info(
-      'Disabling remote capture features as tensorflow is not available'
+      'Disabling some remote capture features as tensorflow is not available'
   )
   tf = None
-  profiler_client = None
-  profiler = None
 
 
 # The prefix of routes provided by this plugin.
@@ -79,6 +72,7 @@ HOSTS_ROUTE = '/hosts'
 HLO_MODULE_LIST_ROUTE = '/module_list'
 CAPTURE_ROUTE = '/capture_profile'
 LOCAL_ROUTE = '/local'
+CONFIG_ROUTE = '/config'
 CACHE_VERSION_FILE = 'cache_version.txt'
 
 # Suffixes of "^, #, @" symbols represent different input data formats for the
@@ -396,10 +390,84 @@ def validate_xplane_asset_paths(asset_paths: List[str]) -> None:
     FileNotFoundError: If any of the xplane asset paths do not exist.
   """
   for asset_path in asset_paths:
-    if str(asset_path).endswith(TOOLS['xplane']) and not epath.Path(
-        asset_path
-    ).exists():
+    if (
+        str(asset_path).endswith(TOOLS['xplane'])
+        and not epath.Path(asset_path).exists()
+    ):
       raise FileNotFoundError(f'Invalid asset path: {asset_path}')
+
+
+def _get_bool_arg(
+    args: Mapping[str, Any], arg_name: str, default: bool
+) -> bool:
+  """Gets a boolean argument from a request.
+
+  Args:
+    args: The werkzeug request arguments.
+    arg_name: The name of the argument.
+    default: The default value if the argument is not present.
+
+  Returns:
+    The boolean value of the argument.
+  """
+  arg_str = args.get(arg_name)
+  if arg_str is None:
+    return default
+  return arg_str.lower() == 'true'
+
+
+class _TfProfiler:
+  """A helper class to encapsulate all TensorFlow-dependent profiler logic."""
+
+  def __init__(self, tf_module):
+    if not tf_module:
+      raise ImportError('TensorFlow module is not available.')
+    self.tf = tf_module
+
+  def _get_worker_list(self, cluster_resolver) -> str:
+    """Parses TPU workers list from the cluster resolver."""
+    cluster_spec = cluster_resolver.cluster_spec()
+    task_indices = cluster_spec.task_indices('worker')
+    worker_list = [
+        cluster_spec.task_address('worker', i).replace(':8470', ':8466')
+        for i in task_indices
+    ]
+    return ','.join(worker_list)
+
+  def resolve_tpu_name(
+      self, tpu_name: str, worker_list: str
+  ) -> tuple[str, str, str]:
+    """Resolves a TPU name to its master IP, service address, and worker list.
+
+    Args:
+      tpu_name: The name of the TPU to resolve.
+      worker_list: A comma-separated list of worker addresses.
+
+    Returns:
+      A tuple containing (service_addr, worker_list, master_ip).
+    """
+    try:
+      resolver = self.tf.distribute.cluster_resolver.TPUClusterResolver(
+          tpu_name
+      )
+      master_grpc_addr = resolver.get_master()
+    except RuntimeError as err:
+      # Propagate error to be handled by the caller.
+      raise RuntimeError(
+          f'Error initializing TPUClusterResolver: {err}'
+      ) from err
+    except (ValueError, TypeError) as e:
+      # Handle cases where the TPU name is invalid.
+      raise ValueError(f'No TPU found with the name: {tpu_name}') from e
+
+    if not worker_list:
+      worker_list = self._get_worker_list(resolver)
+
+    # TPU cluster resolver always returns port 8470. Replace it with 8466
+    # on which profiler service is running.
+    master_ip = master_grpc_addr.replace('grpc://', '').replace(':8470', '')
+    service_addr = f'{master_ip}:8466'
+    return service_addr, worker_list, master_ip
 
 
 class ProfilePlugin(base_plugin.TBPlugin):
@@ -415,8 +483,14 @@ class ProfilePlugin(base_plugin.TBPlugin):
       context: A base_plugin.TBContext instance.
     """
     self.logdir = context.logdir
+    self.basedir = context.logdir
+    self.custom_session = None
+    self.custom_run_path = None
     self.data_provider = context.data_provider
     self.master_tpu_unsecure_channel = context.flags.master_tpu_unsecure_channel
+    self.hide_capture_profile_button = getattr(
+        context, 'hide_capture_profile_button', False
+    )
 
     # Whether the plugin is active. This is an expensive computation, so we
     # compute this asynchronously and cache positive results indefinitely.
@@ -425,6 +499,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     self._is_active_lock = threading.Lock()
     # Cache to map profile run name to corresponding tensorboard dir name
     self._run_to_profile_run_dir = {}
+    self._tf_profiler = _TfProfiler(tf) if tf else None
 
   def is_active(self) -> bool:
     """Whether this plugin is active and has any profile data to show.
@@ -455,7 +530,8 @@ class ProfilePlugin(base_plugin.TBPlugin):
         DATA_ROUTE: self.data_route,
         HLO_MODULE_LIST_ROUTE: self.hlo_module_list_route,
         CAPTURE_ROUTE: self.capture_route,
-        LOCAL_ROUTE: self.default_handler
+        LOCAL_ROUTE: self.default_handler,
+        CONFIG_ROUTE: self.config_route,
     }
 
   # pytype: disable=wrong-arg-types
@@ -463,6 +539,17 @@ class ProfilePlugin(base_plugin.TBPlugin):
   def default_handler(self, _: wrappers.Request) -> wrappers.Response:
     contents = self._read_static_file_impl('index.html')
     return respond(contents, 'text/html')
+
+  # pytype: disable=wrong-arg-types
+  @wrappers.Request.application
+  def config_route(self, request: wrappers.Request) -> wrappers.Response:
+    # pytype: enable=wrong-arg-types
+    """Returns UI configuration details."""
+    logger.info('config_route: %s', self.logdir)
+    config_data = {
+        'hideCaptureProfileButton': self.hide_capture_profile_button,
+    }
+    return respond(config_data, 'application/json')
 
   def frontend_metadata(self):
     return base_plugin.FrontendMetadata(es_module_path='/index.js')
@@ -521,7 +608,18 @@ class ProfilePlugin(base_plugin.TBPlugin):
       request: Optional; werkzeug request used for grabbing ctx and experiment
         id for other host implementations
     """
-    return sorted(list(self.generate_runs()), reverse=True)
+    session = request.args.get('session') if request else None
+    run_path = request.args.get('run_path') if request and not session else None
+    self.custom_session = session
+    self.custom_run_path = run_path
+    self.logdir = session if session else self.basedir
+    if self.custom_session or self.custom_run_path:
+      runs_generator = self._generate_runs_from_path_params(
+          session=self.custom_session, run_path=self.custom_run_path
+      )
+    else:
+      runs_generator = self.generate_runs()
+    return sorted(list(runs_generator), reverse=True)
 
   # pytype: disable=wrong-arg-types
   @wrappers.Request.application
@@ -637,19 +735,19 @@ class ProfilePlugin(base_plugin.TBPlugin):
     host = request.args.get('host')
     module_name = request.args.get('module_name')
     tqx = request.args.get('tqx')
-    use_saved_result_str = request.args.get('use_saved_result', 'true')
-    use_saved_result = use_saved_result_str.lower() != 'false'
+    use_saved_result = _get_bool_arg(request.args, 'use_saved_result', True)
+    full_dma = _get_bool_arg(request.args, 'full_dma', False)
     run_dir = self._run_dir(run)
 
-    # Check if the cache file exists and if the version is the same as the
-    # current version. If not, set use_saved_result to False.
+    # Check if the cache file exists and if the cache file version is less
+    # than the current plugin version, clear the cache.
     try:
       if epath.Path(os.path.join(run_dir, CACHE_VERSION_FILE)).exists():
         with epath.Path(os.path.join(run_dir, CACHE_VERSION_FILE)).open(
             'r'
         ) as f:
           cache_version = f.read().strip()
-          if cache_version != version.__version__:
+          if cache_version < version.__version__:
             use_saved_result = False
       else:
         use_saved_result = False
@@ -680,6 +778,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     if tool == 'trace_viewer@':
       options = {}
       options['resolution'] = request.args.get('resolution', 8000)
+      options['full_dma'] = full_dma
       if request.args.get('start_time_ms') is not None:
         options['start_time_ms'] = request.args.get('start_time_ms')
       if request.args.get('end_time_ms') is not None:
@@ -792,98 +891,66 @@ class ProfilePlugin(base_plugin.TBPlugin):
   def capture_route_impl(self, request: wrappers.Request) -> wrappers.Response:
     """Runs the client trace for capturing profiling information."""
 
-    if not tf or not profiler or not profiler_client:
-      return respond(
-          {'error': 'TensorFlow is not installed.'},
-          'application/json',
-          code=500,
-      )
-
-    def get_worker_list(
-        cluster_resolver: tf.distribute.cluster_resolver.ClusterResolver,
-    ) -> str:
-      """Parses TPU workers list from the cluster resolver."""
-      cluster_spec = cluster_resolver.cluster_spec()
-      task_indices = cluster_spec.task_indices('worker')
-      worker_list = [
-          cluster_spec.task_address('worker', i).replace(':8470', ':8466')
-          for i in task_indices
-      ]
-      return ','.join(worker_list)
-
     service_addr = request.args.get('service_addr')
     duration = int(request.args.get('duration', '1000'))
     is_tpu_name = request.args.get('is_tpu_name') == 'true'
     worker_list = request.args.get('worker_list')
     num_tracing_attempts = int(request.args.get('num_retry', '0')) + 1
-    options = None
-    try:
-      options = profiler.ProfilerOptions(
-          host_tracer_level=int(request.args.get('host_tracer_level', '2')),
-          device_tracer_level=int(request.args.get('device_tracer_level', '1')),
-          python_tracer_level=int(request.args.get('python_tracer_level', '0')),
-      )
-      # For preserving backwards compatibility with TensorFlow 2.3 and older.
-      if 'delay_ms' in options._fields:
-        options.delay_ms = int(request.args.get('delay', '0'))
-    except AttributeError:
-      logger.warning('ProfilerOptions are available after tensorflow 2.3')
+    options = {
+        'host_tracer_level': int(request.args.get('host_tracer_level', '2')),
+        'device_tracer_level': int(
+            request.args.get('device_tracer_level', '1')
+        ),
+        'python_tracer_level': int(
+            request.args.get('python_tracer_level', '0')
+        ),
+        'delay_ms': int(request.args.get('delay', '0')),
+    }
 
     if is_tpu_name:
-      try:
-        tpu_cluster_resolver = (
-            tf.distribute.cluster_resolver.TPUClusterResolver(service_addr)
-        )
-        master_grpc_addr = tpu_cluster_resolver.get_master()
-      except (ImportError, RuntimeError) as err:
-        return respond({'error': repr(err)}, 'application/json', code=500)
-      except (ValueError, TypeError):
+      if not self._tf_profiler:
         return respond(
-            {'error': 'no TPUs with the specified names exist.'},
+            {
+                'error': (
+                    'TensorFlow is not installed, but is required to use TPU'
+                    ' names.'
+                )
+            },
             'application/json',
             code=500,
         )
-      if not worker_list:
-        worker_list = get_worker_list(tpu_cluster_resolver)
-      # TPU cluster resolver always returns port 8470. Replace it with 8466
-      # on which profiler service is running.
-      master_ip = master_grpc_addr.replace('grpc://', '').replace(':8470', '')
-      service_addr = master_ip + ':8466'
-      # Set the master TPU for streaming trace viewer.
-      self.master_tpu_unsecure_channel = master_ip
-    try:
-      if options:
-        profiler_client.trace(
-            service_addr,
-            self.logdir,
-            duration,
-            worker_list,
-            num_tracing_attempts,
-            options=options)
-      else:
-        profiler_client.trace(
-            service_addr,
-            self.logdir,
-            duration,
-            worker_list,
-            num_tracing_attempts,
+      try:
+        # Delegate to the helper class for all TF-related logic.
+        service_addr, worker_list, master_ip = (
+            self._tf_profiler.resolve_tpu_name(service_addr, worker_list or '')
         )
+        self.master_tpu_unsecure_channel = master_ip
+      except (RuntimeError, ValueError) as err:
+        return respond({'error': str(err)}, 'application/json', code=500)
+
+    if not self.logdir:
+      return respond(
+          {'error': 'logdir is not set, abort capturing.'},
+          'application/json',
+          code=500,
+      )
+    try:
+      # The core trace call remains, now with cleanly resolved parameters.
+      _pywrap_profiler_plugin.trace(
+          service_addr.removeprefix('grpc://'),
+          str(self.logdir),
+          worker_list,
+          True,
+          duration,
+          num_tracing_attempts,
+          options,
+      )
       return respond(
           {'result': 'Capture profile successfully. Please refresh.'},
           'application/json',
       )
-    except tf.errors.UnavailableError:
-      return respond(
-          {'error': 'empty trace result.'},
-          'application/json',
-          code=200,
-      )
     except Exception as e:  # pylint: disable=broad-except
-      return respond(
-          {'error': str(e)},
-          'application/json',
-          code=500,
-      )
+      return respond({'error': str(e)}, 'application/json', code=500)
 
   def _get_graph_viewer_options(
       self, request: wrappers.Request
@@ -929,12 +996,77 @@ class ProfilePlugin(base_plugin.TBPlugin):
     if not tb_run_name:
       tb_run_name = '.'
     tb_run_directory = _tb_run_directory(self.logdir, tb_run_name)
-    if not epath.Path(tb_run_directory).is_dir():
+    if not self.logdir or not epath.Path(tb_run_directory).is_dir():
       raise RuntimeError('No matching run directory for run %s' % run)
-
+    if self.custom_session or self.custom_run_path:
+      return os.path.join(tb_run_directory, profile_run_name)
     plugin_directory = plugin_asset_util.PluginDirectory(
-        tb_run_directory, PLUGIN_NAME)
+        tb_run_directory, PLUGIN_NAME
+    )
     return os.path.join(plugin_directory, profile_run_name)
+
+  def _generate_runs_from_path_params(
+      self, session: Optional[str] = None, run_path: Optional[str] = None
+  ) -> Iterator[str]:
+    """Generator for a list of runs from path parameters.
+
+    This function handles two specific scenarios for specifying profile data
+    locations:
+    1.  `session`: A direct path to a directory containing XPlane files for a
+        single profiling session. The directory's name becomes the run name.
+    2.  `run_path`: A path to a directory that contains multiple session
+        directories. Each subdirectory that contains XPlane files is treated
+        as a profiling session, and its name becomes a run name.
+
+    Example Directory Structures:
+
+    Scenario 1: Using `session`
+    If `session` is `/path/to/my_session_dir`:
+    ```
+    /path/to/
+      my_session_dir/
+        hostA.xplane.pb
+        hostB.xplane.pb
+    ```
+    This would yield a single run: "my_session_dir".
+
+    Scenario 2: Using `run_path`
+    If `run_path` is `/path/to/my_runs`:
+    ```
+    /path/to/
+      my_runs/
+        session_alpha/
+          host1.xplane.pb
+        session_beta/
+          host2.xplane.pb
+        other_dir/  (ignored if no *.xplane.pb)
+    ```
+    This would yield runs: "session_alpha", "session_beta".
+
+    Args:
+      session: An optional path string to a specific profiling session
+        directory.
+      run_path: An optional path string to a directory containing multiple
+        profiling session subdirectories.
+
+    Yields:
+      A sequence of string that are "frontend run names" derived from the
+      provided path parameters.
+    """
+
+    if session:
+      session = epath.Path(session)
+      run_name = session.name
+      self.logdir = str(session.parent)
+      self._run_to_profile_run_dir[run_name] = str(session)
+      yield run_name
+    elif run_path:
+      run_path = epath.Path(run_path)
+      self.logdir = str(run_path)
+      for session in run_path.iterdir():
+        if session.is_dir() and any(session.glob('*.xplane.pb')):
+          self._run_to_profile_run_dir[session.name] = str(session)
+          yield session.name
 
   def generate_runs(self) -> Iterator[str]:
     """Generator for a list of runs.
@@ -946,8 +1078,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     represents a single instance of profile data collection, more similar to a
     "step" of data in typical TensorBoard semantics. These runs reside in
     subdirectories of the plugins/profile directory within any regular
-    TensorBoard run directory (defined as a subdirectory of the logdir that
-    contains at least one tfevents file) or within the logdir root directory
+    TensorBoard run directory or within the logdir root directory
     itself (even if it contains no tfevents file and would thus not be
     considered a normal TensorBoard run, for backwards compatibility).
 
@@ -987,96 +1118,39 @@ class ProfilePlugin(base_plugin.TBPlugin):
         "run1", "train/run1", "train/run2", "validation/run1",
         "new_job/tensorboard/run1"
     """
+    self.logdir = self.basedir
+    if not self.logdir:
+      return
 
-    # TODO(kcai): Remove this block once we can rely on walk() to get all
-    #             subdirectories, this requires python 3.12.
-    def find_all_subdirectories(top_path: epath.Path) -> Iterator[epath.Path]:
-      @sleep_and_retry
-      @limits(
-          calls=MAX_GCS_REQUESTS / AVERAGE_SUBDIR_NUMBER,
-          period=LIMIT_WINDOW_SECONDS,
-      )
-      def get_subdirectories(
-          current_dir: epath.Path, dirs_to_visit: collections.deque[epath.Path]
-      ):
-        try:
-          for path in current_dir.iterdir():
-            if path.is_dir():
-              dirs_to_visit.append(path)
-        except (IOError, OSError) as e:
-          logger.warning('Could not list directory %s: %s', current_dir, e)
-
-      if not top_path.is_dir():
-        return
-
-      dirs_to_visit = collections.deque([top_path])
-
-      logger.info(
-          'Start to find all subdirectories of %s at %s, subjected to be'
-          ' throttled by %d requests per %d seconds',
-          top_path,
-          time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-          MAX_GCS_REQUESTS,
-          LIMIT_WINDOW_SECONDS,
-      )
-      while dirs_to_visit:
-        current_dir = dirs_to_visit.popleft()
-        yield current_dir
-        get_subdirectories(current_dir, dirs_to_visit)
-      logger.info(
-          'Finish finding all subdirectories of %s at %s',
-          top_path,
-          time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-      )
-
-    ctx = tb_context.RequestContext()
-    tb_runs = set()
-    # Get all tfevents files that TensorBoard would consider runs.
-    # TODO(kcai): Remove this block once we can rely on the behavior of
-    #             list_runs() returning all subdirectories with tfevents files.
-    for run in self.data_provider.list_runs(ctx, experiment_id=''):
-      # Ensure that we also check the parent directory of runs generated by
-      # Tensorboard.
-      # Example:
-      # logs/
-      #   2024-08-20-12-34-56/
-      #     plugins/profile/run1/hostA.trace
-      #     train/events.out.tfevents.foo
-      #     validation/events.out.tfevents.foo
-      # list_runs() will return:
-      #   2024-08-20-12-34-56/train
-      #   2024-08-20-12-34-56/validation
-      # and we want to ensure that we also check the parent directory:
-      #   2024-08-20-12-34-56/
-      if os.path.basename(run.run_name) in ['train', 'validation']:
-        tb_runs.add(os.path.dirname(run.run_name))
-    # Ensure that we also check the root logdir and all subdirectories, even if
-    # it isn't a recognized TensorBoard run (i.e. has no tfevents file directly
-    # under it), to remain backwards compatible with previously profile plugin
-    # behavior. Note that we check if logdir is a directory to handle case where
+    # Ensure that we check the root logdir and all subdirectories.
+    # Note that we check if logdir is a directory to handle case where
     # it's actually a multipart directory spec, which this plugin does not
     # support.
     #
     # This change still enforce the requirement that the subdirectories must
     # end with plugins/profile directory, as enforced by TensorBoard.
     logdir_path = epath.Path(self.logdir)
-    if '.' not in tb_runs:
-      tb_runs.add('.')
+    schemeless_logdir = str(logdir_path)
+    if '://' in schemeless_logdir:
+      schemeless_logdir = schemeless_logdir.split('://', 1)[1]
+    tb_runs = {'.'}
+
     if logdir_path.is_dir():
-      for path in find_all_subdirectories(logdir_path):
-        relative_path = path.relative_to(logdir_path)
-        try:
-          *parts, second_last_dir, last_dir = relative_path.parts
-          # Only add subdirectories to runs that are end with plugins/profile.
-          if (
-              len(parts) >= 1  # len(parts) == 0 is the root logdir.
-              and last_dir == PLUGIN_NAME
-              and second_last_dir == TB_NAME
-          ):
-            tb_runs.add(str(epath.Path(*parts)))
-        except ValueError:
-          logger.info('Could not unpack relative path parts: %s', relative_path)
-          pass
+      try:
+        fs = etils.epath.backend.fsspec_backend.fs(self.logdir)
+        for path_str in fs.glob(os.path.join(self.logdir, '**', PLUGIN_NAME)):
+          path = epath.Path(path_str)
+          if fs.isdir(path) and path.parent.name == TB_NAME:
+            tb_run_dir = path.parent.parent
+            tb_run = tb_run_dir.relative_to(schemeless_logdir)
+            tb_runs.add(str(tb_run))
+      except ValueError:
+        # gcsfs not available, fall back to legacy path walk.
+        for cur_dir, _, _ in logdir_path.walk():
+          if (cur_dir.name == PLUGIN_NAME and cur_dir.parent.name == TB_NAME):
+            tb_run_dir = cur_dir.parent.parent
+            tb_run = tb_run_dir.relative_to(logdir_path)
+            tb_runs.add(str(tb_run))
     tb_run_names_to_dirs = {
         run: _tb_run_directory(self.logdir, run) for run in tb_runs
     }
@@ -1094,8 +1168,8 @@ class ProfilePlugin(base_plugin.TBPlugin):
         if tb_run_name == '.':
           frontend_run = profile_run
         else:
-          frontend_run = os.path.join(tb_run_name, profile_run)
-        profile_run_dir = os.path.join(tb_plugin_dir, profile_run)
+          frontend_run = str(epath.Path(tb_run_name) / profile_run)
+        profile_run_dir = str(epath.Path(tb_plugin_dir) / profile_run)
         if epath.Path(profile_run_dir).is_dir():
           self._run_to_profile_run_dir[frontend_run] = profile_run_dir
           if frontend_run not in visited_runs:
