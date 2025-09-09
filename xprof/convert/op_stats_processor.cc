@@ -170,7 +170,7 @@ absl::Status OpStatsProcessor::Reduce(
       session_snapshot, StoredDataType::OP_STATS,
       tensorflow::profiler::kAllHostsIdentifier, combined_op_stats));
 
-  return ProcessCombinedOpStats(session_snapshot, combined_op_stats);
+  return ProcessCombinedOpStats(session_snapshot, combined_op_stats, options_);
 }
 
 bool OpStatsProcessor::ShouldUseWorkerService(

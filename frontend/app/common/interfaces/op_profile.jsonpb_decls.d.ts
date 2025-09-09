@@ -7,6 +7,8 @@ export interface Profile {
   deviceType?: string;
   byCategoryExcludeIdle?: Node;
   byProgramExcludeIdle?: Node;
+  byProvenance?: Node;
+  byProvenanceExcludeIdle?: Node;
 }
 
 /** An entry in the profile tree. (An instruction, or set of instructions). */

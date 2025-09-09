@@ -16,6 +16,8 @@ limitations under the License.
 #ifndef XPROF_CONVERT_OP_STATS_TO_OP_PROFILE_H_
 #define XPROF_CONVERT_OP_STATS_TO_OP_PROFILE_H_
 
+#include "xprof/convert/op_profile_builder.h"
+#include "xprof/convert/tool_options.h"
 #include "plugin/xprof/protobuf/hardware_types.pb.h"
 #include "plugin/xprof/protobuf/op_profile.pb.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
@@ -48,7 +50,24 @@ void ConvertOpStatsToOpProfile(
     const tensorflow::profiler::OpStats& op_stats,
     tensorflow::profiler::HardwareType hardware_type,
     tensorflow::profiler::op_profile::Profile& profile,
-    int op_profile_limit = 100);
+    int op_profile_limit = 100,
+    OpProfileGrouping group_by = OpProfileGrouping::kByProgram);
+
+// Parses the "group_by" option and returns the corresponding OpProfileGrouping.
+inline OpProfileGrouping GetOpProfileGrouping(
+    const tensorflow::profiler::ToolOptions& options) {
+  if (auto it = options.find("group_by");
+      it != options.end() && std::holds_alternative<std::string>(it->second)) {
+    const std::string& group_by_str = std::get<std::string>(it->second);
+    if (group_by_str == "category") {
+      return OpProfileGrouping::kByCategory;
+    }
+    if (group_by_str == "provenance") {
+      return OpProfileGrouping::kByProvenance;
+    }
+  }
+  return OpProfileGrouping::kByProgram;
+}
 
 }  // namespace profiler
 }  // namespace tensorflow

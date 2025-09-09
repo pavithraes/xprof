@@ -53,7 +53,8 @@ absl::Status PodViewerProcessor::ProcessSession(
 }
 
 absl::Status PodViewerProcessor::ProcessCombinedOpStats(
-    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
+    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats,
+    const tensorflow::profiler::ToolOptions& options) {
   std::string json_output;
   tsl::protobuf::util::JsonPrintOptions opts;
   opts.always_print_fields_with_no_presence = true;

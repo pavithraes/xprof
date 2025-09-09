@@ -47,7 +47,8 @@ absl::Status InputPipelineProcessor::ProcessSession(
 }
 
 absl::Status InputPipelineProcessor::ProcessCombinedOpStats(
-    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
+    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats,
+    const tensorflow::profiler::ToolOptions& options) {
   InputPipelineAnalysisResult result =
       ConvertOpStatsToInputPipelineAnalysis(combined_op_stats);
 

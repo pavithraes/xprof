@@ -32,6 +32,9 @@ namespace xprof {
 
 class OpStatsProcessor : public ProfileProcessor {
  public:
+  explicit OpStatsProcessor(const tensorflow::profiler::ToolOptions& options)
+      : options_(options) {}
+
   // Converts XSpace to serialized OpStats.
   absl::StatusOr<std::string> Map(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
@@ -54,7 +57,8 @@ class OpStatsProcessor : public ProfileProcessor {
   // Tool-specific processing using the combined OpStats.
   virtual absl::Status ProcessCombinedOpStats(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
-      const tensorflow::profiler::OpStats& combined_op_stats) = 0;
+      const tensorflow::profiler::OpStats& combined_op_stats,
+      const tensorflow::profiler::ToolOptions& options) = 0;
 
   bool ShouldUseWorkerService(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
@@ -65,6 +69,9 @@ class OpStatsProcessor : public ProfileProcessor {
   absl::StatusOr<std::string> GetMapOutputForHost(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
       int host_index);
+
+ protected:
+  tensorflow::profiler::ToolOptions options_;
 };
 
 }  // namespace xprof

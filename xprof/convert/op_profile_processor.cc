@@ -29,7 +29,6 @@ limitations under the License.
 
 namespace xprof {
 
-using tensorflow::profiler::ConvertMultiXSpaceToCombinedOpStatsWithCache;
 using tensorflow::profiler::OpStats;
 using tensorflow::profiler::ParseHardwareType;
 using tensorflow::profiler::SessionSnapshot;
@@ -44,10 +43,11 @@ absl::Status OpProfileProcessor::ProcessSession(
       session_snapshot, &combined_op_stats));
 
   tensorflow::profiler::op_profile::Profile profile;
+  auto group_by = tensorflow::profiler::GetOpProfileGrouping(options);
   ConvertOpStatsToOpProfile(
       combined_op_stats,
       ParseHardwareType(combined_op_stats.run_environment().device_type()),
-      profile);
+      profile, /*op_profile_limit=*/100, group_by);
   std::string json_output;
   tsl::protobuf::util::JsonPrintOptions opts;
   opts.always_print_fields_with_no_presence = true;
@@ -64,12 +64,14 @@ absl::Status OpProfileProcessor::ProcessSession(
 }
 
 absl::Status OpProfileProcessor::ProcessCombinedOpStats(
-    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
+    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats,
+    const tensorflow::profiler::ToolOptions& options) {
   Profile profile;
+  auto group_by = tensorflow::profiler::GetOpProfileGrouping(options);
   ConvertOpStatsToOpProfile(
       combined_op_stats,
       ParseHardwareType(combined_op_stats.run_environment().device_type()),
-      profile);
+      profile, /*op_profile_limit=*/100, group_by);
   std::string op_profile_json;
   JsonPrintOptions opts;
   opts.always_print_fields_with_no_presence = true;

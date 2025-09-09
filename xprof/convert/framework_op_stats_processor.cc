@@ -45,7 +45,8 @@ absl::Status FrameworkOpStatsProcessor::ProcessSession(
 }
 
 absl::Status FrameworkOpStatsProcessor::ProcessCombinedOpStats(
-    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
+    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats,
+    const tensorflow::profiler::ToolOptions& options) {
   TfStatsDatabase result =
       ConvertOpStatsToTfStats(combined_op_stats);
 

@@ -41,7 +41,8 @@ using tensorflow::profiler::OverviewPage;
 using tensorflow::profiler::SessionSnapshot;
 
 absl::Status OverviewPageProcessor::ProcessCombinedOpStats(
-    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
+    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats,
+    const tensorflow::profiler::ToolOptions& options) {
   OverviewPage overview_page = ConvertOpStatsToOverviewPage(combined_op_stats);
 
   if (!combined_op_stats.run_environment().is_training()) {

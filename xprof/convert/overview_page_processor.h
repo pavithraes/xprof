@@ -31,18 +31,16 @@ class OverviewPageProcessor : public OpStatsProcessor {
  public:
   explicit OverviewPageProcessor(
       const tensorflow::profiler::ToolOptions& options)
-      : options_(options) {}
+      : OpStatsProcessor(options) {}
 
   absl::Status ProcessCombinedOpStats(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
-      const tensorflow::profiler::OpStats& combined_op_stats) override;
+      const tensorflow::profiler::OpStats& combined_op_stats,
+      const tensorflow::profiler::ToolOptions& options) override;
 
   absl::Status ProcessSession(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
       const tensorflow::profiler::ToolOptions& options) override;
-
- private:
-  tensorflow::profiler::ToolOptions options_;
 };
 
 REGISTER_PROFILE_PROCESSOR("overview_page", OverviewPageProcessor);

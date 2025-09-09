@@ -27,9 +27,8 @@ namespace xprof {
 
 class HloStatsProcessor : public OpStatsProcessor {
  public:
-  explicit HloStatsProcessor(
-      const tensorflow::profiler::ToolOptions& options)
-      : options_(options) {}
+  explicit HloStatsProcessor(const tensorflow::profiler::ToolOptions& options)
+      : OpStatsProcessor(options) {}
 
   absl::Status ProcessSession(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
@@ -37,11 +36,8 @@ class HloStatsProcessor : public OpStatsProcessor {
 
   absl::Status ProcessCombinedOpStats(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
-      const tensorflow::profiler::OpStats& combined_op_stats) override;
-
-
- private:
-  tensorflow::profiler::ToolOptions options_;
+      const tensorflow::profiler::OpStats& combined_op_stats,
+      const tensorflow::profiler::ToolOptions& options) override;
 };
 
 REGISTER_PROFILE_PROCESSOR("hlo_stats", HloStatsProcessor);

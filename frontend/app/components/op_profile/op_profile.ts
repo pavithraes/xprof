@@ -6,8 +6,10 @@ import {OpProfileProto} from 'org_xprof/frontend/app/common/interfaces/data_tabl
 import {setLoadingState} from 'org_xprof/frontend/app/common/utils/utils';
 import {DATA_SERVICE_INTERFACE_TOKEN, DataServiceV2Interface} from 'org_xprof/frontend/app/services/data_service_v2/data_service_v2_interface';
 import {setProfilingDeviceTypeAction} from 'org_xprof/frontend/app/store/actions';
-import {ReplaySubject} from 'rxjs';
-import {combineLatestWith, takeUntil} from 'rxjs/operators';
+import {Observable, of, ReplaySubject} from 'rxjs';
+import {combineLatestWith, map, takeUntil} from 'rxjs/operators';
+
+const GROUP_BY_RULES = ['program', 'category', 'provenance'];
 
 /** An op profile component. */
 @Component({
@@ -23,11 +25,13 @@ export class OpProfile implements OnDestroy {
   private readonly throbber = new Throbber(this.tool);
   private readonly dataService: DataServiceV2Interface =
       inject(DATA_SERVICE_INTERFACE_TOKEN);
+  private readonly opProfileDataCache = new Map<string, OpProfileProto>();
 
   sessionId = '';
   host = '';
   moduleList: string[] = [];
   opProfileData: OpProfileProto|null = null;
+  groupBy = GROUP_BY_RULES[0]; // Default value
 
   constructor(
       route: ActivatedRoute,
@@ -45,21 +49,42 @@ export class OpProfile implements OnDestroy {
     this.host = params['host'] || this.host;
   }
 
-  update() {
+  private fetchData(groupBy: string): Observable<OpProfileProto|null> {
+    const cachedData = this.opProfileDataCache.get(groupBy);
+    if (cachedData) {
+      return of(cachedData);
+    }
+
     setLoadingState(true, this.store, 'Loading op profile data');
     this.throbber.start();
-    const $data =
-        this.dataService.getData(this.sessionId, this.tool, this.host);
+
+    const params = new Map<string, string>();
+    params.set('group_by', groupBy);
+    return this.dataService
+        .getData(this.sessionId, this.tool, this.host, params)
+        .pipe(
+            map((data) => {
+              this.throbber.stop();
+              setLoadingState(false, this.store);
+              if (data) {
+                const opProfileData = data as OpProfileProto;
+                this.opProfileDataCache.set(groupBy, opProfileData);
+                return opProfileData;
+              }
+              return null;
+            }),
+        );
+  }
+
+  update() {
+    const $data = this.fetchData(this.groupBy);
     const $moduleList = this.dataService.getModuleList(
         this.sessionId,
     );
-
     $data.pipe(combineLatestWith($moduleList), takeUntil(this.destroyed))
         .subscribe(([data, moduleList]) => {
-          this.throbber.stop();
-          setLoadingState(false, this.store);
           if (data) {
-            this.opProfileData = data as OpProfileProto;
+            this.opProfileData = data;
             this.store.dispatch(
                 setProfilingDeviceTypeAction({
                   deviceType: this.opProfileData.deviceType,
@@ -70,6 +95,21 @@ export class OpProfile implements OnDestroy {
             this.moduleList = moduleList.split(',');
           }
         });
+  }
+
+  updateTable() {
+    this.fetchData(this.groupBy)
+        .pipe(takeUntil(this.destroyed))
+        .subscribe((data) => {
+          if (data) {
+            this.opProfileData = data;
+          }
+        });
+  }
+
+  onGroupByChange(newGroupBy: string) {
+    this.groupBy = newGroupBy;
+    this.updateTable();
   }
 
   ngOnDestroy() {

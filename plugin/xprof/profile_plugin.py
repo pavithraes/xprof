@@ -764,6 +764,8 @@ class ProfilePlugin(base_plugin.TBPlugin):
         'module_name': module_name,
         'use_saved_result': use_saved_result,
     }
+    if request.args.get('group_by'):
+      params['group_by'] = request.args.get('group_by')
     content_type = 'application/json'
 
     if tool not in TOOLS and not use_xplane(tool):

@@ -46,7 +46,8 @@ absl::Status HloStatsProcessor::ProcessSession(
 }
 
 absl::Status HloStatsProcessor::ProcessCombinedOpStats(
-    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
+    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats,
+    const tensorflow::profiler::ToolOptions& options) {
   HloStatsDatabase hlo_stats_db =
       ConvertOpStatsToHloStats(combined_op_stats);
 

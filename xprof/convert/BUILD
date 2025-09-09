@@ -335,6 +335,7 @@ cc_library(
     hdrs = ["op_profile_processor.h"],
     deps = [
         ":multi_xplanes_to_op_stats",
+        ":op_profile_builder",
         ":op_stats_processor",
         ":op_stats_to_op_profile",
         ":profile_processor_factory",
@@ -600,6 +601,7 @@ cc_library(
     hdrs = ["op_stats_to_op_profile.h"],
     deps = [
         ":op_profile_builder",
+        ":tool_options",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
         "@org_xprof//plugin/xprof/protobuf:hardware_types_proto_cc",
@@ -1224,6 +1226,7 @@ cc_library(
         ":memory_viewer_processor",
         ":multi_xplanes_to_op_stats",
         ":multi_xspace_to_inference_stats",
+        ":op_profile_builder",
         ":op_profile_processor",
         ":op_stats_to_hlo_stats",
         ":op_stats_to_input_pipeline_analysis",
@@ -1281,6 +1284,7 @@ cc_library(
         "@tsl//tsl/platform:path",
         "@tsl//tsl/platform:protobuf",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/service:hlo_proto_cc",
         "@xla//xla/tsl/platform:env",
         "@xla//xla/tsl/platform:errors",
         "@xla//xla/tsl/platform:statusor",

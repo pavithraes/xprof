@@ -50,7 +50,8 @@ absl::Status RooflineModelProcessor::ProcessSession(
 }
 
 absl::Status RooflineModelProcessor::ProcessCombinedOpStats(
-    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
+    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats,
+    const tensorflow::profiler::ToolOptions& options) {
   RooflineModelDatabase result =
       ConvertOpStatsToRooflineModel(combined_op_stats, true);
   RooflineModelDatabase result_without_infeed_outfeed =

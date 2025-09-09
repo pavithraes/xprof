@@ -43,7 +43,8 @@ absl::Status KernelStatsProcessor::ProcessSession(
 }
 
 absl::Status KernelStatsProcessor::ProcessCombinedOpStats(
-    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats) {
+    const SessionSnapshot& session_snapshot, const OpStats& combined_op_stats,
+    const tensorflow::profiler::ToolOptions& options) {
   std::string kernel_stats_json =
       KernelStatsToDataTableJson(combined_op_stats.kernel_stats_db());
   SetOutput(kernel_stats_json, "application/json");

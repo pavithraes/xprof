@@ -30,6 +30,7 @@ limitations under the License.
 #include "absl/strings/string_view.h"
 #include "grpcpp/client_context.h"
 #include "grpcpp/support/status.h"
+#include "xla/service/hlo.pb.h"
 #include "xla/tsl/platform/env.h"
 #include "xla/tsl/platform/errors.h"
 #include "xla/tsl/platform/file_system.h"
@@ -50,11 +51,9 @@ limitations under the License.
 #include "xprof/convert/kernel_stats_processor.h"
 #include "xprof/convert/multi_xplanes_to_op_stats.h"
 #include "xprof/convert/multi_xspace_to_inference_stats.h"
-#include "xprof/convert/op_profile_processor.h"
 #include "xprof/convert/op_stats_to_hlo_stats.h"
 #include "xprof/convert/op_stats_to_input_pipeline_analysis.h"
 #include "xprof/convert/op_stats_to_op_profile.h"
-#include "xprof/convert/op_stats_to_overview_page.h"
 #include "xprof/convert/op_stats_to_pod_viewer.h"
 #include "xprof/convert/op_stats_to_roofline_model.h"
 #include "xprof/convert/op_stats_to_tf_stats.h"
@@ -291,10 +290,29 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToRooflineModel(
 }
 
 absl::StatusOr<std::string> ConvertMultiXSpacesToOpProfileViewer(
-    const SessionSnapshot& session_snapshot) {
-  xprof::OpProfileProcessor processor({});
-  TF_RETURN_IF_ERROR(processor.ProcessSession(session_snapshot, {}));
-  return processor.GetData();
+    const SessionSnapshot& session_snapshot, const ToolOptions& options) {
+  OpStats combined_op_stats;
+  TF_RETURN_IF_ERROR(ConvertMultiXSpaceToCombinedOpStatsWithCache(
+      session_snapshot, &combined_op_stats));
+
+  tensorflow::profiler::op_profile::Profile profile;
+  auto group_by = tensorflow::profiler::GetOpProfileGrouping(options);
+  ConvertOpStatsToOpProfile(
+      combined_op_stats,
+      ParseHardwareType(combined_op_stats.run_environment().device_type()),
+      profile, /*op_profile_limit=*/100, group_by);
+  std::string json_output;
+  tsl::protobuf::util::JsonPrintOptions opts;
+  opts.always_print_fields_with_no_presence = true;
+
+  auto encode_status =
+      tsl::protobuf::util::MessageToJsonString(profile, &json_output, opts);
+  if (!encode_status.ok()) {
+    const auto& error_message = encode_status.message();
+    return tsl::errors::Internal(
+        "Could not convert op profile proto to json. Error: ", error_message);
+  }
+  return json_output;
 }
 
 absl::StatusOr<std::string> PreprocessXSpace(
@@ -477,7 +495,7 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToToolData(
   } else if (tool_name == "pod_viewer") {
     return ConvertMultiXSpacesToPodViewer(session_snapshot);
   } else if (tool_name == "op_profile") {
-    return ConvertMultiXSpacesToOpProfileViewer(session_snapshot);
+    return ConvertMultiXSpacesToOpProfileViewer(session_snapshot, options);
   } else if (tool_name == "hlo_stats") {
     return ConvertMultiXSpacesToHloStats(session_snapshot);
   } else if (tool_name == "roofline_model") {
