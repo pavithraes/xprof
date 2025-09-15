@@ -3,13 +3,21 @@ load("//plugin/xprof/build_utils:strict.default.bzl", "py_strict_test")
 
 package(default_visibility = ["//visibility:public"])
 
+config_setting(
+    name = "dbg_build",
+    values = {"compilation_mode": "dbg"},
+)
+
 pytype_extension(
     name = "_pywrap_profiler_plugin",
     srcs = ["pywrap_profiler_plugin.cc"],
     copts = [
         "-fno-strict-aliasing",
         "-fexceptions",
-    ],
+    ] + select({
+        ":dbg_build": ["-g"],
+        "//conditions:default": [],
+    }),
     features = ["-use_header_modules"],
     pytype_srcs = [
         "_pywrap_profiler_plugin.pyi",
