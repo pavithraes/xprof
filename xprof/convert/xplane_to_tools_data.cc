@@ -110,6 +110,7 @@ struct TraceViewOption {
   double start_time_ms = 0.0;
   double end_time_ms = 0.0;
   std::string event_name = "";
+  std::string search_prefix = "";
   double duration_ms = 0.0;
   uint64_t unique_id = 0;
 };
@@ -124,6 +125,8 @@ absl::StatusOr<TraceViewOption> GetTraceViewOption(const ToolOptions& options) {
       GetParamWithDefault<std::string>(options, "resolution", "0");
   trace_options.event_name =
       GetParamWithDefault<std::string>(options, "event_name", "");
+  trace_options.search_prefix =
+      GetParamWithDefault<std::string>(options, "search_prefix", "");
   auto duration_ms_opt =
       GetParamWithDefault<std::string>(options, "duration_ms", "0.0");
   auto unique_id_opt =
@@ -191,6 +194,12 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
           std::move(trace_events_prefix_trie_file)
       ));
     }
+    TraceEventsLevelDbFilePaths file_paths;
+    file_paths.trace_events_file_path = *trace_events_sstable_path;
+    file_paths.trace_events_metadata_file_path =
+        *trace_events_metadata_sstable_path;
+    file_paths.trace_events_prefix_trie_file_path =
+        *trace_events_prefix_trie_sstable_path;
     TF_ASSIGN_OR_RETURN(TraceViewOption trace_option,
                         GetTraceViewOption(options));
     tensorflow::profiler::TraceOptions profiler_trace_options =
@@ -204,6 +213,15 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
           static_cast<uint64_t>(std::round(trace_option.start_time_ms * 1E9)),
           static_cast<uint64_t>(std::round(trace_option.duration_ms * 1E9)),
           trace_option.unique_id));
+    } else if (!trace_option.search_prefix.empty()) {  // Search Events Request
+      if (tsl::Env::Default()
+              ->FileExists(*trace_events_prefix_trie_sstable_path).ok()) {
+        auto trace_events_filter =
+            CreateTraceEventsFilterFromTraceOptions(profiler_trace_options);
+        TF_RETURN_IF_ERROR(trace_container.SearchInLevelDbTable(
+            file_paths,
+            trace_option.search_prefix, std::move(trace_events_filter)));
+      }
     } else {
       auto visibility_filter = std::make_unique<TraceVisibilityFilter>(
           tsl::profiler::MilliSpan(trace_option.start_time_ms,
@@ -213,12 +231,6 @@ absl::StatusOr<std::string> ConvertXSpaceToTraceEvents(
       constexpr int64_t kDisableStreamingThreshold = 500000;
       auto trace_events_filter =
           CreateTraceEventsFilterFromTraceOptions(profiler_trace_options);
-      TraceEventsLevelDbFilePaths file_paths;
-      file_paths.trace_events_file_path = *trace_events_sstable_path;
-      file_paths.trace_events_metadata_file_path =
-          *trace_events_metadata_sstable_path;
-      file_paths.trace_events_prefix_trie_file_path =
-          *trace_events_prefix_trie_sstable_path;
       TF_RETURN_IF_ERROR(trace_container.LoadFromLevelDbTable(
           file_paths, std::move(trace_events_filter),
           std::move(visibility_filter), kDisableStreamingThreshold));

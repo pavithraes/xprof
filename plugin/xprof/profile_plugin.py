@@ -791,6 +791,8 @@ class ProfilePlugin(base_plugin.TBPlugin):
         options['duration_ms'] = request.args.get('duration_ms')
       if request.args.get('unique_id') is not None:
         options['unique_id'] = request.args.get('unique_id')
+      if request.args.get('search_prefix') is not None:
+        options['search_prefix'] = request.args.get('search_prefix')
       params['trace_viewer_options'] = options
 
     asset_path = os.path.join(run_dir, make_filename(host, tool))
