@@ -1,7 +1,7 @@
 # load("//third_party/bazel_rules/rules_cc/cc:cc_test.bzl", "cc_test")
 
 package(
-    # copybara:uncomment default_applicable_licenses = ["@org_tensorflow//tensorflow:license"],
+    # copybara:uncomment default_applicable_licenses = ["//xprof:license"],
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],
 )
@@ -355,6 +355,16 @@ cc_library(
         "@xla//xla/tsl/profiler/utils:xplane_schema",
         "@xla//xla/tsl/profiler/utils:xplane_utils",
         "@xla//xla/tsl/profiler/utils:xplane_visitor",
+    ],
+)
+
+cc_test(
+    name = "hlo_proto_map_test",
+    srcs = ["hlo_proto_map_test.cc"],
+    deps = [
+        ":hlo_proto_map",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

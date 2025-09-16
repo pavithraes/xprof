@@ -121,6 +121,16 @@ std::vector<absl::string_view> HloProtoMap::GetModuleList() const {
   return module_list;
 }
 
+std::vector<absl::string_view> HloProtoMap::GetOriginalModuleList() const {
+  LOG(INFO) << "hlo_proto_map::GetOriginalModuleList";
+  std::vector<absl::string_view> module_list;
+  module_list.reserve(original_hlo_protos_by_name_.size());
+  for (const auto& [name, hlo_module] : original_hlo_protos_by_name_) {
+    module_list.push_back(name);
+  }
+  return module_list;
+}
+
 std::vector<absl::string_view> HloProtoMap::GetSortedModuleList() const {
   std::vector<absl::string_view> module_list = GetModuleList();
   absl::c_sort(module_list);
@@ -162,6 +172,52 @@ absl::StatusOr<const xla::HloProto*> HloProtoMap::GetHloProtoByModuleName(
     absl::string_view module_name) const {
   auto iter = hlo_protos_by_name_.find(module_name);
   if (iter != hlo_protos_by_name_.end()) {
+    return iter->second;
+  }
+  return absl::NotFoundError(
+      absl::StrCat("Module name: ", module_name, " is not found."));
+}
+
+bool HloProtoMap::AddOriginalHloProto(uint64_t program_id,
+                                      const xla::HloModuleProto* hlo_module) {
+  bool new_program_id =
+      original_hlo_protos_by_program_id_.try_emplace(program_id, hlo_module)
+          .second;
+  absl::string_view hlo_module_name = hlo_module->name();
+  bool new_module_name =
+      original_hlo_protos_by_name_
+          .try_emplace(tsl::profiler::HloModuleNameWithProgramId(
+                           hlo_module_name, program_id),
+                       hlo_module)
+          .second;
+  return new_program_id || new_module_name;
+}
+
+void HloProtoMap::AddOriginalHloProto(
+    uint64_t program_id,
+    std::unique_ptr<const xla::HloModuleProto> hlo_module) {
+  if (AddOriginalHloProto(program_id, hlo_module.get())) {
+    // Only add to <owned_original_hlo_protos_> if <hlo_module> is new to
+    // HloProtoMap.
+    owned_original_hlo_protos_.push_back(std::move(hlo_module));
+  }
+}
+
+absl::StatusOr<const xla::HloModuleProto*>
+HloProtoMap::GetOriginalHloProtoByProgramId(uint64_t program_id) const {
+  auto iter = original_hlo_protos_by_program_id_.find(program_id);
+  if (iter != original_hlo_protos_by_program_id_.end()) {
+    return iter->second;
+  }
+  return absl::NotFoundError(
+      absl::StrCat("Program id: ", program_id, " is not found."));
+}
+
+absl::StatusOr<const xla::HloModuleProto*>
+HloProtoMap::GetOriginalHloProtoByModuleName(
+    absl::string_view module_name) const {
+  auto iter = original_hlo_protos_by_name_.find(module_name);
+  if (iter != original_hlo_protos_by_name_.end()) {
     return iter->second;
   }
   return absl::NotFoundError(

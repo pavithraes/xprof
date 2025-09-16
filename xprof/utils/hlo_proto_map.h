@@ -60,6 +60,9 @@ class HloProtoMap {
   // Returns a list of module names (not sorted).
   std::vector<absl::string_view> GetModuleList() const;
 
+  // Returns a list of unoptimized/original module names (not sorted).
+  std::vector<absl::string_view> GetOriginalModuleList() const;
+
   // Returns a list of module names sorted alphabetically.
   std::vector<absl::string_view> GetSortedModuleList() const;
 
@@ -73,6 +76,17 @@ class HloProtoMap {
   absl::StatusOr<const xla::HloProto*> GetHloProtoByProgramId(
       uint64_t program_id) const;
 
+  // Original/Unoptimized HLO protos.
+  void AddOriginalHloProto(
+      uint64_t program_id,
+      std::unique_ptr<const xla::HloModuleProto> hlo_module);
+
+  absl::StatusOr<const xla::HloModuleProto*> GetOriginalHloProtoByProgramId(
+      uint64_t program_id) const;
+
+  absl::StatusOr<const xla::HloModuleProto*> GetOriginalHloProtoByModuleName(
+      absl::string_view module_name) const;
+
  private:
   absl::flat_hash_map<uint64_t, const xla::HloProto*> hlo_protos_by_program_id_;
   absl::flat_hash_map<std::string, const xla::HloProto*> hlo_protos_by_name_;
@@ -81,6 +95,17 @@ class HloProtoMap {
   // Try to add proto to the map and returns true if the addition is successful
   // (i.e., the proto is new to the map).
   bool AddHloProto(uint64_t program_id, const xla::HloProto* hlo_proto);
+
+  // Original/Unoptimized HLO protos.
+  absl::flat_hash_map<uint64_t, const xla::HloModuleProto*>
+      original_hlo_protos_by_program_id_;
+  absl::flat_hash_map<std::string, const xla::HloModuleProto*>
+      original_hlo_protos_by_name_;
+  std::vector<std::unique_ptr<const xla::HloModuleProto>>
+      owned_original_hlo_protos_;
+
+  bool AddOriginalHloProto(uint64_t program_id,
+                           const xla::HloModuleProto* hlo_module);
 };
 
 }  // namespace profiler
