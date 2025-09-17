@@ -1,4 +1,4 @@
-# load("//third_party/bazel_rules/rules_cc/cc:cc_test.bzl", "cc_test")
+load("@xla//xla/tsl/platform:build_config.bzl", xprof_proto_library = "tf_proto_library")
 
 package(
     # copybara:uncomment default_applicable_licenses = ["//xprof:license"],
@@ -640,6 +640,24 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "custom_call_utils",
+    srcs = ["custom_call_utils.cc"],
+    hdrs = ["custom_call_utils.h"],
+    deps = [
+        ":backend_configs_proto_cc",
+        "//third_party/llvm/llvm-project/mlir:IR",
+        "//third_party/protobuf/json",
+        "//third_party/protobuf/util:json_util",
+        "//util/task:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@xla//xla/hlo/ir:hlo",
+        "@xla//xla/pjrt:mlir_to_hlo",
+        "@xla//xla/service/llvm_ir:llvm_util",
+    ],
+)
+
 cc_test(
     name = "xla_op_utils_test",
     srcs = ["xla_op_utils_test.cc"],
@@ -662,4 +680,9 @@ cc_test(
         "@xla//xla/hlo/parser:hlo_parser",
         "@xla//xla/tests:hlo_test_base",
     ],
+)
+
+xprof_proto_library(
+    name = "backend_configs_proto",
+    srcs = ["backend_configs.proto"],
 )
