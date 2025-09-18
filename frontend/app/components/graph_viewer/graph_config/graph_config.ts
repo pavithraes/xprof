@@ -67,9 +67,11 @@ export class GraphConfig implements OnDestroy, OnChanges {
       this.programId = this.initialInputs?.programId || '';
     }
 
-    // Update default module name once moduleList is updated
+    // Defaults the selected module to the first module in the list
+    // once moduleList is updated with valid data, and only if the selected
+    // module is empty (eg. not set from url).
     if (changes.hasOwnProperty('moduleList') &&
-        changes['moduleList'].currentValue.length > 0) {
+        changes['moduleList'].currentValue.length > 0 && !this.selectedModule) {
       this.selectedModule = this.programId ?
           changes['moduleList'].currentValue.find(
               (module: string) => module.includes(this.programId),
