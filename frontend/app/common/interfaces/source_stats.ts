@@ -4,7 +4,7 @@
 
 /** Statistics pertaining to an individual line. */
 export declare interface Metric {
-  selfTimePs: number | undefined;
+  timePs: number | undefined;
   flopsUtilization: number | undefined;
 }
 
