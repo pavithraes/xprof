@@ -21,7 +21,7 @@ enum RecordType {
   PER_STEP = 3;
 
   // Same as ALL but the performance metrics (FLOPS and memory bandwidth) are
-  // derived from the hardware performance conuters.
+  // derived from the hardware performance counters.
   ALL_HW = 4;
 }
 
