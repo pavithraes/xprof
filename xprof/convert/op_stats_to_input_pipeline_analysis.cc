@@ -1460,6 +1460,7 @@ InputPipelineAnalysisResult ConvertOpStatsToInputPipelineAnalysis(
                            result.input_time_breakdown());
   }
 
+  // TODO(xprof) Generalize the recommendation beyond tf.data.
   *result.mutable_recommendation() = recommendation;
   return result;
 }
