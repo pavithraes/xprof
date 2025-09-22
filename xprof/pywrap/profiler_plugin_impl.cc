@@ -37,7 +37,7 @@ limitations under the License.
 #include "xprof/convert/xplane_to_tools_data.h"
 #include "plugin/xprof/worker/grpc_server.h"
 
-ABSL_FLAG(bool, use_profile_processor, false,
+ABSL_FLAG(bool, use_profile_processor, true,
           "Use ProfileProcessor for tool data conversion");
 
 static const absl::NoDestructor<absl::flat_hash_set<std::string>>
@@ -119,7 +119,6 @@ absl::Status Monitor(const char* service_addr, int duration_ms,
 static absl::once_flag server_init_flag;
 
 void StartGrpcServer(int port) {
-  absl::SetFlag(&FLAGS_use_profile_processor, true);
   absl::call_once(server_init_flag, ::xprof::profiler::InitializeGrpcServer,
                   port);
 }
