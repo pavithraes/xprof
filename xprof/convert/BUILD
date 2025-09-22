@@ -1476,6 +1476,7 @@ cc_test(
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@xla//xla/service:hlo_graph_dumper",
+        "@xla//xla/service:hlo_proto_cc",
         "@xla//xla/tsl/platform:errors",
         "@xla//xla/tsl/platform:status_matchers",
         "@xla//xla/tsl/platform:statusor",

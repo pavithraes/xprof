@@ -15,14 +15,16 @@ limitations under the License.
 
 #include "xprof/convert/hlo_proto_to_graph_view.h"
 
+#include <string>
 #include <variant>
 
 #include "testing/base/public/gmock.h"
+#include "<gtest/gtest.h>"
+#include "xla/service/hlo.pb.h"
 #include "xla/service/hlo_graph_dumper.h"
 #include "xla/tsl/platform/errors.h"
 #include "xla/tsl/platform/status_matchers.h"
 #include "xla/tsl/platform/statusor.h"
-#include "<gtest/gtest.h>"
 #include "xla/tsl/protobuf/error_codes.pb.h"
 #include "xprof/convert/tool_options.h"
 
@@ -31,7 +33,9 @@ namespace profiler {
 namespace {
 
 using ::testing::HasSubstr;
-using ::tsl::testing::StatusIs;
+using ::testing::StartsWith;
+using ::testing::status::IsOkAndHolds;
+using ::testing::status::StatusIs;
 
 TEST(GraphViewerParamsTest, GraphType) {
   // Default for graph type.
@@ -119,16 +123,64 @@ TEST(GraphViewerParamsTest, AdjNodesType) {
 TEST(GraphViewerParamsTest, OtherTypes) {
   ToolOptions options1;
   EXPECT_THAT(ParseGraphViewerParams(options1),
-              absl_testing::StatusIs(
-                  tsl::error::INVALID_ARGUMENT,
-                  HasSubstr("Graph viewer must provide a type option")));
+              StatusIs(tsl::error::INVALID_ARGUMENT,
+                       HasSubstr("Graph viewer must provide a type option")));
 
   ToolOptions options2;
   options2["type"] = "abcd";
   EXPECT_THAT(ParseGraphViewerParams(options2),
-              absl_testing::StatusIs(
-                  tsl::error::INVALID_ARGUMENT,
-                  HasSubstr("Unknown graph viewer type option: abcd")));
+              StatusIs(tsl::error::INVALID_ARGUMENT,
+                       HasSubstr("Unknown graph viewer type option: abcd")));
+}
+
+TEST(ConvertHloModuleProtoToGraphTest, NodeNotFound) {
+  xla::HloModuleProto hlo_module_proto;
+  hlo_module_proto.set_name("test_module");
+  hlo_module_proto.mutable_host_program_shape();
+  auto* computation = hlo_module_proto.add_computations();
+  computation->set_name("test_module");
+  auto* instruction = computation->add_instructions();
+  instruction->set_id(0);
+  instruction->set_name("constant.0");
+  instruction->set_opcode("constant");
+  instruction->mutable_shape()->set_element_type(xla::F32);
+  computation->set_root_id(0);
+  hlo_module_proto.set_entry_computation_name("test_module");
+  std::string node_name = "non_existent_node";
+  int graph_width = 3;
+  xla::HloRenderOptions render_options;
+  xla::RenderedGraphFormat format = xla::RenderedGraphFormat::kUrl;
+
+  auto result = ConvertHloModuleProtoToGraph(
+      hlo_module_proto, node_name, graph_width, render_options, format);
+  EXPECT_THAT(result,
+              StatusIs(tsl::error::INVALID_ARGUMENT,
+                       HasSubstr("Couldn't find HloInstruction or "
+                                 "HloComputation named non_existent_node.")));
+}
+
+TEST(ConvertHloModuleProtoToGraphTest, NodeFound) {
+  xla::HloModuleProto hlo_module_proto;
+  hlo_module_proto.set_name("test_module");
+  hlo_module_proto.mutable_host_program_shape();
+  auto* computation = hlo_module_proto.add_computations();
+  computation->set_name("test_module");
+  auto* instruction = computation->add_instructions();
+  instruction->set_id(0);
+  instruction->set_name("constant.0");
+  instruction->set_opcode("constant");
+  instruction->mutable_shape()->set_element_type(xla::F32);
+  computation->set_root_id(0);
+  hlo_module_proto.set_entry_computation_name("test_module");
+  std::string node_name = "constant.0";  // This node exists.
+  int graph_width = 3;
+  xla::HloRenderOptions render_options;
+  xla::RenderedGraphFormat format = xla::RenderedGraphFormat::kDot;
+
+  auto result = ConvertHloModuleProtoToGraph(
+      hlo_module_proto, node_name, graph_width, render_options, format);
+  // Expect an OK status and a DOT graph to be returned.
+  EXPECT_THAT(result, IsOkAndHolds(StartsWith("digraph")));
 }
 
 }  // namespace

@@ -409,6 +409,16 @@ absl::StatusOr<std::string> GetAdjacentNodes(const HloProto& hlo_proto,
       "Couldn't find HloInstruction or HloComputation named ", node_name, "."));
 }
 
+absl::StatusOr<std::string> ConvertHloModuleProtoToGraph(
+    const xla::HloModuleProto& hlo_module_proto, const std::string& node_name,
+    int graph_width, const HloRenderOptions& render_options,
+    const RenderedGraphFormat& format) {
+  TF_ASSIGN_OR_RETURN(std::unique_ptr<HloModule> hlo_module,
+                      ConvertHloModuleProtoToModule(hlo_module_proto));
+  return Plot(std::move(hlo_module), node_name, graph_width, render_options,
+              format);
+}
+
 absl::StatusOr<std::string> ConvertHloProtoToGraph(
     const HloProto& hlo_proto, const std::string& node_name, int graph_width,
     const HloRenderOptions& render_options, const RenderedGraphFormat& format) {

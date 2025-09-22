@@ -60,6 +60,12 @@ absl::StatusOr<GraphViewerParams> ParseGraphViewerParams(
 // Get graph render format.
 xla::RenderedGraphFormat GetRenderFormat(const std::string& format_string);
 
+// Convert `hlo_module_proto` to GraphView with the provided render options.
+absl::StatusOr<std::string> ConvertHloModuleProtoToGraph(
+    const xla::HloModuleProto& hlo_module_proto, const std::string& node_name,
+    int graph_width, const xla::HloRenderOptions& render_options,
+    const xla::RenderedGraphFormat& format);
+
 // Convert `hlo_proto` to GraphView with the provided render options.
 absl::StatusOr<std::string> ConvertHloProtoToGraph(
     const xla::HloProto& hlo_proto, const std::string& node_name,
