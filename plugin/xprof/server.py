@@ -224,6 +224,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
   )
 
   parser.add_argument(
+      "-hcpb",
       "--hide_capture_profile_button",
       action="store_true",
       default=False,
