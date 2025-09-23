@@ -92,8 +92,28 @@ absl::StatusOr<std::string> RenderGraphNeighborhoodAround(
 
 // Convert `hlo_proto` to StringView.
 absl::StatusOr<std::string> ConvertHloProtoToStringView(
-    const xla::HloProto& hlo_proto, std::string type, bool verbose = false,
-    bool metadata = false);
+    const xla::HloProto& hlo_proto, absl::string_view type,
+    bool verbose = false, bool metadata = false);
+
+// Convert `hlo_module_proto` to StringView.
+absl::StatusOr<std::string> ConvertHloModuleProtoToStringView(
+    const xla::HloModuleProto& hlo_module_proto, absl::string_view type,
+    bool verbose = false, bool metadata = false);
+
+// Convert dot into certain format
+absl::StatusOr<std::string> WrapDotInFormat(absl::string_view dot,
+                                            xla::RenderedGraphFormat format);
+
+// Convert dot into visual graph in html
+std::string WrapDotInHtml(absl::string_view dot,
+                          absl::string_view layout_engine = "dot");
+
+// Registers a function which implements RenderedGraphFormat::kUrl.
+// The input to the function is dot, and the output should be a URL or an error.
+// There can only be one active renderer, and the last call to this function
+// wins.
+void RegisterGraphvizURLRenderer(
+    std::function<absl::StatusOr<std::string>(absl::string_view dot)> renderer);
 
 }  // namespace profiler
 }  // namespace tensorflow

@@ -1447,6 +1447,7 @@ cc_library(
     srcs = ["hlo_proto_to_graph_view.cc"],
     hdrs = ["hlo_proto_to_graph_view.h"],
     deps = [
+        ":graphviz_helper",
         ":tool_options",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/log",
@@ -1462,7 +1463,6 @@ cc_library(
         "@xla//xla/service:hlo_proto_cc",
         "@xla//xla/tsl/platform:errors",
         "@xla//xla/tsl/platform:statusor",
-        "@org_xprof//xprof/convert:graphviz_helper",
         "@org_xprof//xprof/utils:hlo_module_utils",
         "@org_xprof//xprof/utils:hlo_proto_to_module",
     ],
