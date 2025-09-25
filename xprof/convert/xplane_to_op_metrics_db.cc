@@ -229,6 +229,10 @@ CollectTfOpsFromHostThreadsXPlane(const XPlane& host_trace) {
   plane.ForEachLine([&tf_ops](const XLineVisitor& line) {
     line.ForEachEvent(
         [&tf_ops](const XEventVisitor& event) {
+          // 0. Skip events that does not have valid name - which is necessary
+          // for the host event parsing
+          if (event.Name().empty()) return;
+
           // 1. Newly added input pipeline ops processing: identified by the
           // stage id and category.
           auto input_pipeline_stage_id =
