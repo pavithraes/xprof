@@ -190,9 +190,13 @@ void CollectTfActivities(
         }
         if (auto tf_op_stat = event.GetStat(StatType::kTfOp);
             tf_op_stat.has_value()) {
+          absl::string_view tf_op_fullname = tf_op_stat->StrOrRefValue();
+          if (tf_op_fullname.empty()) {
+            return;
+          }
           ++tf_op_id;
           tsl::profiler::TfOp tf_op =
-              tsl::profiler::ParseTfOpFullname(tf_op_stat->StrOrRefValue());
+              tsl::profiler::ParseTfOpFullname(tf_op_fullname);
           tsl::profiler::Timespan span = event.GetTimespan();
           tf_activities->push_back(
               {span.begin_ps(), tf_op_id, kTfOpBegin, tf_op, false});
