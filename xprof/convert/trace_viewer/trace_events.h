@@ -64,6 +64,8 @@ namespace profiler {
 // A track of events in the trace-viewer.
 using TraceEventTrack = std::vector<TraceEvent*>;
 
+using ResourceValue = std::variant<uint64_t, absl::string_view>;
+
 static constexpr absl::string_view kTraceMetadataKey = "/trace";
 // Constants used by the LevelDB Table-based efficient trace viewer storage.
 static constexpr absl::string_view kLevelKey("123456789ABCDEFGHIJKLMNOPQ");
@@ -538,8 +540,8 @@ absl::Status DoReadFullEventFromLevelDbTable(
       if (trace_events_metadata_iterator->Valid() &&
           trace_events_metadata_iterator->key() == level_db_table_key) {
         if (!event_metadata.ParseFromArray(
-            trace_events_metadata_iterator->value().data(),
-            trace_events_metadata_iterator->value().size())) {
+                trace_events_metadata_iterator->value().data(),
+                trace_events_metadata_iterator->value().size())) {
           return absl::UnknownError("Could not parse TraceEvent proto");
         }
       }
@@ -603,7 +605,7 @@ class TraceEventsContainerBase {
   TraceEventsContainerBase& operator=(const TraceEventsContainerBase&) = delete;
 
   // Creates a TraceEvent prefilled with the given values.
-  void AddCompleteEvent(absl::string_view name, uint32_t resource_id,
+  void AddCompleteEvent(absl::string_view name, uint64_t resource_id,
                         uint32_t device_id, tsl::profiler::Timespan timespan,
                         RawData* raw_data = nullptr,
                         std::optional<int64_t> group_id = std::nullopt,
@@ -632,7 +634,7 @@ class TraceEventsContainerBase {
 
   // Similar to above, but the TraceEvent also has an associated flow_id and
   // flow_entry_type, to make it part of a flow.
-  void AddFlowEvent(absl::string_view name, uint32_t resource_id,
+  void AddFlowEvent(absl::string_view name, uint64_t resource_id,
                     uint32_t device_id, tsl::profiler::Timespan timespan,
                     uint64_t flow_id, TraceEvent::FlowEntryType flow_entry_type,
                     tsl::profiler::ContextType flow_category =
@@ -728,7 +730,7 @@ class TraceEventsContainerBase {
   }
 
   // Returns a resource descriptor,
-  Resource* MutableResource(uint32_t resource_id, uint32_t device_id) {
+  Resource* MutableResource(uint64_t resource_id, uint32_t device_id) {
     Device* device = MutableDevice(device_id);
     return &(*device->mutable_resources())[resource_id];
   }
@@ -740,7 +742,7 @@ class TraceEventsContainerBase {
   void AddMetadataEvents(
       const std::function<std::string(uint32_t /*device_id*/)>& device_name,
       const std::function<std::string(
-          uint32_t /*device_id*/, uint32_t /*resource_id*/)>& resource_name) {
+          uint32_t /*device_id*/, uint64_t /*resource_id*/)>& resource_name) {
     for (const auto& id_and_device : events_by_device_) {
       uint32_t device_id = id_and_device.first;
       auto& device = (*trace_.mutable_devices())[device_id];
@@ -748,7 +750,7 @@ class TraceEventsContainerBase {
       device.set_name(device_name(device_id));
       const DeviceEvents& device_events = id_and_device.second;
       for (const auto& id_and_resource : device_events.events_by_resource) {
-        uint32_t resource_id = id_and_resource.first;
+        uint64_t resource_id = id_and_resource.first;
         auto& resource = (*device.mutable_resources())[resource_id];
         resource.set_resource_id(resource_id);
         resource.set_name(resource_name(device_id, resource_id));
@@ -971,12 +973,11 @@ class TraceEventsContainerBase {
   std::vector<TraceEvent*> SortedEvents() const {
     std::vector<const TraceEventTrack*> event_tracks;
     event_tracks.reserve(NumTracks());
-    ForAllMutableTracks(
-        [&event_tracks](uint32_t device_id,
-                        std::variant<uint32_t, absl::string_view> resource_id,
-                        TraceEventTrack* events) {
-          event_tracks.push_back(events);
-        });
+    ForAllMutableTracks([&event_tracks](uint32_t device_id,
+                                        ResourceValue resource_id,
+                                        TraceEventTrack* events) {
+      event_tracks.push_back(events);
+    });
     return MergeEventTracks(event_tracks);
   }
 
@@ -1023,7 +1024,7 @@ class TraceEventsContainerBase {
     absl::flat_hash_map<std::string, TraceEventTrack> counter_events_by_name;
 
     // Complete events and flow events, mapped by resource_id.
-    std::map<uint32_t, TraceEventTrack> events_by_resource;
+    std::map<uint64_t, TraceEventTrack> events_by_resource;
   };
 
   // Events, mapped by device_id.

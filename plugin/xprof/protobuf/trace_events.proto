@@ -83,7 +83,7 @@ message Device {
   optional uint32 device_id = 2;
 
   // The resources on this device, keyed by resource_id;
-  map<uint32, Resource> resources = 3;
+  map<uint64, Resource> resources = 3;
 
   reserved 4;
 }
@@ -96,7 +96,7 @@ message Resource {
   optional string name = 1;
 
   // The id of the resource. Unique within a device.
-  optional uint32 resource_id = 2;
+  optional uint64 resource_id = 2;
 
   // Number of events added to this resource.
   optional uint32 num_events = 3;
@@ -146,7 +146,7 @@ message TraceEvent {
   // resource_id is unique on a specific device, but not necessarily within the
   // trace.
   // NOTE: counter events do not have this field set as they are per device.
-  optional uint32 resource_id = 2;
+  optional uint64 resource_id = 2;
 
   oneof name_oneof {
     // The name of this trace event.

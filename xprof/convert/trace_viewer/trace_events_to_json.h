@@ -627,7 +627,7 @@ void TraceEventsToJson(const JsonTraceOptions& options,
     output->Append(R"({"args":{"sort_index":)", device_id,
                    R"(},"name":"process_sort_index","ph":"M","pid":)",
                    device_id, "}");
-    std::map<uint32_t, Resource> ordered_resources(device.resources().begin(),
+    std::map<uint64_t, Resource> ordered_resources(device.resources().begin(),
                                                    device.resources().end());
     for (const auto& [resource_id, resource] : ordered_resources) {
       if (resource.has_name()) {
