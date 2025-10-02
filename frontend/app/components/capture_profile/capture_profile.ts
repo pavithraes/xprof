@@ -72,10 +72,24 @@ export class CaptureProfile implements OnDestroy {
                     }
                   },
                   error => {
+                    console.error(error);
                     this.store.dispatch(
                         setCapturingProfileAction({capturingProfile: false}));
-                    const errorMessage: string =
-                        error && error.toString() ? error.toString() : '';
+                    let errorMessage = '';
+                    if (error && typeof error === 'object') {
+                      errorMessage = JSON.stringify(error);
+                      if (error.error) {
+                        errorMessage = error.error;
+                      } else if (error.message) {
+                        errorMessage = error.message;
+                      } else if (error.statusText) {
+                        errorMessage = error.statusText;
+                      }
+                    } else if (error) {
+                      errorMessage = error.toString();
+                    } else {
+                      errorMessage = 'Invalid error';
+                    }
                     this.openSnackBar(
                         'Failed to capture profile: ' + errorMessage);
                   });
