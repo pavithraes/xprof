@@ -562,13 +562,6 @@ absl::StatusOr<std::string> ConvertMultiXSpacesToToolData(
   } else if (tool_name == "megascale_stats") {
     return ConvertDcnCollectiveStatsToToolData(session_snapshot, options);
   } else if (tool_name == "tool_names") {
-    // Generate the proto cache for hlo_proto tool.
-    // This is needed for getting the module list.
-    // TODO - b/378923777: Create only when needed.
-    TF_ASSIGN_OR_RETURN(bool hlo_proto_status,
-                        ConvertMultiXSpaceToHloProto(session_snapshot));
-    LOG_IF(WARNING, !hlo_proto_status)
-        << "No HLO proto found in XSpace.";
     return GetAvailableToolNames(session_snapshot);
   } else if (tool_name == "_xplane.pb") {  // internal test only.
     return PreprocessXSpace(session_snapshot);

@@ -48,8 +48,8 @@ absl::StatusOr<bool> GetHloProtoFromMultiXSpaceAndSaveToFile(
     const SessionSnapshot& session_snapshot) {
   // Get all HLO protos from XSpaces and deduplicate.
   HloProtoMap hlo_proto_map;
+  google::protobuf::Arena arena;
   for (int i = 0; i < session_snapshot.XSpaceSize(); i++) {
-    google::protobuf::Arena arena;
     TF_ASSIGN_OR_RETURN(XSpace* xspace, session_snapshot.GetXSpace(i, &arena));
     hlo_proto_map.AddHloProtosFromXSpace(*xspace);
   }
