@@ -35,6 +35,7 @@ namespace {
 // Below data are calculated from the various NVidia whitepapers/specs.
 
 // https://resources.nvidia.com/en-us-blackwell-architecture?ncid=pa-srch-goog-585983-Intel-Brand-Broad
+// Dense Compute as default.
 const GpuFlopCapabilities kComputeCap_PerSM_PerCycle_10_0 = {
     .cuda_core =
         {
@@ -47,11 +48,11 @@ const GpuFlopCapabilities kComputeCap_PerSM_PerCycle_10_0 = {
     .tensor_core =
         {
             .fp64_tflops = 148,
-            .fp32_tflops = 8192,
-            .bf16_tflops = 16384,
-            .fp16_tflops = 16384,
-            .fp8_tflops = 32768,
-            .int8_tops = 32768,
+            .fp32_tflops = 4096,
+            .bf16_tflops = 8192,
+            .fp16_tflops = 8192,
+            .fp8_tflops = 16384,
+            .int8_tops = 16384,
         },
     .has_tensor_core_sparsity_support = true,
 };

@@ -39,7 +39,7 @@ TEST(HardwareTypeUtilsTest, B200PeakComputTFlops) {
   // Get target TFLOPS per SM and check.
   double peak_tflops =
       GetFlopMaxThroughputPerSM(device_cap) * device_cap.num_cores() / 1000.0;
-  EXPECT_NEAR(peak_tflops, 4438, /*abs_error=*/1.0);
+  EXPECT_NEAR(peak_tflops, 2218, /*abs_error=*/1.0);
 }
 
 // It should fall back to the highest compute cap less than 10.9.
@@ -59,7 +59,7 @@ TEST(HardwareTypeUtilsTest, FutureBlackwellPeakComputTFlops) {
   // Get target TFLOPS per SM and check.
   double peak_tflops =
       GetFlopMaxThroughputPerSM(device_cap) * device_cap.num_cores() / 1000.0;
-  EXPECT_NEAR(peak_tflops, 4438, /*abs_error=*/1.0);
+  EXPECT_NEAR(peak_tflops, 2218, /*abs_error=*/1.0);
 }
 
 TEST(HardwareTypeUtilsTest, H100PeakComputTFlops) {
