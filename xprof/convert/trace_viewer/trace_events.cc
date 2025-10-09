@@ -278,10 +278,10 @@ GenerateTraceEventCopyForPersistingEventWithoutMetadata(
   event_copy.clear_timestamp_ps();
   // To reduce file size, clear the raw data from the value. It is
   // redundant info because the raw data is stored in the metadata file.
-  // However, we still need to keep the raw data for non complete events as they
+  // However, we still need to keep the raw data for counter events as they
   // are a special case and we need to return the args for the same during the
   // initial read.
-  if (GetTraceEventType(*event) == TraceEvent::EVENT_TYPE_COMPLETE) {
+  if (GetTraceEventType(*event) != TraceEvent::EVENT_TYPE_COUNTER) {
     event_copy.clear_raw_data();
   }
   return event_copy;
@@ -289,8 +289,8 @@ GenerateTraceEventCopyForPersistingEventWithoutMetadata(
 
 std::optional<TraceEvent> GenerateTraceEventCopyForPersistingOnlyMetadata(
     const TraceEvent* event) {
-  if (GetTraceEventType(*event) != TraceEvent::EVENT_TYPE_COMPLETE) {
-    // Non Complete events are stored in the trace events file itself and do not
+  if (GetTraceEventType(*event) == TraceEvent::EVENT_TYPE_COUNTER) {
+    // Counter events are stored in the trace events file itself and do not
     // require a metadata copy.
     return std::nullopt;
   }
