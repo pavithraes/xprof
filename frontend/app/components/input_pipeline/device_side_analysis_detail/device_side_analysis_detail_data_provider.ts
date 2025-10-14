@@ -9,19 +9,16 @@ export class DeviceSideAnalysisDetailDataProvider extends DefaultDataProvider {
     this.columnIds = columnIds;
   }
 
-  override parseData(data: SimpleDataTable|Array<Array<(string | number)>>|null) {
+  override parseData(
+      data: SimpleDataTable|Array<Array<(string | number)>>|null) {
     if (!data) return;
+
     const dataTable = new google.visualization.DataTable(data);
+    const dataView = new google.visualization.DataView(dataTable);
 
-    let i = 0;
-    while (i < dataTable.getNumberOfColumns()) {
-      if (!this.columnIds.includes(dataTable.getColumnId(i))) {
-        dataTable.removeColumn(i);
-        continue;
-      }
-      i++;
-    }
+    dataView.setColumns(
+        this.columnIds.map(columnId => dataTable.getColumnIndex(columnId)));
 
-    this.dataTable = dataTable;
+    this.dataTable = dataView.toDataTable();
   }
 }
