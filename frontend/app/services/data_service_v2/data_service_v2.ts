@@ -372,4 +372,8 @@ export class DataServiceV2 implements DataServiceV2Interface {
   openUtilizationGraphviz(sessionId: string) {
     return;
   }
+
+  isGraphvizAvailable(): boolean {
+    return false;
+  }
 }

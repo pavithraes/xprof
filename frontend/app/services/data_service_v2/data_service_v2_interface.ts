@@ -100,6 +100,7 @@ export interface DataServiceV2Interface {
   disableCacheRegeneration(): void;
 
   openUtilizationGraphviz(sessionId: string): void;
+  isGraphvizAvailable(): boolean;
 }
 
 /** Injection token for the data service interface. */
