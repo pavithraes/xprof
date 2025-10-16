@@ -943,33 +943,6 @@ dashboard would integrate trace viewer app using iframe.
       }
     },
 
-    _getDefaults: async function() {
-      const requestURL = new URL('/trace_viewer_defaults', window.location.href);
-      const defaults = await new Promise(function(resolve, reject) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', requestURL);
-        xhr.onload = function() {
-          var contentType = this.getResponseHeader('Content-Type');
-          if (
-            this.status !== 200 ||
-            !contentType.startsWith('application/json')
-          ) {
-            var msg = requestURL + ' could not be loaded';
-            if (contentType.startsWith('text/plain')) {
-              msg = msg + ': ' + xhr.statusText;
-            }
-            reject(msg);
-          }
-          resolve(JSON.parse(xhr.response));
-        };
-        xhr.onerror = function() {
-          reject(`Cannot fetch search result with uri ${requestURL}: ${xhr.statusText}`);
-        };
-        xhr.send();
-      });
-      this._useNewBackend = defaults["use_new_backend"];
-    },
-
     _searchAndAddTraceEvents: async function(searchText) {
       if (this._isLoading) return;
       this._previousSearchText = this._currentSearchText;
@@ -1718,9 +1691,6 @@ dashboard would integrate trace viewer app using iframe.
         // Need to create detail filter in init since it contributes to the baseUrl building.
         this._createDetailFilter();
         if (!this._isOss) {
-          if (!this._useNewBackendSetInUrl) {
-            await this._getDefaults();
-          }
           this._createBackendToggleButton();
         }
         this._updateSearchBehavior();
