@@ -38,7 +38,6 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "xla/tsl/lib/io/iterator.h"
 #include "xla/tsl/lib/io/table.h"
 #include "xla/tsl/lib/io/table_builder.h"
@@ -66,6 +65,8 @@ using TraceEventTrack = std::vector<TraceEvent*>;
 
 using ResourceValue = std::variant<uint64_t, absl::string_view>;
 
+static constexpr absl::string_view kCostModelFlopCounterEventName =
+    "HLO Cost Model Flops";
 static constexpr absl::string_view kTraceMetadataKey = "/trace";
 // Constants used by the LevelDB Table-based efficient trace viewer storage.
 static constexpr absl::string_view kLevelKey("123456789ABCDEFGHIJKLMNOPQ");
@@ -85,18 +86,6 @@ static constexpr int kSearchParallelizationThreshold = 100;
 std::vector<TraceEvent*> MergeEventTracks(
     const std::vector<const TraceEventTrack*>& event_tracks);
 
-absl::Status DoStoreAsLevelDbTable(
-    std::unique_ptr<tsl::WritableFile>& file, const Trace& trace,
-    const std::vector<std::vector<const TraceEvent*>>& events_by_level,
-    std::function<std::optional<TraceEvent>(const TraceEvent*)>
-        generate_event_copy_fn);
-
-absl::Status DoStoreAsLevelDbTables(
-    const std::vector<std::vector<const TraceEvent*>>& events_by_level,
-    const Trace& trace, std::unique_ptr<tsl::WritableFile>& trace_events_file,
-    std::unique_ptr<tsl::WritableFile>& trace_events_metadata_file,
-    std::unique_ptr<tsl::WritableFile>& trace_events_prefix_trie_file);
-
 // Generates a copy of the event to be persisted in the trace events file.
 // This is the copy of the passed event without the timestamp_ps field.
 std::optional<TraceEvent> GenerateTraceEventCopyForPersistingFullEvent(
@@ -114,6 +103,149 @@ GenerateTraceEventCopyForPersistingEventWithoutMetadata(
 std::optional<TraceEvent> GenerateTraceEventCopyForPersistingOnlyMetadata(
     const TraceEvent* event);
 
+// Returns true if the event's args should be stored in the trace events
+// metadata file.
+bool StoreTraceEventsArgsInMetadataFile(const TraceEvent* event);
+
+// Returns the cost model flops from the event's raw data if present.
+template <typename RawDataType>
+std::optional<int64_t> GetCostModelFlops(const TraceEvent* event) {
+  RawDataType raw_data;
+  if (!raw_data.ParseFromString(event->raw_data())) {
+    return false;
+  }
+  for (const tensorflow::profiler::TraceEventArguments::Argument& arg :
+       raw_data.args().arg()) {
+    if (arg.name() == "model_flops") {
+      return arg.int_value();
+    }
+  }
+  return std::nullopt;
+}
+
+uint64_t TimestampFromLevelDbTableKey(absl::string_view level_db_table_key);
+
+uint64_t LayerResolutionPs(unsigned level);
+
+std::string LevelDbTableKey(int zoom_level, uint64_t timestamp,
+                            uint64_t repetition);
+
+absl::Status CreateAndSavePrefixTrie(
+    tsl::WritableFile* trace_events_prefix_trie_file,
+    const std::vector<std::vector<const TraceEvent*>>& events_by_level);
+
+// Store the contents of this container in an sstable file. The format is as
+// follows:
+//
+// key                     | value
+// trace                   | The Trace-proto trace_
+// 0<timestamp><serial>    | Event at timestamp visible at a 10ms resolution
+// 1<timestamp><serial>    | Event at timestamp visible at a 1ms resolution
+// ...
+// 7<timestamp><serial>    | Event at timestamp visible at a 1ns resolution
+//
+// Note that each event only appears exactly once, at the first layer it's
+// eligible for.
+template <typename RawDataType>
+absl::Status DoStoreAsLevelDbTable(
+    std::unique_ptr<tsl::WritableFile>& file, const Trace& trace,
+    const std::vector<std::vector<const TraceEvent*>>& events_by_level,
+    std::function<std::optional<TraceEvent>(const TraceEvent*)>
+        generate_event_copy_fn) {
+  LOG(INFO) << "Storing " << trace.num_events()
+            << " events to LevelDb table fast file: ";
+  tsl::table::Options options;
+  options.block_size = 20 * 1024 * 1024;
+  options.compression = tsl::table::kSnappyCompression;
+  tsl::table::TableBuilder builder(options, file.get());
+
+  builder.Add(kTraceMetadataKey, trace.SerializeAsString());
+
+  size_t num_of_events_dropped = 0;  // Due to too many timestamp repetitions.
+  for (int zoom_level = 0; zoom_level < events_by_level.size(); ++zoom_level) {
+    // The key of level db table have to be monotonically increasing, therefore
+    // we make the timestamp repetition count as the last byte of key as tie
+    // breaker. The hidden assumption was that there are not too many identical
+    // timestamp per resolution, (if there are such duplications, we dropped
+    // them if it overflow the last byte).
+    for (const TraceEvent* event : events_by_level[zoom_level]) {
+      uint64_t timestamp = event->timestamp_ps();
+      std::string key = LevelDbTableKey(zoom_level, timestamp, event->serial());
+      if (key.empty()) {
+        ++num_of_events_dropped;
+        continue;
+      }
+      std::optional<TraceEvent> event_copy;
+      std::optional<int64_t> cost_model_flops =
+          GetCostModelFlops<RawDataType>(event);
+      // Making Cost model flop events as counter events and assigning a new
+      // name.
+      if (cost_model_flops.has_value()) {
+        TraceEvent cost_model_flop_event = *event;
+        cost_model_flop_event.clear_resource_id();
+        cost_model_flop_event.clear_flow_id();
+        cost_model_flop_event.mutable_name()->assign(
+            kCostModelFlopCounterEventName);
+        cost_model_flop_event.clear_raw_data();
+        RawDataType new_raw_data;
+        tensorflow::profiler::TraceEventArguments_Argument* arg =
+            new_raw_data.mutable_args()->add_arg();
+        arg->set_name("model_flops");
+        arg->set_uint_value(cost_model_flops.value());
+        new_raw_data.SerializePartialToString(
+            cost_model_flop_event.mutable_raw_data());
+        event_copy = generate_event_copy_fn(&cost_model_flop_event);
+      } else {
+        event_copy = generate_event_copy_fn(event);
+      }
+      if (event_copy.has_value()) {
+        builder.Add(key, event_copy->SerializeAsString());
+      }
+    }
+  }
+  absl::string_view filename;
+  TF_RETURN_IF_ERROR(file->Name(&filename));
+  LOG(INFO) << "Storing " << trace.num_events() - num_of_events_dropped
+            << " as LevelDb table fast file: " << filename << " with "
+            << num_of_events_dropped << " events dropped.";
+
+  TF_RETURN_IF_ERROR(builder.Finish());
+  return file->Close();
+}
+
+template <typename RawDataType>
+absl::Status DoStoreAsLevelDbTables(
+    const std::vector<std::vector<const TraceEvent*>>& events_by_level,
+    const Trace& trace, std::unique_ptr<tsl::WritableFile>& trace_events_file,
+    std::unique_ptr<tsl::WritableFile>& trace_events_metadata_file,
+    std::unique_ptr<tsl::WritableFile>& trace_events_prefix_trie_file) {
+  auto executor = std::make_unique<XprofThreadPoolExecutor>(
+      "StoreAsLevelDbTables", /*num_threads=*/3);
+  absl::Status trace_events_status, trace_events_metadata_status;
+  executor->Execute(
+      [&trace_events_file, &trace, &events_by_level, &trace_events_status]() {
+        trace_events_status = DoStoreAsLevelDbTable<RawDataType>(
+            trace_events_file, trace, events_by_level,
+            GenerateTraceEventCopyForPersistingEventWithoutMetadata);
+      });
+  executor->Execute([&trace_events_metadata_file, &events_by_level, &trace,
+                     &trace_events_metadata_status]() {
+    trace_events_metadata_status = DoStoreAsLevelDbTable<RawDataType>(
+        trace_events_metadata_file, trace, events_by_level,
+        GenerateTraceEventCopyForPersistingOnlyMetadata);
+  });
+  absl::Status trace_events_prefix_trie_status;
+  executor->Execute([&trace_events_prefix_trie_file, &events_by_level,
+                     &trace_events_prefix_trie_status]() {
+    trace_events_prefix_trie_status = CreateAndSavePrefixTrie(
+        trace_events_prefix_trie_file.get(), events_by_level);
+  });
+  executor->JoinAll();
+  trace_events_status.Update(trace_events_metadata_status);
+  trace_events_status.Update(trace_events_prefix_trie_status);
+  return trace_events_status;
+}
+
 // Opens the level db table from the given filename. The table is owned by the
 // caller.
 absl::Status OpenLevelDbTable(const std::string& filename,
@@ -127,13 +259,6 @@ struct TraceEventsLevelDbFilePaths {
   std::string trace_events_metadata_file_path;
   std::string trace_events_prefix_trie_file_path;
 };
-
-uint64_t TimestampFromLevelDbTableKey(absl::string_view level_db_table_key);
-
-uint64_t LayerResolutionPs(unsigned level);
-
-std::string LevelDbTableKey(int zoom_level, uint64_t timestamp,
-                            uint64_t repetition);
 
 bool ReadTraceMetadata(tsl::table::Iterator* iterator,
                        absl::string_view metadata_key, Trace* trace);
@@ -770,7 +895,7 @@ class TraceEventsContainerBase {
     Trace trace = trace_;
     trace.set_num_events(NumEvents());
     auto events_by_level = EventsByLevel();
-    return DoStoreAsLevelDbTable(file, trace, events_by_level,
+    return DoStoreAsLevelDbTable<RawData>(file, trace, events_by_level,
                                  GenerateTraceEventCopyForPersistingFullEvent);
   }
 
@@ -786,9 +911,9 @@ class TraceEventsContainerBase {
     Trace trace = trace_;
     trace.set_num_events(NumEvents());
     auto events_by_level = EventsByLevel();
-    return DoStoreAsLevelDbTables(events_by_level, trace, trace_events_file,
-                                  trace_events_metadata_file,
-                                  trace_events_prefix_trie_file);
+    return DoStoreAsLevelDbTables<RawData>(
+        events_by_level, trace, trace_events_file, trace_events_metadata_file,
+        trace_events_prefix_trie_file);
   }
 
   std::vector<std::vector<const TraceEvent*>> GetTraceEventsByLevel() const {
