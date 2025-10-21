@@ -97,10 +97,10 @@
 
       <div>
         <mat-form-field>
+          <mat-label>Automatically retry N times when no trace event is collected</mat-label>
           <input
             matInput
             type="number"
-            placeholder="Automatically retry N times when no trace event is collected"
             [(ngModel)]="numRetry"
           />
         </mat-form-field>
@@ -108,10 +108,10 @@
 
       <div>
         <mat-form-field>
+          <mat-label>Delay the start of profiling (milliseconds)</mat-label>
           <input
             matInput
             type="number"
-            placeholder="Delay the start of profiling (milliseconds)"
             [(ngModel)]="delay"
           />
         </mat-form-field>
