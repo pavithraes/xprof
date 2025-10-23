@@ -19,6 +19,7 @@ limitations under the License.
 #include "xprof/convert/smart_suggestion/data_transfer_bound_rule.h"
 #include "xprof/convert/smart_suggestion/host_processing_bound_rule.h"
 #include "xprof/convert/smart_suggestion/input_bound_rule.h"
+#include "xprof/convert/smart_suggestion/memory_bound_rule.h"
 #include "xprof/convert/smart_suggestion/smart_suggestion_rule_factory.h"
 
 namespace tensorflow {
@@ -30,6 +31,7 @@ inline void RegisterAllRules(SmartSuggestionRuleFactory* f) {
   f->Register<DataTransferBoundRule>();
   f->Register<HostProcessingBoundRule>();
   f->Register<InputBoundRule>();
+  f->Register<MemoryBoundRule>();
   // go/keep-sorted end
 }
 
