@@ -33,6 +33,7 @@ export class SideNav implements OnInit, OnDestroy {
   selectedTagInternal = '';
   selectedHostInternal = '';
   selectedHostsInternal: string[] = [];
+  selectedHostsPending: string[] = [];
   selectedModuleInternal = '';
   navigationParams: {[key: string]: string|boolean} = {};
   multiHostEnabledTools: string[] = ['trace_viewer', 'trace_viewer@'];
@@ -141,10 +142,14 @@ export class SideNav implements OnInit, OnDestroy {
     this.selectedTagInternal = tag;
     this.selectedModuleInternal = moduleName;
 
-    if (hostsParam) {
-      this.selectedHostsInternal = hostsParam.split(',');
+    if (this.isMultiHostsEnabled) {
+      if (hostsParam) {
+        this.selectedHostsInternal = hostsParam.split(',');
+      }
+      this.selectedHostsPending = [...this.selectedHostsInternal];
+    } else {
+      this.selectedHostInternal = host;
     }
-    this.selectedHostInternal = host;
     this.update();
   }
 
@@ -168,7 +173,7 @@ export class SideNav implements OnInit, OnDestroy {
       ...this.navigationParams,
     };
     if (this.isMultiHostsEnabled) {
-      navigationEvent.hosts = this.selectedHosts;
+      navigationEvent.hosts = this.selectedHostsInternal;
     } else {
       navigationEvent.host = this.selectedHost;
     }
@@ -258,9 +263,35 @@ export class SideNav implements OnInit, OnDestroy {
     this.afterUpdateTag();
   }
 
-  onTagSelectionChange(tag: string) {
+  async onTagSelectionChange(tag: string) {
+    const previousSelectedTag = this.selectedTagInternal;
     this.selectedTagInternal = tag;
-    this.afterUpdateTag();
+
+    const isChangingToMultiHost = !previousSelectedTag ||
+        (this.isMultiHostsEnabled && previousSelectedTag !== this.selectedTag);
+
+    this.selectedHostsInternal = [];
+    this.selectedHostsPending = [];
+    this.selectedHostInternal = '';
+
+    if (isChangingToMultiHost) {
+      this.hosts = await this.getHostsForSelectedTag();
+      if (this.hosts.length > 0) {
+        this.selectedHostsInternal = [this.hosts[0]];
+      } else {
+        this.selectedHostsInternal = [];
+      }
+      this.selectedHostsPending = [...this.selectedHostsInternal];
+
+      if (this.is_hlo_tool) {
+        this.moduleList = await this.getModuleListForSelectedTag();
+      }
+
+      this.navigateTools();
+
+    } else {
+      this.afterUpdateTag();
+    }
   }
 
   afterUpdateTag() {
@@ -271,8 +302,17 @@ export class SideNav implements OnInit, OnDestroy {
   // Keep them under the same update function as initial step of the separation.
   async updateHosts() {
     this.hosts = await this.getHostsForSelectedTag();
-    this.selectedHostsInternal = [this.hosts[0]];
-    this.selectedHostInternal = this.hosts[0];
+
+    if (this.isMultiHostsEnabled) {
+      if (this.selectedHostsInternal.length === 0 && this.hosts.length > 0) {
+        this.selectedHostsInternal = [this.hosts[0]];
+      }
+      this.selectedHostsPending = [...this.selectedHostsInternal];
+    } else {
+      if (!this.selectedHostInternal && this.hosts.length > 0) {
+        this.selectedHostInternal = this.hosts[0];
+      }
+    }
     if (this.is_hlo_tool) {
       this.moduleList = await this.getModuleListForSelectedTag();
     }
@@ -282,13 +322,16 @@ export class SideNav implements OnInit, OnDestroy {
 
   onHostSelectionChange(selection: string) {
     this.selectedHostInternal = selection;
-    this.selectedHostsInternal = [];
     this.navigateTools();
   }
 
   onHostsSelectionChange(selection: string[]) {
-    this.selectedHostsInternal = selection;
-    this.selectedHostInternal = '';  // Ensure single-host is empty
+    this.selectedHostsPending =
+        Array.isArray(selection) ? selection : [selection];
+  }
+
+  onSubmitHosts() {
+    this.selectedHostsInternal = [...this.selectedHostsPending];
     this.navigateTools();
   }
 
@@ -298,7 +341,9 @@ export class SideNav implements OnInit, OnDestroy {
   }
 
   afterUpdateHost() {
-    this.navigateTools();
+    if (!this.isMultiHostsEnabled) {
+      this.navigateTools();
+    }
   }
 
   // Helper function to serialize query parameters
