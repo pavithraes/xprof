@@ -328,7 +328,8 @@ OpMetricsDb XEventsOpMetricsDbBuilder::Finalize() {
       total_op_time_ps += op_metrics.self_time_ps();
       normalized_total_op_time_ps +=
           op_metrics.self_time_ps() *
-          (op_metrics.normalized_time_ps() * 1.0 / op_metrics.time_ps());
+          tsl::profiler::SafeDivide(op_metrics.normalized_time_ps() * 1.0,
+                                    op_metrics.time_ps());
       db.add_metrics_db()->Swap(&op_metrics);
     }
   }
