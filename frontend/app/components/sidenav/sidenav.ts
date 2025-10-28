@@ -142,7 +142,7 @@ export class SideNav implements OnInit, OnDestroy {
     this.selectedTagInternal = tag;
     this.selectedModuleInternal = moduleName;
 
-    if (this.isMultiHostsEnabled) {
+    if (this.multiHostEnabledTools.includes(tag)) {
       if (hostsParam) {
         this.selectedHostsInternal = hostsParam.split(',');
       }
@@ -341,7 +341,7 @@ export class SideNav implements OnInit, OnDestroy {
   }
 
   afterUpdateHost() {
-    if (!this.isMultiHostsEnabled) {
+    if (!this.isMultiHostsEnabled || this.navigationParams['firstLoad']) {
       this.navigateTools();
     }
   }
