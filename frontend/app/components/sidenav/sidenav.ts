@@ -1,4 +1,5 @@
 import {Component, OnDestroy, OnInit} from '@angular/core';
+import {MatCheckboxChange} from '@angular/material/checkbox';
 import {ActivatedRouteSnapshot, Router} from '@angular/router';
 import {Store} from '@ngrx/store';
 import {DEFAULT_HOST, HLO_TOOLS} from 'org_xprof/frontend/app/common/constants/constants';
@@ -37,6 +38,7 @@ export class SideNav implements OnInit, OnDestroy {
   selectedModuleInternal = '';
   navigationParams: {[key: string]: string|boolean} = {};
   multiHostEnabledTools: string[] = ['trace_viewer', 'trace_viewer@'];
+  allHostsSelected = false;
 
   hideCaptureProfileButton = false;
 
@@ -147,6 +149,7 @@ export class SideNav implements OnInit, OnDestroy {
         this.selectedHostsInternal = hostsParam.split(',');
       }
       this.selectedHostsPending = [...this.selectedHostsInternal];
+      this.updateAllHostsSelectedState();
     } else {
       this.selectedHostInternal = host;
     }
@@ -282,6 +285,7 @@ export class SideNav implements OnInit, OnDestroy {
         this.selectedHostsInternal = [];
       }
       this.selectedHostsPending = [...this.selectedHostsInternal];
+      this.updateAllHostsSelectedState();
 
       if (this.is_hlo_tool) {
         this.moduleList = await this.getModuleListForSelectedTag();
@@ -308,6 +312,7 @@ export class SideNav implements OnInit, OnDestroy {
         this.selectedHostsInternal = [this.hosts[0]];
       }
       this.selectedHostsPending = [...this.selectedHostsInternal];
+      this.updateAllHostsSelectedState();
     } else {
       if (!this.selectedHostInternal && this.hosts.length > 0) {
         this.selectedHostInternal = this.hosts[0];
@@ -328,6 +333,17 @@ export class SideNav implements OnInit, OnDestroy {
   onHostsSelectionChange(selection: string[]) {
     this.selectedHostsPending =
         Array.isArray(selection) ? selection : [selection];
+    this.updateAllHostsSelectedState();
+  }
+
+  onToggleSelectAllHosts(event: MatCheckboxChange) {
+    this.selectedHostsPending = event.checked ? [...this.hosts] : [];
+    this.updateAllHostsSelectedState();
+  }
+
+  private updateAllHostsSelectedState() {
+    this.allHostsSelected = this.hosts.length > 0 &&
+        this.selectedHostsPending.length === this.hosts.length;
   }
 
   onSubmitHosts() {

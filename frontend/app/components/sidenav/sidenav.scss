@@ -14,34 +14,42 @@
   margin-bottom: 0;
 }
 
+.select-all-checkbox {
+  margin-left: -10px;
+  padding-left: 16px;
+}
+
 // Target the custom panel class defined in sidenav.ng.html
 .multi-host-select-panel {
-  // Mat-select uses a standard mat-option list structure, but we need to ensure
-  // the custom wrapper div inside the panel handles layout correctly.
 
-  // This selector targets the element that contains all the options and the button container.
-  // It ensures vertical stacking of options and the button.
-  .select-panel-content {
-    display: flex;
-    flex-direction: column;
-    // Note: The Mat Select component internally sets overflow and max-height for scrolling.
+  .full-width {
+    width: 100%;
   }
 
-  // Container for the submit button at the bottom of the dropdown
-  .submit-button-container {
+  // Styles for the sticky header containing the "Select/Deselect All" button.
+  // 'position: sticky' keeps the header fixed at the top of the dropdown panel during scroll.
+  .sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 1; // Ensures the header stays above the scrolling list of options.
+    padding: 8px;
+    background: #fff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1); // Visual separator.
+  }
+
+  // Styles for the sticky footer containing the "Apply Host Selection" button.
+  // 'position: sticky' keeps the footer fixed at the bottom of the dropdown panel.
+  .sticky-footer {
     position: sticky;
     bottom: 0;
+    z-index: 1; // Ensures the footer stays below the scrolling list of options.
     padding: 8px;
-
     background: #fff;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
-
-    .full-width {
-      width: 100%;
-    }
   }
 
-  // Ensure options remain clickable and are not covered by the sticky button's padding.
+  // Ensure options remain clickable and are not covered by the sticky button's
+  // padding.
   mat-option {
     flex-shrink: 0;
   }

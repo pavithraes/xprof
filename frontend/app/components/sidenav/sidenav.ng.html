@@ -50,17 +50,20 @@
   </div>
   <mat-form-field class="full-width" appearance="outline">
     <mat-select #multiSelectHost="matSelect" panelClass="multi-host-select-panel" [value]="selectedHostsPending" [disabled]="!hosts.length" (selectionChange)="onHostsSelectionChange($event.value)" multiple>
-
-      <div class="select-panel-content">
-        <mat-option *ngFor="let host of hosts" [value]="host">
-          {{host}}
-        </mat-option>
-
-        <div class="submit-button-container" (click)="$event.stopPropagation()">
-          <button mat-flat-button color="primary" class="full-width" (click)="onSubmitHosts(); multiSelectHost.close()">
-            Apply Host Selection
-          </button>
-        </div>
+      <div class="sticky-header" (click)="$event.stopPropagation()">
+        <mat-checkbox class="select-all-checkbox"
+                      [checked]="allHostsSelected"
+                      (change)="onToggleSelectAllHosts($event)">
+          {{ allHostsSelected ? 'De-select All Hosts' : 'Select All Hosts' }}
+        </mat-checkbox>
+      </div>
+      <mat-option *ngFor="let host of hosts" [value]="host">
+        {{host}}
+      </mat-option>
+      <div class="sticky-footer" (click)="$event.stopPropagation()">
+        <button mat-flat-button color="primary" class="full-width" (click)="onSubmitHosts(); multiSelectHost.close()">
+          Apply Host Selection
+        </button>
       </div>
     </mat-select>
   </mat-form-field>

@@ -19,6 +19,7 @@ xprof_ng_module(
         "@npm//@ngrx/store",
         "@npm//rxjs",
         "@org_xprof//frontend/app/common/angular:angular_material_button",
+        "@org_xprof//frontend/app/common/angular:angular_material_checkbox",
         "@org_xprof//frontend/app/common/angular:angular_material_core",
         "@org_xprof//frontend/app/common/angular:angular_material_form_field",
         "@org_xprof//frontend/app/common/angular:angular_material_select",
