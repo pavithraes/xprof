@@ -29,11 +29,11 @@ limitations under the License.
 #include <vector>
 
 #include "absl/algorithm/container.h"
-#include "absl/base/internal/endian.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
+#include "absl/numeric/bits.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "xla/tsl/lib/io/iterator.h"
@@ -96,9 +96,8 @@ inline void AppendEvents(TraceEventTrack&& src, TraceEventTrack* dst) {
 
 TraceEvent::EventType GetTraceEventType(const TraceEvent& event) {
   return event.has_resource_id() ? TraceEvent::EVENT_TYPE_COMPLETE
-                                 : event.has_flow_id()
-                                       ? TraceEvent::EVENT_TYPE_ASYNC
-                                       : TraceEvent::EVENT_TYPE_COUNTER;
+         : event.has_flow_id()   ? TraceEvent::EVENT_TYPE_ASYNC
+                                 : TraceEvent::EVENT_TYPE_COUNTER;
 }
 
 bool ReadTraceMetadata(tsl::table::Iterator* iterator,
@@ -114,7 +113,11 @@ uint64_t TimestampFromLevelDbTableKey(absl::string_view level_db_table_key) {
   DCHECK_EQ(level_db_table_key.size(), kLevelDbKeyLength);
   uint64_t value;  // big endian representation of timestamp.
   memcpy(&value, level_db_table_key.data() + 1, sizeof(uint64_t));
-  return absl::big_endian::ToHost64(value);
+  if constexpr (absl::endian::native == absl::endian::little) {
+    return absl::byteswap<uint64_t>(value);
+  } else {
+    return value;
+  }
 }
 
 // Level Db table don't allow duplicated keys, so we add a tie break at the last
@@ -126,8 +129,14 @@ std::string LevelDbTableKey(int zoom_level, uint64_t timestamp,
   char* ptr = output.data();
   ptr[0] = kLevelKey[zoom_level];
   // The big-endianness preserve the monotonic order of timestamp when convert
-  // to lexigraphical order (of Sstable key namespace).
-  uint64_t timestamp_bigendian = absl::big_endian::FromHost64(timestamp);
+  // to lexicographical order (of Sstable key namespace).
+  uint64_t timestamp_bigendian;
+  if constexpr (absl::endian::native == absl::endian::little) {
+    timestamp_bigendian = absl::byteswap<uint64_t>(timestamp);
+  } else {
+    timestamp_bigendian = timestamp;
+  }
+
   memcpy(ptr + 1, &timestamp_bigendian, sizeof(uint64_t));
   ptr[9] = repetition;
   return output;
@@ -241,8 +250,7 @@ absl::Status CreateAndSavePrefixTrie(
 
 absl::Status DoStoreAsLevelDbTables(
     const std::vector<std::vector<const TraceEvent*>>& events_by_level,
-    const Trace& trace,
-    std::unique_ptr<tsl::WritableFile>& trace_events_file,
+    const Trace& trace, std::unique_ptr<tsl::WritableFile>& trace_events_file,
     std::unique_ptr<tsl::WritableFile>& trace_events_metadata_file,
     std::unique_ptr<tsl::WritableFile>& trace_events_prefix_trie_file) {
   auto executor = std::make_unique<XprofThreadPoolExecutor>(
@@ -250,9 +258,9 @@ absl::Status DoStoreAsLevelDbTables(
   absl::Status trace_events_status, trace_events_metadata_status;
   executor->Execute(
       [&trace_events_file, &trace, &events_by_level, &trace_events_status]() {
-        trace_events_status =
-            DoStoreAsLevelDbTable(trace_events_file, trace, events_by_level,
-              GenerateTraceEventCopyForPersistingEventWithoutMetadata);
+        trace_events_status = DoStoreAsLevelDbTable(
+            trace_events_file, trace, events_by_level,
+            GenerateTraceEventCopyForPersistingEventWithoutMetadata);
       });
   executor->Execute([&trace_events_metadata_file, &events_by_level, &trace,
                      &trace_events_metadata_status]() {
@@ -263,9 +271,8 @@ absl::Status DoStoreAsLevelDbTables(
   absl::Status trace_events_prefix_trie_status;
   executor->Execute([&trace_events_prefix_trie_file, &events_by_level,
                      &trace_events_prefix_trie_status]() {
-    trace_events_prefix_trie_status =
-        CreateAndSavePrefixTrie(trace_events_prefix_trie_file.get(),
-                                events_by_level);
+    trace_events_prefix_trie_status = CreateAndSavePrefixTrie(
+        trace_events_prefix_trie_file.get(), events_by_level);
   });
   executor->JoinAll();
   trace_events_status.Update(trace_events_metadata_status);
@@ -347,8 +354,7 @@ absl::Status DoStoreAsLevelDbTable(
     // them if it overflow the last byte).
     for (const TraceEvent* event : events_by_level[zoom_level]) {
       uint64_t timestamp = event->timestamp_ps();
-      std::string key =
-          LevelDbTableKey(zoom_level, timestamp, event->serial());
+      std::string key = LevelDbTableKey(zoom_level, timestamp, event->serial());
       if (!key.empty()) {
         auto event_copy = generate_event_copy_fn(event);
         if (event_copy.has_value()) {
@@ -370,8 +376,8 @@ absl::Status DoStoreAsLevelDbTable(
 }
 
 absl::Status OpenLevelDbTable(const std::string& filename,
-                               tsl::table::Table** table,
-                               std::unique_ptr<tsl::RandomAccessFile>& file) {
+                              tsl::table::Table** table,
+                              std::unique_ptr<tsl::RandomAccessFile>& file) {
   uint64_t file_size;
   TF_RETURN_IF_ERROR(tsl::Env::Default()->GetFileSize(filename, &file_size));
   tsl::FileSystem* file_system;
