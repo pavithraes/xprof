@@ -2,9 +2,10 @@
   <capture-profile></capture-profile>
 </div>
 
+<!-- TODO(bhupendradubey): Rename internal variables and function names (e.g., `runs`, `selectedRun`, `onRunSelectionChange`) to use `session` instead of `run` for consistency. -->
 <div class="item-container">
   <div [ngClass]="{'mat-subheading-2': true, 'disabled': !runs.length}">
-    Runs ({{runs.length}})
+    Sessions ({{runs.length}})
   </div>
 
   <mat-form-field class="full-width" appearance="outline">
