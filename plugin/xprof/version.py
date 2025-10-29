@@ -14,4 +14,4 @@
 # ==============================================================================
 """Version information for tensorboard-plugin-profile."""
 
-__version__ = "2.20.7"
+__version__ = "2.20.8"
