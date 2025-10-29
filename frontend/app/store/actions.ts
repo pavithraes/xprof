@@ -92,6 +92,12 @@ export const setHostsStateAction: ActionCreatorAny = createAction(
     props<{hostsState: HostMetadata[]}>(),
 );
 
+/** Action to set tags list state */
+export const setTagsStateAction: ActionCreatorAny = createAction(
+    '[App State] Set tags state',
+    props<{tagsState: string[]}>(),
+);
+
 /** Action to set current run */
 export const setCurrentRunAction: ActionCreatorAny = createAction(
     '[App State] Set current run state',

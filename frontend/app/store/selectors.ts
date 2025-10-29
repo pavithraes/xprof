@@ -67,6 +67,10 @@ export const getToolsInfoState: MemoizedSelectorAny =
 export const getHostsState: MemoizedSelectorAny =
     createSelector(appState, (appState: AppState) => appState.hostsState);
 
+/** Selector for tags list */
+export const getTagsState: MemoizedSelectorAny =
+    createSelector(appState, (appState: AppState) => appState.tagsState);
+
 /** Selector for DataRequestType */
 export const getDataRequest: MemoizedSelectorAny =
     createSelector(appState, (appState: AppState) => appState.dataRequest);

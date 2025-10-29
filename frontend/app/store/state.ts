@@ -92,6 +92,7 @@ export interface AppState {
   loadingState: LoadingState;
   toolsInfoState: ToolsInfoState;
   hostsState: HostMetadata[];
+  tagsState: string[];
   currentTool: CurrentToolState;
   exportAsCsv: ExportAsCsvState;
   errorMessage: ErrorMessageState;
@@ -169,6 +170,9 @@ const INIT_CURRENT_RUN = '';
 /** Initial state of hosts list */
 const INIT_HOSTS_STATE: HostMetadata[] = [];
 
+/** Initial state of tags list */
+const INIT_TAGS_STATE: string[] = [];
+
 /** Initial state object */
 export const INIT_APP_STATE: AppState = {
   memoryViewerState: INIT_MEMORY_VIEWER_STATE,
@@ -179,6 +183,7 @@ export const INIT_APP_STATE: AppState = {
   currentTool: INIT_CURRENT_TOOL_STATE,
   toolsInfoState: INIT_TOOLS_INFO_STATE,
   hostsState: INIT_HOSTS_STATE,
+  tagsState: INIT_TAGS_STATE,
   dataRequest: INIT_REQUEST_DATA_STATE,
   exportAsCsv: INIT_EXPORT_AS_CSV_STATE,
   errorMessage: INIT_ERROR_MESSAGE_STATE,

@@ -130,6 +130,15 @@ export const reducer: ActionReducer<AppState, Action> = createReducer(
         },
         ),
     on(
+        actions.setTagsStateAction,
+        (state: AppState, action) => {
+          return {
+            ...state,
+            tagsState: action.tagsState,
+          };
+        },
+        ),
+    on(
         actions.setDataRequestStateAction,
         (state: AppState, action: ActionCreatorAny) => {
           return {
