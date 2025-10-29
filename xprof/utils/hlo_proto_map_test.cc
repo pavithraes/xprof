@@ -19,7 +19,7 @@ using ::testing::status::StatusIs;
 
 TEST(HloProtoMapTest, GetOriginalModuleList) {
   HloProtoMap hlo_proto_map;
-  EXPECT_THAT(hlo_proto_map.GetOriginalModuleList(), IsEmpty());
+  EXPECT_THAT(hlo_proto_map.GetModuleList(true), IsEmpty());
 
   auto hlo_proto_1 = std::make_unique<xla::HloProto>();
   hlo_proto_1->mutable_hlo_module()->set_name("module1");
@@ -29,7 +29,7 @@ TEST(HloProtoMapTest, GetOriginalModuleList) {
   hlo_proto_2->mutable_hlo_module()->set_name("module2");
   hlo_proto_map.AddOriginalHloProto(2, std::move(hlo_proto_2));
 
-  EXPECT_THAT(hlo_proto_map.GetOriginalModuleList(),
+  EXPECT_THAT(hlo_proto_map.GetModuleList(true),
               UnorderedElementsAre("module1(1)", "module2(2)"));
 }
 

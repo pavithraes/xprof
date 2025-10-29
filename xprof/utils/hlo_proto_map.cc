@@ -112,19 +112,13 @@ void HloProtoMap::AddHloProtosFromXSpace(const XSpace& space) {
   }
 }
 
-std::vector<absl::string_view> HloProtoMap::GetModuleList() const {
+std::vector<absl::string_view> HloProtoMap::GetModuleList(
+    bool is_original /*= false*/) const {
+  const auto& hlo_protos_map =
+      is_original ? original_hlo_protos_by_name_ : hlo_protos_by_name_;
   std::vector<absl::string_view> module_list;
-  module_list.reserve(hlo_protos_by_name_.size());
-  for (const auto& [name, hlo_proto] : hlo_protos_by_name_) {
-    module_list.push_back(name);
-  }
-  return module_list;
-}
-
-std::vector<absl::string_view> HloProtoMap::GetOriginalModuleList() const {
-  std::vector<absl::string_view> module_list;
-  module_list.reserve(original_hlo_protos_by_name_.size());
-  for (const auto& [name, hlo_proto] : original_hlo_protos_by_name_) {
+  module_list.reserve(hlo_protos_map.size());
+  for (const auto& [name, hlo_proto] : hlo_protos_map) {
     module_list.push_back(name);
   }
   return module_list;

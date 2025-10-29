@@ -49,19 +49,22 @@ class HloProtoMap {
   auto begin() const { return hlo_protos_by_program_id_.begin(); }
   auto end() const { return hlo_protos_by_program_id_.end(); }
 
-  bool contains(absl::string_view name) const {
+  bool ContainsOptimizedModule(absl::string_view name) const {
     return hlo_protos_by_name_.contains(name);
+  }
+
+  bool ContainsOriginalModule(absl::string_view name) const {
+    return original_hlo_protos_by_name_.contains(name);
   }
 
   bool contains(uint64_t program_id) const {
     return hlo_protos_by_program_id_.contains(program_id);
   }
 
-  // Returns a list of module names (not sorted).
-  std::vector<absl::string_view> GetModuleList() const;
-
-  // Returns a list of unoptimized/original module names (not sorted).
-  std::vector<absl::string_view> GetOriginalModuleList() const;
+  // Returns a list of HLO module names. If `is_original` is true, returns the
+  // names of the original/unoptimized modules; otherwise, returns the names of
+  // the optimized modules. The order of the modules is not guaranteed.
+  std::vector<absl::string_view> GetModuleList(bool is_original = false) const;
 
   // Returns a list of module names sorted alphabetically.
   std::vector<absl::string_view> GetSortedModuleList() const;
