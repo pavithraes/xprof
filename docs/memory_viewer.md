@@ -7,37 +7,49 @@ can help you see the global memory usage and how close the computation is to
 being out of memory.
 
 All information displayed in Memory Viewer is purely static, obtained from the
-XLA compiler; dynamic runtime information is presented in the Memory Profile
-tool.
+XLA compiler; dynamic runtime information is presented in the
+[Memory Profile tool](memory_profile.md).
+
+![Memory Viewer line chart](images/memory_viewer.png)
 
 ### Supported Platforms
 
-TPU: Supported
-
-GPU: Supported
+Both TPU and GPU are supported.
 
 ### Memory Viewer Components
 
-Memory Viewer consists of several key components:
+The Memory Viewer tool consists of several key components:
 
 1.  User control dropdowns that let you customize the data that you’re
     visualizing:
-    *   Memory types: The supported memory types are accelerator-dependent. For
-        GPUs, the focus is on the High Bandwidth Memory (HBM) and Host Memory.
-        For TPUs, you can additionally view usage for on-chip memories
-        including VMEM, SMEM, CMEM, Sync Flags (SFlag), and Sparsecore, as well
-        as the Host memory.
-    *   Modules: These are the XLA programs that were part of your execution. A
-        good starting point is often a top-level module, labeled something like
-        “jit_train_step” or “jit_generate”.
+
+    *   **Memory types:** The supported memory types are accelerator-dependent.
+        For GPUs, the focus is on the High Bandwidth Memory (HBM) and Host
+        Memory, whereas for TPUs, you can additionally view usage for on-chip
+        memories including VMEM, SMEM, CMEM, Sync Flags (SFlag), Sparsecore, and
+        also the Host memory.
+
+        ![Memory Viewer Memory Types dropdown](images/memory_viewer_dropdowns.png)
+
+    *   **HLO Modules:** These are the XLA programs that were part of your
+        execution. A good starting point is often a top-level module, labeled
+        something like `jit_train_step` or `jit_generate`. This dropdown appears
+        at the left panel.
+
+        ![Memory Viewer modules dropdown](images/memory_viewer_modules.png)
+
 2.  The textual overview section provides high level information such as the
     peak memory allocation required for the program, the split between arguments
     vs. temporary variables, etc. There is overhead imposed by padding,
     necessitated by restrictions on the supported shapes of tensors on
     accelerators. If this padding is a large fraction of the total allocation,
     that may indicate an optimization opportunity.
-3.  The “Memory Allocation Size vs. Program Order” line chart plots memory usage
-    versus program points (HLO Sequence) as scheduled by the compiler.
+
+    ![Memory Viewer Memory Text overview](images/memory_viewer_text.png)
+
+3.  The **Memory Allocation Size vs. Program Order** line chart plots memory
+    usage versus program points (HLO Sequence) as scheduled by the compiler.
+
     *   Note that the x-axis is *not* time.
     *   The chart specifically highlights the point in the program with peak
         memory utilization *of the chosen module*. The profiler and tools are
@@ -48,6 +60,7 @@ Memory Viewer consists of several key components:
         further allocations and deallocations occur. However, any future
         allocations by other modules compiled prior to execution are not
         captured; keep this in mind while debugging OOM situations.
+
 4.  Buffer charts at the bottom of the page break down memory usage at the peak
     usage program point (indicated by the vertical line in the memory usage line
     chart). There are three charts, all showing the entire set of buffers
@@ -62,7 +75,7 @@ Memory Viewer consists of several key components:
 
         Note that the colors of the buffers have no particular meaning.
 
-5.  Clicking on the ``timeline" link next to the chart title brings up a
+5.  Clicking on the "timeline" link next to the chart title brings up a
     visualization of the memory allocations, with a series of colored boxes, one
     per allocation. Hovering over the block brings up additional information
     about the allocation; for example, the HLO op that created the allocation,
@@ -86,6 +99,7 @@ Memory Viewer consists of several key components:
     *   A separate buffer details card, typically on the left side, with details
         about the specific op as applicable. A typical card includes the
         following information:
+
         *   Name: The XLA operation name, that you can search for in Graph
             Viewer or Trace Viewer.
         *   Size: The size of the buffer allocation, with and without padding.
@@ -100,3 +114,5 @@ Memory Viewer consists of several key components:
             the operation that created the buffer.
         *   Source Stack: Displays the full call stack for the operation,
             providing the execution context that led to the buffer allocation.
+
+        ![Memory Viewer buffer charts](images/memory_viewer_2.png)
