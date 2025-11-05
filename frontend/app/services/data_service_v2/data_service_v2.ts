@@ -283,6 +283,12 @@ export class DataServiceV2 implements DataServiceV2Interface {
     }) as Observable<string|Blob|null>;
   }
 
+  // Not implemented.
+  getLloSourceInfo(sessionId: string, opName: string, host = ''):
+      Observable<string> {
+    return of('');
+  }
+
   getSearchParams(): URLSearchParams {
     return new URLSearchParams(
         window.sessionStorage.getItem('searchParams') || '',

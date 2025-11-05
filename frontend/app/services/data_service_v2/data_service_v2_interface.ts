@@ -85,6 +85,10 @@ export interface DataServiceV2Interface {
       programId?: string,
       ): Observable<string|Blob|null>;
 
+  // Pick first host in the list if not specified.
+  getLloSourceInfo(sessionId: string, opName: string, host?: string):
+      Observable<string>;
+
   getSearchParams(): URLSearchParams;
   setSearchParams(searchParams: URLSearchParams): void;
 
