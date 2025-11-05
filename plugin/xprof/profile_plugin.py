@@ -769,6 +769,9 @@ class ProfilePlugin(base_plugin.TBPlugin):
         raise FileNotFoundError(
             'No xplane file found for host: %s in run: %s' % (host, run)
         )
+    elif not host and not hosts_param and len(all_xplane_files) == 1:
+      selected_hosts = list(all_xplane_files.keys())
+      asset_paths = list(all_xplane_files.values())
 
     if not asset_paths:
       logger.warning(
