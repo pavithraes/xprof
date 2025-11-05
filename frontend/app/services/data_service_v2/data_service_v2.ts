@@ -255,6 +255,12 @@ export class DataServiceV2 implements DataServiceV2Interface {
     return '';
   }
 
+  getCustomCallText(
+      sessionId: string, moduleName: string, opName: string,
+      programId: string): Observable<string> {
+    return of('');
+  }
+
   // Download by program id is not implemented yet, as the processor is missing
   // hlo proto map by program id.
   downloadHloProto(
