@@ -23,8 +23,10 @@ limitations under the License.
 #include "file/base/filesystem.h"
 #include "file/base/options.h"
 #include "file/base/path.h"
+#include "testing/base/public/benchmark.h"
 #include "testing/base/public/gmock.h"
 #include "<gtest/gtest.h>"
+#include "absl/log/check.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "xla/tsl/platform/env.h"
@@ -185,6 +187,63 @@ TEST_P(ProfileProcessorTest, ProcessorE2ETest) {
   // Clean up.
   ASSERT_OK(file::RecursivelyDelete(session_dir, file::Defaults()));
 }
+
+// Helper to map index to tool name for benchmarks.
+std::string GetToolNameForBenchmark(int index) {
+  static const std::vector<std::string> tool_names = {
+      "overview_page",      "input_pipeline_analyzer",
+      "kernel_stats",       "pod_viewer",
+      "hlo_stats",          "roofline_model",
+      "framework_op_stats", "op_profile"};
+  return tool_names[index];
+}
+
+// Microbenchmark for the E2E performance of ProfileProcessor.
+void BM_ProcessorE2ETest(benchmark::State& state) {
+  const std::string tool_name = GetToolNameForBenchmark(state.range(0));
+  // Setup: Create session directory and XSpace. This is done once per benchmark
+  // run.
+  std::string session_dir =
+      file::JoinPath(testing::TempDir(), tool_name + "_e2e_benchmark");
+  CHECK_OK(file::CreateDir(session_dir, file::Defaults()));
+  std::string xspace_path = file::JoinPath(session_dir, "test.xplane.pb");
+  XSpace space;
+  space.add_planes()->set_name("test_plane");
+  CHECK_OK(tsl::WriteBinaryProto(tsl::Env::Default(), xspace_path, space));
+  auto session_snapshot =
+      SessionSnapshot::Create({xspace_path}, std::nullopt).value();
+  ToolOptions options;
+
+  for (auto s : state) {
+    // Clear the cache file before each iteration to measure the full
+    // computation.
+    auto cache_file_path = session_snapshot.GetHostDataFilePath(
+        StoredDataType::OP_STATS, tensorflow::profiler::kAllHostsIdentifier);
+    // if (cache_file_path.has_value()) {
+    //   file::Delete(*cache_file_path, file::Defaults()).IgnoreError();
+    // }
+
+    // Measure the performance of
+    // ConvertMultiXSpacesToToolDataWithProfileProcessor.
+    auto result = ConvertMultiXSpacesToToolDataWithProfileProcessor(
+        session_snapshot, tool_name, options);
+    benchmark::DoNotOptimize(result);
+    CHECK_OK(result.status());
+  }
+
+  // Cleanup: Delete the session directory.
+  CHECK_OK(file::RecursivelyDelete(session_dir, file::Defaults()));
+}
+
+// Register a benchmark for each tool.
+BENCHMARK(BM_ProcessorE2ETest)->Arg(0);  // overview_page
+                                         // ->Arg(1)  // input_pipeline_analyzer
+                                         // ->Arg(2)  // kernel_stats
+                                         // ->Arg(3)  // pod_viewer
+                                         // ->Arg(4)  // hlo_stats
+                                         // ->Arg(5)  // roofline_model
+                                         // ->Arg(6)  // framework_op_stats
+                                         // ->Arg(7); // op_profile
 
 INSTANTIATE_TEST_SUITE_P(
     ProfileProcessorTests, ProfileProcessorTest,

@@ -450,6 +450,7 @@ cc_test(
         "//file/base",
         "//file/base:options_cc",
         "//file/base:path",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
