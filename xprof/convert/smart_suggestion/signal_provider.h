@@ -20,6 +20,7 @@ limitations under the License.
 #include <utility>
 
 #include "absl/status/statusor.h"
+#include "absl/status/status.h"
 #include "xla/tsl/platform/statusor.h"
 #include "xprof/convert/smart_suggestion/tool_data_provider.h"
 #include "plugin/xprof/protobuf/input_pipeline.pb.h"
@@ -101,6 +102,27 @@ class SignalProvider {
       return 0.0;
     }
     return (non_enqueue_us / total_input_time_us) * 100.0;
+  }
+
+  // Returns the percentage of time when the TensorCore is idle.
+  absl::StatusOr<double> GetTensorCoreIdleTimePercent() const {
+    TF_ASSIGN_OR_RETURN(const auto* input_pipeline_analysis,
+                        tool_data_provider_->GetInputPipelineAnalysisResult());
+    TpuStepTimeBreakdown step_time_breakdown;
+    double tensor_core_idle_time_ms = 0.0;
+    if (input_pipeline_analysis->step_time_breakdown().UnpackTo(
+            &step_time_breakdown)) {
+      tensor_core_idle_time_ms =
+          step_time_breakdown.tc_idle_ms_summary().average();
+    } else {
+      return absl::NotFoundError("Failed to unpack TpuStepTimeBreakdown.");
+    }
+    double step_time_ms =
+        input_pipeline_analysis->step_time_summary().average();
+    if (step_time_ms == 0) {
+      return 0.0;
+    }
+    return (tensor_core_idle_time_ms / step_time_ms) * 100.0;
   }
 
  private:
