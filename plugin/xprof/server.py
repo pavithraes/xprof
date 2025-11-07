@@ -34,7 +34,6 @@ TBContext = base_plugin.TBContext
 ProfilePluginLoader = profile_plugin_loader.ProfilePluginLoader
 
 
-_DEFAULT_WORKER_ADDRESS = "0.0.0.0:50051"
 _DEFAULT_GRPC_PORT = 50051
 
 
@@ -235,11 +234,12 @@ def _create_argument_parser() -> argparse.ArgumentParser:
       "-wsa",
       "--worker_service_address",
       type=str,
-      default=_DEFAULT_WORKER_ADDRESS,
+      default=None,
       help=(
           "A comma-separated list of worker service addresses (IPs or FQDNs)"
           " with their gRPC ports, used in distributed profiling. Example:"
           " 'worker-a.project.internal:50051,worker-b.project.internal:50051'."
+          " If not provided, it will use 0.0.0.0 with the gRPC port."
       ),
   )
 
@@ -278,11 +278,16 @@ def main() -> int:
       if args.logdir_opt or args.logdir_pos
       else None
   )
+
+  worker_service_address = args.worker_service_address
+  if worker_service_address is None:
+    worker_service_address = f"0.0.0.0:{args.grpc_port}"
+
   config = ServerConfig(
       logdir=logdir,
       port=args.port,
       grpc_port=args.grpc_port,
-      worker_service_address=args.worker_service_address,
+      worker_service_address=worker_service_address,
       hide_capture_profile_button=args.hide_capture_profile_button,
   )
 
@@ -296,6 +301,14 @@ def main() -> int:
     print(
         f"Error: Log directory '{logdir}' does not exist or is not a"
         " directory.",
+        file=sys.stderr,
+    )
+    return 1
+
+  if config.port == config.grpc_port:
+    print(
+        "Error: The main server port (--port) and the gRPC port (--grpc_port)"
+        " must be different.",
         file=sys.stderr,
     )
     return 1
