@@ -23,18 +23,13 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "xla/tsl/platform/statusor.h"
+#include "xprof/convert/smart_suggestion/constants.h"
 #include "xprof/convert/smart_suggestion/signal_provider.h"
 #include "xprof/convert/smart_suggestion/smart_suggestion_rule.h"
 #include "plugin/xprof/protobuf/smart_suggestion.pb.h"
 
 namespace tensorflow {
 namespace profiler {
-
-// If HBM bandwidth utilization is higher than HbmUtilizationThresholdInPercent
-// and MXU utilization is lower than MxuUtilizationThresholdInPercent, it is
-// considered memory bound.
-constexpr double kHbmUtilizationThresholdInPercent = 70;
-constexpr double kMxuUtilizationThresholdInPercent = 50;
 
 // Rule to detect memory operations bottleneck.
 class MemoryBoundRule : public SmartSuggestionRule {
@@ -48,8 +43,8 @@ class MemoryBoundRule : public SmartSuggestionRule {
       return false;
     }
 
-    return *hbm_utilization_percent > kHbmUtilizationThresholdInPercent &&
-    *mxu_utilization_percent < kMxuUtilizationThresholdInPercent;
+    return *hbm_utilization_percent > kHbmUtilizationHighThreshold &&
+           *mxu_utilization_percent < kMxuUtilizationLowThreshold;
   }
 
   absl::StatusOr<std::optional<SmartSuggestion>> GenerateSuggestion(

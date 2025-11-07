@@ -6,6 +6,12 @@ package(
 )
 
 cc_library(
+    name = "constants",
+    hdrs = ["constants.h"],
+    deps = [],
+)
+
+cc_library(
     name = "signal_provider",
     hdrs = ["signal_provider.h"],
     deps = [
@@ -101,6 +107,7 @@ cc_library(
     name = "memory_bound_rule",
     hdrs = ["memory_bound_rule.h"],
     deps = [
+        ":constants",
         ":signal_provider",
         ":smart_suggestion_rule",
         "@com_google_absl//absl/status:statusor",
@@ -115,6 +122,7 @@ cc_library(
     name = "compute_bound_rule",
     hdrs = ["compute_bound_rule.h"],
     deps = [
+        ":constants",
         ":signal_provider",
         ":smart_suggestion_rule",
         "@com_google_absl//absl/status:statusor",
