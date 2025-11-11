@@ -1863,7 +1863,9 @@ cc_library(
         ":inference_stats_sampler",
         ":preprocess_single_host_xplane",
         ":repository",
+        ":url_utils",
         ":xplane_to_step_events",
+        ":xprof_thread_pool_executor",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
@@ -1872,8 +1874,8 @@ cc_library(
         "@com_google_absl//absl/strings:string_view",
         "@com_google_protobuf//:protobuf",
         "@org_xprof//plugin/xprof/protobuf:inference_stats_proto_cc",
-        "@org_xprof//xprof/convert:url_utils",
         "@org_xprof//xprof/utils:event_span",
+        "@tsl//tsl/platform:platform_port",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
         "@xla//xla/tsl/platform:statusor",
         "@xla//xla/tsl/profiler/utils:device_utils",
@@ -1883,6 +1885,21 @@ cc_library(
         "@xla//xla/tsl/profiler/utils:tpu_xplane_utils",
         "@xla//xla/tsl/profiler/utils:xplane_schema",
         "@xla//xla/tsl/profiler/utils:xplane_utils",
+    ],
+)
+
+cc_test(
+    name = "multi_xspace_to_inference_stats_test",
+    srcs = ["multi_xspace_to_inference_stats_test.cc"],
+    deps = [
+        ":multi_xspace_to_inference_stats",
+        ":repository",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+        "@xla//xla/tsl/profiler/utils:xplane_schema",
     ],
 )
 

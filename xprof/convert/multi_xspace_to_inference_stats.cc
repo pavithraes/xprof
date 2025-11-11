@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "xprof/convert/multi_xspace_to_inference_stats.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <utility>
@@ -36,6 +37,7 @@ limitations under the License.
 #include "xla/tsl/profiler/utils/tpu_xplane_utils.h"
 #include "xla/tsl/profiler/utils/xplane_schema.h"
 #include "xla/tsl/profiler/utils/xplane_utils.h"
+#include "tsl/platform/cpu_info.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
 #include "xprof/convert/data_table_utils.h"
 #include "xprof/convert/inference_stats.h"
@@ -46,6 +48,7 @@ limitations under the License.
 #include "xprof/convert/repository.h"
 #include "xprof/convert/url_utils.h"
 #include "xprof/convert/xplane_to_step_events.h"
+#include "xprof/convert/xprof_thread_pool_executor.h"
 #include "plugin/xprof/protobuf/inference_stats.pb.h"
 #include "xprof/utils/event_span.h"
 
@@ -114,21 +117,47 @@ StepEvents GetNonOverlappedStepEvents(XSpace* xspace) {
 absl::Status ConvertMultiXSpaceToInferenceStats(
     const SessionSnapshot& session_snapshot, absl::string_view request_column,
     absl::string_view batch_column, InferenceStats* inference_stats) {
-  for (int i = 0; i < session_snapshot.XSpaceSize(); ++i) {
-    google::protobuf::Arena arena;
-    TF_ASSIGN_OR_RETURN(XSpace* xspace, session_snapshot.GetXSpace(i, &arena));
-    tsl::profiler::GroupMetadataMap metadata_map;
-    InferenceStats inference_stats_per_host;
-    std::vector<XPlane*> device_traces =
-        tsl::profiler::FindMutableTensorCorePlanes(xspace);
-    PreprocessSingleHostXSpace(xspace, /*step_grouping=*/true,
-                               /*derived_timeline=*/false, &metadata_map);
-    StepEvents non_overlapped_step_events = GetNonOverlappedStepEvents(xspace);
-    GenerateInferenceStats(
-        device_traces, non_overlapped_step_events, metadata_map, *xspace,
-        tsl::profiler::DeviceType::kTpu, i, &inference_stats_per_host);
-    CombineInferenceStatsResult(i, inference_stats_per_host, inference_stats);
+  int xspaces_size = session_snapshot.XSpaceSize();
+  std::vector<InferenceStats> per_host_inference_stats(xspaces_size);
+  std::vector<absl::Status> statuses(xspaces_size);
+
+  int thread_pool_size = std::min(tsl::port::MaxParallelism(), xspaces_size);
+  auto executor = std::make_unique<XprofThreadPoolExecutor>(
+      "ConvertMultiXSpaceToInferenceStats", thread_pool_size);
+
+  for (int i = 0; i < xspaces_size; ++i) {
+    executor->Execute([&, i]() {
+      google::protobuf::Arena arena;
+      absl::StatusOr<XSpace*> xspace_status =
+          session_snapshot.GetXSpace(i, &arena);
+      if (!xspace_status.ok()) {
+        statuses[i] = xspace_status.status();
+        return;
+      }
+      XSpace* xspace = *xspace_status;
+      tsl::profiler::GroupMetadataMap metadata_map;
+      std::vector<XPlane*> device_traces =
+          tsl::profiler::FindMutableTensorCorePlanes(xspace);
+      PreprocessSingleHostXSpace(xspace, /*step_grouping=*/true,
+                                 /*derived_timeline=*/false, &metadata_map);
+      StepEvents non_overlapped_step_events =
+          GetNonOverlappedStepEvents(xspace);
+      GenerateInferenceStats(
+          device_traces, non_overlapped_step_events, metadata_map, *xspace,
+          tsl::profiler::DeviceType::kTpu, i, &per_host_inference_stats[i]);
+      statuses[i] = absl::OkStatus();
+    });
   }
+  executor->JoinAll();
+
+  for (int i = 0; i < xspaces_size; ++i) {
+    if (!statuses[i].ok()) {
+      return statuses[i];
+    }
+    CombineInferenceStatsResult(i, per_host_inference_stats[i],
+                                inference_stats);
+  }
+
   RegroupInferenceStatsByModel(inference_stats);
   *inference_stats->mutable_sampled_inference_stats() =
       GetSampledInferenceStatsProto(*inference_stats, request_column,
