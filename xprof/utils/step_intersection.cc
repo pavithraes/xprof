@@ -15,6 +15,8 @@ limitations under the License.
 #include "xprof/utils/step_intersection.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -23,9 +25,9 @@ limitations under the License.
 #include "absl/log/check.h"
 #include "absl/strings/str_cat.h"
 #include "xla/tsl/lib/gtl/map_util.h"
+#include "xla/tsl/platform/logging.h"
 #include "xla/tsl/platform/types.h"
 #include "xla/tsl/profiler/utils/timespan.h"
-#include "xla/tsl/platform/logging.h"
 
 namespace tensorflow {
 namespace profiler {
@@ -34,8 +36,6 @@ namespace {
 
 using tsl::uint32;
 using tsl::uint64;
-using tsl::kuint64max;
-using tsl::kuint32max;
 
 // Returns the timespan in this step (across all cores).
 tsl::profiler::Timespan StepTimespan(const PerCoreStepInfo& percore_stepinfo) {

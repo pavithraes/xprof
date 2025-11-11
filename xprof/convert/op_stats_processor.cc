@@ -15,6 +15,8 @@ limitations under the License.
 
 #include "xprof/convert/op_stats_processor.h"
 
+#include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <variant>  // Required for std::holds_alternative and std::get
@@ -54,7 +56,6 @@ using ::tensorflow::profiler::StepIntersection;
 using ::tensorflow::profiler::StoredDataType;
 using ::tensorflow::profiler::WriteBinaryProto;
 using ::tensorflow::profiler::XSpace;
-using tsl::kuint32max;
 
 std::string GetCacheFilePath(const SessionSnapshot& session_snapshot,
                              const std::string& hostname) {

@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "xprof/convert/multi_xplanes_to_op_stats.h"
 
+#include <cstdint>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -34,7 +35,6 @@ limitations under the License.
 
 namespace tensorflow {
 namespace profiler {
-using tsl::kuint32max;
 
 absl::Status ConvertMultiXSpacesToCombinedOpStats(
     const SessionSnapshot& session_snapshot, const OpStatsOptions& options,
