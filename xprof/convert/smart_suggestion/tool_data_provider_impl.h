@@ -17,8 +17,11 @@ limitations under the License.
 #define THIRD_PARTY_XPROF_CONVERT_SMART_SUGGESTION_TOOL_DATA_PROVIDER_IMPL_H_
 
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "xla/tsl/platform/errors.h"
 #include "xprof/convert/multi_xplanes_to_op_stats.h"
@@ -65,6 +68,11 @@ class ToolDataProviderImpl : public ToolDataProvider {
               std::move(input_pipeline_analysis));
     }
     return input_pipeline_analysis_cache_.get();
+  }
+
+  absl::StatusOr<std::vector<float>> GetEventTimeFractionEachStep(
+      const std::string& target_event_name) override {
+    return absl::UnimplementedError("Not implemented yet.");
   }
 
  private:

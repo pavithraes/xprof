@@ -13,21 +13,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "xprof/convert/smart_suggestion/data_transfer_bound_rule.h"
+#include "xprof/convert/smart_suggestion/barrier_cores_rule.h"
 
 #include <memory>
 #include <optional>
-#include <utility>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "testing/base/public/gmock.h"
 #include "<gtest/gtest.h>"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "xprof/convert/smart_suggestion/signal_provider.h"
 #include "xprof/convert/smart_suggestion/tool_data_provider.h"
-#include "plugin/xprof/protobuf/input_pipeline.pb.h"
-#include "plugin/xprof/protobuf/overview_page.pb.h"
 #include "plugin/xprof/protobuf/smart_suggestion.pb.h"
 
 namespace tensorflow {
@@ -35,10 +34,10 @@ namespace profiler {
 namespace {
 
 using ::testing::Eq;
+using ::testing::HasSubstr;
 using ::testing::Return;
 using ::testing::status::IsOkAndHolds;
 
-// TODO(zhuruiyang): Move this to a common mock file data_provider_mock.h
 // Mock ToolDataProvider
 class MockToolDataProvider : public ToolDataProvider {
  public:
@@ -47,63 +46,50 @@ class MockToolDataProvider : public ToolDataProvider {
   MOCK_METHOD(absl::StatusOr<const InputPipelineAnalysisResult*>,
               GetInputPipelineAnalysisResult, (), (override));
   MOCK_METHOD(absl::StatusOr<std::vector<float>>,
-            GetEventTimeFractionEachStep, (const std::string&), (override));
+              GetEventTimeFractionEachStep, (const std::string&), (override));
 };
 
-TEST(DataTransferBoundRuleTest, MeetsConditions) {
+TEST(BarrierCoresRuleTest, MeetsConditions) {
   auto mock_tool_data_provider = std::make_unique<MockToolDataProvider>();
-  InputPipelineAnalysisResult result;
-  // Scenario: Input bound, and high enqueue time
-  result.set_input_percent(20.0);  // Input bound
-  result.mutable_input_time_breakdown()->set_enqueue_us(40.0);
-  result.mutable_input_time_breakdown()->set_demanded_file_read_us(10.0);
-
-  EXPECT_CALL(*mock_tool_data_provider, GetInputPipelineAnalysisResult())
-      .WillRepeatedly(Return(&result));
+  // Average is (0.15+0.25)/2 = 0.2, which is 20%. This is > 10%.
+  EXPECT_CALL(*mock_tool_data_provider,
+              GetEventTimeFractionEachStep(kSpecialOpName))
+      .WillRepeatedly(Return(std::vector<float>{0.15, 0.25}));
 
   SignalProvider signal_provider(std::move(mock_tool_data_provider));
-  DataTransferBoundRule rule;
+  BarrierCoresRule rule;
 
   absl::StatusOr<std::optional<SmartSuggestion>> suggestion =
       rule.Apply(signal_provider);
   EXPECT_THAT(suggestion, IsOkAndHolds(testing::Not(Eq(std::nullopt))));
-  EXPECT_EQ((*suggestion)->rule_name(), "DataTransferBoundRule");
+  EXPECT_EQ((*suggestion)->rule_name(), "BarrierCoresRule");
   EXPECT_THAT((*suggestion)->suggestion_text(),
-              testing::HasSubstr("16.0% of the total step time"));
+     HasSubstr("20.0% of each step time"));
 }
 
-TEST(DataTransferBoundRuleTest, NotInputBound) {
+TEST(BarrierCoresRuleTest, NotSpecialOpBound) {
   auto mock_tool_data_provider = std::make_unique<MockToolDataProvider>();
-  InputPipelineAnalysisResult result;
-  // Scenario: Not input bound
-  result.set_input_percent(5.0);  // Not input bound
-  result.mutable_input_time_breakdown()->set_enqueue_us(40.0);
-  result.mutable_input_time_breakdown()->set_demanded_file_read_us(10.0);
-
-  EXPECT_CALL(*mock_tool_data_provider, GetInputPipelineAnalysisResult())
-      .WillRepeatedly(Return(&result));
+  // Average is (0.01+0.02)/2 = 0.015, which is 1.5%. This is < 10%.
+  EXPECT_CALL(*mock_tool_data_provider,
+              GetEventTimeFractionEachStep(kSpecialOpName))
+      .WillRepeatedly(Return(std::vector<float>{0.01, 0.02}));
 
   SignalProvider signal_provider(std::move(mock_tool_data_provider));
-  DataTransferBoundRule rule;
+  BarrierCoresRule rule;
 
   absl::StatusOr<std::optional<SmartSuggestion>> suggestion =
       rule.Apply(signal_provider);
   EXPECT_THAT(suggestion, IsOkAndHolds(Eq(std::nullopt)));
 }
 
-TEST(DataTransferBoundRuleTest, InputBoundButNotDataTransferBound) {
+TEST(BarrierCoresRuleTest, ErrorFetchingPercentile) {
   auto mock_tool_data_provider = std::make_unique<MockToolDataProvider>();
-  InputPipelineAnalysisResult result;
-  // Scenario: Input bound, but low enqueue time
-  result.set_input_percent(20.0);                               // Input bound
-  result.mutable_input_time_breakdown()->set_enqueue_us(10.0);  // Low enqueue
-  result.mutable_input_time_breakdown()->set_demanded_file_read_us(90.0);
-
-  EXPECT_CALL(*mock_tool_data_provider, GetInputPipelineAnalysisResult())
-      .WillRepeatedly(Return(&result));
+  EXPECT_CALL(*mock_tool_data_provider,
+              GetEventTimeFractionEachStep(kSpecialOpName))
+      .WillRepeatedly(Return(absl::InternalError("Failed to get percentile")));
 
   SignalProvider signal_provider(std::move(mock_tool_data_provider));
-  DataTransferBoundRule rule;
+  BarrierCoresRule rule;
 
   absl::StatusOr<std::optional<SmartSuggestion>> suggestion =
       rule.Apply(signal_provider);

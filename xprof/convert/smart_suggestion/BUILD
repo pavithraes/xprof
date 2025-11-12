@@ -42,6 +42,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:overview_page_proto_cc",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
     ],
 )
 
@@ -50,6 +51,7 @@ cc_library(
     hdrs = ["tool_data_provider_impl.h"],
     deps = [
         ":tool_data_provider",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
@@ -148,6 +150,20 @@ cc_library(
 )
 
 cc_library(
+    name = "barrier_cores_rule",
+    hdrs = ["barrier_cores_rule.h"],
+    deps = [
+        ":signal_provider",
+        ":smart_suggestion_rule",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
+        "@xla//xla/tsl/platform:statusor",
+    ],
+)
+
+cc_library(
     name = "smart_suggestion_rule_factory",
     hdrs = ["smart_suggestion_rule_factory.h"],
     deps = [
@@ -159,6 +175,7 @@ cc_library(
     name = "all_rules",
     hdrs = ["all_rules.h"],
     deps = [
+        ":barrier_cores_rule",
         ":compute_bound_rule",
         ":data_transfer_bound_rule",
         ":host_processing_bound_rule",
@@ -180,6 +197,20 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
         "@xla//xla/tsl/platform:statusor",
+    ],
+)
+
+cc_test(
+    name = "barrier_cores_rule_test",
+    srcs = ["barrier_cores_rule_test.cc"],
+    deps = [
+        ":barrier_cores_rule",
+        ":signal_provider",
+        ":tool_data_provider",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
+        "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
     ],
 )
 
