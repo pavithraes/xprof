@@ -145,6 +145,28 @@ class SignalProvider {
     return (total_percent / event_time_of_interest.size()) * 100.0;
   }
 
+  // Returns the percentage of time that is spent on SparseCore.
+  absl::StatusOr<double> GetSparseCoreTimePercent() const {
+    TF_ASSIGN_OR_RETURN(const auto* input_pipeline_analysis,
+                        tool_data_provider_->GetInputPipelineAnalysisResult());
+    TpuStepTimeBreakdown step_time_breakdown;
+    double sparse_core_time_ms = 0.0;
+    if (input_pipeline_analysis->step_time_breakdown().UnpackTo(
+            &step_time_breakdown)) {
+      sparse_core_time_ms = step_time_breakdown.sparse_core_step_summary()
+                                     .sc_step_time_ms_summary()
+                                     .average();
+    } else {
+      return absl::NotFoundError("Failed to unpack TpuStepTimeBreakdown.");
+    }
+    double step_time_ms =
+        input_pipeline_analysis->step_time_summary().average();
+    if (step_time_ms == 0) {
+      return 0.0;
+    }
+    return (sparse_core_time_ms / step_time_ms) * 100.0;
+  }
+
   // Returns true if the profile is latency bound, i.e. MXU and HBM utilization
   // are both below 50%.
   bool IsLatencyBound() const {
@@ -155,7 +177,7 @@ class SignalProvider {
     }
 
     return *mxu_utilization < kMxuUtilizationLowThreshold &&
-     *hbm_utilization < kHbmUtilizationLowThreshold;
+           *hbm_utilization < kHbmUtilizationLowThreshold;
   }
 
  private:
