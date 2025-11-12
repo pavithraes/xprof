@@ -1162,7 +1162,6 @@ void MayFixTpuStepAnalysis(
          *per_core_step_info.mutable_step_info_per_core()) {
       // skip sparse cores for this.
       if (core_id >= kSparseCoreIndexStart) continue;
-      TpuStepBreakdown tpu;
       if (TpuStepBreakdown tpu; step_info.step_breakdown().UnpackTo(&tpu)) {
         DCHECK_EQ(tpu.infeed_duration_ps(), 0);
         if (tpu.tc_idle_ps() > 0) {
