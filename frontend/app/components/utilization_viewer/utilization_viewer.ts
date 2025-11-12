@@ -257,14 +257,19 @@ export class UtilizationViewer extends Dashboard implements OnDestroy {
 
   override updateView() {
     const filters = this.getFilters();
-    this.coreIndexes.forEach((index: number) => {
-      const processor = this.dataProcessorTensorNodesUnit[index];
+    for (const processor of Object.values(this.dataProcessorTensorNodesUnit)) {
       if (processor) {
         processor.setFilters(filters);
       }
-    });
-    this.coreIndexes.forEach((index: number) => {
-      const processor = this.dataProcessorTensorNodesBandwidth[index];
+    }
+    for (const processor of Object.values(
+             this.dataProcessorTensorNodesBandwidth)) {
+      if (processor) {
+        processor.setFilters(filters);
+      }
+    }
+    this.hbmCoreIndexes.forEach((index: number) => {
+      const processor = this.dataProcessorHBMRatio[index];
       if (processor) {
         processor.setFilters(filters);
       }
