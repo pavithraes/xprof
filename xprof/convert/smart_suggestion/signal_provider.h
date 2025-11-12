@@ -180,6 +180,15 @@ class SignalProvider {
            *hbm_utilization < kHbmUtilizationLowThreshold;
   }
 
+  // Returns true if the input percentage of step time is above the threshold.
+  bool IsInputBound() const {
+    absl::StatusOr<double> input_percent = GetInputPercentOfStepTime();
+    if (!input_percent.ok()) {
+      return false;
+    }
+    return *input_percent > kInfeedPercentageThreshold;
+  }
+
  private:
   std::unique_ptr<ToolDataProvider> tool_data_provider_;
 };

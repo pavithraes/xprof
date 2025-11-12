@@ -23,7 +23,6 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "xla/tsl/platform/statusor.h"
-#include "xprof/convert/smart_suggestion/input_bound_rule.h"
 #include "xprof/convert/smart_suggestion/signal_provider.h"
 #include "xprof/convert/smart_suggestion/smart_suggestion_rule.h"
 #include "plugin/xprof/protobuf/smart_suggestion.pb.h"
@@ -41,8 +40,7 @@ constexpr double kHostProcessingBoundThresholdInPercent = 50;
 class HostProcessingBoundRule : public SmartSuggestionRule {
  protected:
   bool MeetsConditions(const SignalProvider& signal_provider) const override {
-    InputBoundRule input_bound_rule;
-    if (!input_bound_rule.MeetsConditions(signal_provider)) {
+    if (!signal_provider.IsInputBound()) {
       return false;
     }
 

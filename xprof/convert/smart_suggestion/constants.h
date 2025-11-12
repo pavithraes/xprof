@@ -33,6 +33,11 @@ inline constexpr double kHbmUtilizationHighThreshold = 70.0;
 inline constexpr double kMxuUtilizationLowThreshold = 50.0;
 inline constexpr double kMxuUtilizationHighThreshold = 70.0;
 
+// Thresholds for input percentage of step time for bottleneck classification.
+// If input percentage is higher than kInfeedPercentageThreshold, it is
+// considered input bound.
+inline constexpr double kInfeedPercentageThreshold = 10.0;
+
 }  // namespace profiler
 }  // namespace tensorflow
 

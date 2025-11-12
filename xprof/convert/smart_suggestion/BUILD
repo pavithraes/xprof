@@ -66,21 +66,9 @@ cc_library(
 )
 
 cc_library(
-    name = "input_bound_rule",
-    hdrs = ["input_bound_rule.h"],
-    deps = [
-        ":signal_provider",
-        ":smart_suggestion_rule",
-        "@com_google_absl//absl/status:statusor",
-        "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
-    ],
-)
-
-cc_library(
     name = "host_processing_bound_rule",
     hdrs = ["host_processing_bound_rule.h"],
     deps = [
-        ":input_bound_rule",
         ":signal_provider",
         ":smart_suggestion_rule",
         "@com_google_absl//absl/status:statusor",
@@ -95,7 +83,6 @@ cc_library(
     name = "data_transfer_bound_rule",
     hdrs = ["data_transfer_bound_rule.h"],
     deps = [
-        ":input_bound_rule",
         ":signal_provider",
         ":smart_suggestion_rule",
         "@com_google_absl//absl/status:statusor",
@@ -194,7 +181,6 @@ cc_library(
         ":compute_bound_rule",
         ":data_transfer_bound_rule",
         ":host_processing_bound_rule",
-        ":input_bound_rule",
         ":memory_bound_rule",
         ":smart_suggestion_rule_factory",
         ":sparse_core_bound_rule",
