@@ -15,6 +15,7 @@ cc_library(
     name = "signal_provider",
     hdrs = ["signal_provider.h"],
     deps = [
+        ":constants",
         ":tool_data_provider",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",

@@ -38,6 +38,10 @@ constexpr double kTensorCoreIdleTimeThresholdInPercent = 10;
 class TensorCoreIdleBoundRule : public SmartSuggestionRule {
  public:
   bool MeetsConditions(const SignalProvider& signal_provider) const override {
+    if (!signal_provider.IsLatencyBound()) {
+      return false;
+    }
+
     absl::StatusOr<double> tensor_core_idle_time_percent =
         signal_provider.GetTensorCoreIdleTimePercent();
     if (!tensor_core_idle_time_percent.ok()) {

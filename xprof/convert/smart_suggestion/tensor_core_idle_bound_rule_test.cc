@@ -62,6 +62,13 @@ TEST(TensorCoreIdleBoundRuleTest, MeetsConditions) {
   EXPECT_CALL(*mock_tool_data_provider, GetInputPipelineAnalysisResult())
       .WillRepeatedly(Return(&input_pipeline_analysis));
 
+  OverviewPage overview_page;
+  overview_page.mutable_analysis()->set_mxu_utilization_percent(49.0);
+  overview_page.mutable_analysis()
+      ->set_memory_bw_utilization_relative_to_hw_limit_percent(49.0);
+  EXPECT_CALL(*mock_tool_data_provider, GetOverviewPage())
+      .WillRepeatedly(Return(&overview_page));
+
   SignalProvider signal_provider(std::move(mock_tool_data_provider));
   TensorCoreIdleBoundRule rule;
 
@@ -86,6 +93,13 @@ TEST(TensorCoreIdleBoundRuleTest, IdleTimeTooLow) {
   EXPECT_CALL(*mock_tool_data_provider, GetInputPipelineAnalysisResult())
       .WillRepeatedly(Return(&input_pipeline_analysis));
 
+  OverviewPage overview_page;
+  overview_page.mutable_analysis()->set_mxu_utilization_percent(49.0);
+  overview_page.mutable_analysis()
+      ->set_memory_bw_utilization_relative_to_hw_limit_percent(49.0);
+  EXPECT_CALL(*mock_tool_data_provider, GetOverviewPage())
+      .WillRepeatedly(Return(&overview_page));
+
   SignalProvider signal_provider(std::move(mock_tool_data_provider));
   TensorCoreIdleBoundRule rule;
 
@@ -105,6 +119,33 @@ TEST(TensorCoreIdleBoundRuleTest, NoTpuStepTimeBreakdownField) {
 
   EXPECT_CALL(*mock_tool_data_provider, GetInputPipelineAnalysisResult())
       .WillRepeatedly(Return(&input_pipeline_analysis));
+
+  SignalProvider signal_provider(std::move(mock_tool_data_provider));
+  TensorCoreIdleBoundRule rule;
+
+  absl::StatusOr<std::optional<SmartSuggestion>> suggestion =
+      rule.Apply(signal_provider);
+  EXPECT_THAT(suggestion, IsOkAndHolds(Eq(std::nullopt)));
+}
+
+TEST(TensorCoreIdleBoundRuleTest, HbmAndMxuUtilizationTooHigh) {
+  auto mock_tool_data_provider = std::make_unique<MockToolDataProvider>();
+  InputPipelineAnalysisResult input_pipeline_analysis;
+  input_pipeline_analysis.mutable_step_time_summary()->set_average(100.0);
+  TpuStepTimeBreakdown step_time_breakdown;
+  step_time_breakdown.mutable_tc_idle_ms_summary()->set_average(11.0);
+  input_pipeline_analysis.mutable_step_time_breakdown()->PackFrom(
+      step_time_breakdown);
+
+  EXPECT_CALL(*mock_tool_data_provider, GetInputPipelineAnalysisResult())
+      .WillRepeatedly(Return(&input_pipeline_analysis));
+
+  OverviewPage overview_page;
+  overview_page.mutable_analysis()->set_mxu_utilization_percent(51.0);
+  overview_page.mutable_analysis()
+      ->set_memory_bw_utilization_relative_to_hw_limit_percent(51.0);
+  EXPECT_CALL(*mock_tool_data_provider, GetOverviewPage())
+      .WillRepeatedly(Return(&overview_page));
 
   SignalProvider signal_provider(std::move(mock_tool_data_provider));
   TensorCoreIdleBoundRule rule;

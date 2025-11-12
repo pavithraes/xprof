@@ -23,6 +23,7 @@ limitations under the License.
 #include "absl/status/statusor.h"
 #include "absl/status/status.h"
 #include "xla/tsl/platform/statusor.h"
+#include "xprof/convert/smart_suggestion/constants.h"
 #include "xprof/convert/smart_suggestion/tool_data_provider.h"
 #include "plugin/xprof/protobuf/input_pipeline.pb.h"
 #include "plugin/xprof/protobuf/overview_page.pb.h"
@@ -142,6 +143,19 @@ class SignalProvider {
       return 0.0;
     }
     return (total_percent / event_time_of_interest.size()) * 100.0;
+  }
+
+  // Returns true if the profile is latency bound, i.e. MXU and HBM utilization
+  // are both below 50%.
+  bool IsLatencyBound() const {
+    absl::StatusOr<double> mxu_utilization = GetMxuUtilization();
+    absl::StatusOr<double> hbm_utilization = GetHbmUtilization();
+    if (!mxu_utilization.ok() || !hbm_utilization.ok()) {
+      return false;
+    }
+
+    return *mxu_utilization < kMxuUtilizationLowThreshold &&
+     *hbm_utilization < kHbmUtilizationLowThreshold;
   }
 
  private:
