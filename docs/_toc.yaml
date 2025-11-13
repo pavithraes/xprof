@@ -43,3 +43,9 @@ toc:
   section:
   - title: XProf Demo
     path: /xprof/xprof_demo
+- title: Deployment
+  section:
+  - title: Docker Deployment
+    path: /xprof/docker_deployment
+  - title: Kubernetes Deployment
+    path: /xprof/kubernetes_deployment
