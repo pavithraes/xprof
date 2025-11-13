@@ -1342,27 +1342,6 @@ dashboard would integrate trace viewer app using iframe.
       }
     },
 
-    _createBackendToggleButton: function() {
-      const backendToggleButton = document.createElement('tr-ui-b-toolbar-button');
-      const detailsSelector = document.getElementById('details_selector');
-      backendToggleButton.setAttribute('id', 'backend_toggle_button');
-      backendToggleButton.classList.add('tooltip');
-      const tooltipSpan = document.createElement('span');
-      tooltipSpan.classList.add('tooltiptext');
-      tooltipSpan.textContent = 'The new backend enables faster trace data processing and also full trace search.';
-      const labelDiv = document.createElement('div');
-      labelDiv.textContent = this._useNewBackend === true ? 'Switch to Old Backend' : 'Switch to New Backend';
-      backendToggleButton.appendChild(labelDiv);
-      backendToggleButton.appendChild(tooltipSpan);
-      backendToggleButton.addEventListener('click', () => {
-        const url = new URL(window.parent.location.href);
-        this._useNewBackend = !this._useNewBackend;
-        url.searchParams.set('new_backend', this._useNewBackend);
-        window.open(url.toString(), '_top');
-      });
-      Polymer.dom(this._traceViewer.rightControls).insertBefore(backendToggleButton, detailsSelector);
-    },
-
     _createDetailFilter: function() {
       const detailsSelector = document.createElement('tr-ui-b-dropdown');
       const flowEventsDropdown = document.getElementById('flow_event_filter_dropdown');
@@ -1702,9 +1681,6 @@ dashboard would integrate trace viewer app using iframe.
       if (this._isStreaming) {
         // Need to create detail filter in init since it contributes to the baseUrl building.
         this._createDetailFilter();
-        if (!this._isOss) {
-          this._createBackendToggleButton();
-        }
         this._updateSearchBehavior();
       }
       let initialRequestedRange = null;
