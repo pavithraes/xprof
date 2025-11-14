@@ -173,9 +173,9 @@ There are two URL parameters you can use:
 
     *   GCS Example:
         `http://localhost:8791/?session_path=gs://your-bucket/profile_runs/my_experiment_run_1`
-            *   Local Path Example:
+    *   Local Path Example:
                 `http://localhost:8791/?session_path=/path/to/profile_runs/my_experiment_run_1`
-                    *   Result: XProf will load the `my_experiment_run_1`
+    *   Result: XProf will load the `my_experiment_run_1`
                         session, and you will see its data in the UI.
 
 *   **`run_path`**: Use this to point to a directory that contains *multiple*
