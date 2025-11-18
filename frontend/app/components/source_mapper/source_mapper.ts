@@ -1,5 +1,6 @@
 import {Component, inject, Input, OnChanges, OnDestroy, SimpleChanges} from '@angular/core';
 import {Store} from '@ngrx/store';
+import {GRAPH_TYPE_DEFAULT} from 'org_xprof/frontend/app/common/constants/constants';
 import {FileExtensionType} from 'org_xprof/frontend/app/common/constants/enums';
 import {DATA_SERVICE_INTERFACE_TOKEN, DataServiceV2Interface} from 'org_xprof/frontend/app/services/data_service_v2/data_service_v2_interface';
 import {Address} from 'org_xprof/frontend/app/services/source_code_service/source_code_service_interface';
@@ -233,6 +234,7 @@ export class SourceMapper implements OnDestroy, OnChanges {
     this.dataService
         .downloadHloProto(
             this.sessionId,
+            GRAPH_TYPE_DEFAULT, // Default graph type is xla.
             '',
             FileExtensionType.LONG_TEXT,
             false,
