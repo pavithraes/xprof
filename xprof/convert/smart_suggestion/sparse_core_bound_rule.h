@@ -74,7 +74,7 @@ class SparseCoreBoundRule : public SmartSuggestionRule {
         "consider quantization (reducing precision like int8) or pruning to "
         "significantly cut down their memory footprint and processing load on "
         "the SparseCore.</li>"
-        "<li><b>Utilize Framework-Specific Sparse APIs::</b> Employ "
+        "<li><b>Utilize Framework-Specific Sparse APIs:</b> Employ "
         "specialized APIs designed for sparse operations on your platform "
         "(e.g., tf.tpu.experimental.embedding.TPU Embedding for "
         "TensorFlow/TPU). These are highly optimized for direct SparseCore "

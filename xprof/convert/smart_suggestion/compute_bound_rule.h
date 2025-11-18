@@ -80,12 +80,13 @@ class ComputeBoundRule : public SmartSuggestionRule {
         "improve hardware utilization, an excessively large batch size might "
         "not always be optimal. Experiment with different batch sizes to find "
         "the sweet spot for your specific model and hardware.</li>"
-        "<li><b>Re-evaluate the model architecture:</b> Consider if there are "
-        "more computationally efficient alternatives to your current model or "
-        "its components. For example, some layers are inherently more "
-        "computationally expensive than others. Research and experiment with "
-        "newer, more efficient architectures that can achieve similar "
-        "performance with fewer floating-point operations (FLOPs)."
+        "<li><b>Switching to a Mixture of Experts (MoE) Strategy:</b> Consider "
+        "switching to a Mixture of Experts (MoE) architecture by replacing one "
+        "massive FFN with several smaller expert networks to leverage "
+        "SparseCores. The SparseCore handles the gating logic—deciding which "
+        "specific expert should handle which token. It performs the routing "
+        "(scatter/gather). It effectively trades excess Compute (MXU) load for "
+        "Memory Bandwidth and Sparse Core utilization.</li>"
         "</ul>");
 
     suggestion.set_suggestion_text(suggestion_text);
