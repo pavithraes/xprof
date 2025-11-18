@@ -25,8 +25,8 @@ limitations under the License.
 #include "<gtest/gtest.h>"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "xprof/convert/smart_suggestion/mock_tool_data_provider.h"
 #include "xprof/convert/smart_suggestion/signal_provider.h"
-#include "xprof/convert/smart_suggestion/tool_data_provider.h"
 #include "plugin/xprof/protobuf/smart_suggestion.pb.h"
 
 namespace tensorflow {
@@ -37,17 +37,6 @@ using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::Return;
 using ::testing::status::IsOkAndHolds;
-
-// Mock ToolDataProvider
-class MockToolDataProvider : public ToolDataProvider {
- public:
-  MOCK_METHOD(absl::StatusOr<const OverviewPage*>, GetOverviewPage, (),
-              (override));
-  MOCK_METHOD(absl::StatusOr<const InputPipelineAnalysisResult*>,
-              GetInputPipelineAnalysisResult, (), (override));
-  MOCK_METHOD(absl::StatusOr<std::vector<float>>,
-              GetEventTimeFractionEachStep, (const std::string&), (override));
-};
 
 TEST(BarrierCoresRuleTest, MeetsConditions) {
   auto mock_tool_data_provider = std::make_unique<MockToolDataProvider>();

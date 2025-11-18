@@ -24,10 +24,9 @@ limitations under the License.
 #include "testing/base/public/gmock.h"
 #include "<gtest/gtest.h>"
 #include "absl/status/statusor.h"
+#include "xprof/convert/smart_suggestion/mock_tool_data_provider.h"
 #include "xprof/convert/smart_suggestion/signal_provider.h"
-#include "xprof/convert/smart_suggestion/tool_data_provider.h"
 #include "plugin/xprof/protobuf/input_pipeline.pb.h"
-#include "plugin/xprof/protobuf/overview_page.pb.h"
 #include "plugin/xprof/protobuf/smart_suggestion.pb.h"
 
 namespace tensorflow {
@@ -37,18 +36,6 @@ namespace {
 using ::testing::Eq;
 using ::testing::Return;
 using ::testing::status::IsOkAndHolds;
-
-// TODO(zhuruiyang): Move this to a common mock file data_provider_mock.h
-// Mock ToolDataProvider
-class MockToolDataProvider : public ToolDataProvider {
- public:
-  MOCK_METHOD(absl::StatusOr<const OverviewPage*>, GetOverviewPage, (),
-              (override));
-  MOCK_METHOD(absl::StatusOr<const InputPipelineAnalysisResult*>,
-              GetInputPipelineAnalysisResult, (), (override));
-  MOCK_METHOD(absl::StatusOr<std::vector<float>>,
-            GetEventTimeFractionEachStep, (const std::string&), (override));
-};
 
 TEST(DataTransferBoundRuleTest, MeetsConditions) {
   auto mock_tool_data_provider = std::make_unique<MockToolDataProvider>();

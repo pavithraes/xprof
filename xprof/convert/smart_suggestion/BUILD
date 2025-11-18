@@ -202,13 +202,25 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "mock_tool_data_provider",
+    hdrs = ["mock_tool_data_provider.h"],
+    deps = [
+        ":tool_data_provider",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_for_library",
+        "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
+        "@org_xprof//plugin/xprof/protobuf:overview_page_proto_cc",
+    ],
+)
+
 cc_test(
     name = "barrier_cores_rule_test",
     srcs = ["barrier_cores_rule_test.cc"],
     deps = [
         ":barrier_cores_rule",
+        ":mock_tool_data_provider",
         ":signal_provider",
-        ":tool_data_provider",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
@@ -221,12 +233,11 @@ cc_test(
     srcs = ["host_processing_bound_rule_test.cc"],
     deps = [
         ":host_processing_bound_rule",
+        ":mock_tool_data_provider",
         ":signal_provider",
-        ":tool_data_provider",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
         "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
-        "@org_xprof//plugin/xprof/protobuf:overview_page_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
     ],
 )
@@ -236,12 +247,11 @@ cc_test(
     srcs = ["data_transfer_bound_rule_test.cc"],
     deps = [
         ":data_transfer_bound_rule",
+        ":mock_tool_data_provider",
         ":signal_provider",
-        ":tool_data_provider",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
         "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
-        "@org_xprof//plugin/xprof/protobuf:overview_page_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
     ],
 )
@@ -251,8 +261,8 @@ cc_test(
     srcs = ["memory_bound_rule_test.cc"],
     deps = [
         ":memory_bound_rule",
+        ":mock_tool_data_provider",
         ":signal_provider",
-        ":tool_data_provider",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
         "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
@@ -266,12 +276,10 @@ cc_test(
     srcs = ["compute_bound_rule_test.cc"],
     deps = [
         ":compute_bound_rule",
+        ":mock_tool_data_provider",
         ":signal_provider",
-        ":tool_data_provider",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
-        "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
-        "@org_xprof//plugin/xprof/protobuf:overview_page_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
     ],
 )
@@ -280,13 +288,12 @@ cc_test(
     name = "tensor_core_idle_bound_rule_test",
     srcs = ["tensor_core_idle_bound_rule_test.cc"],
     deps = [
+        ":mock_tool_data_provider",
         ":signal_provider",
         ":tensor_core_idle_bound_rule",
-        ":tool_data_provider",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
         "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
-        "@org_xprof//plugin/xprof/protobuf:overview_page_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:tpu_input_pipeline_proto_cc",
     ],
@@ -296,13 +303,12 @@ cc_test(
     name = "sparse_core_bound_rule_test",
     srcs = ["sparse_core_bound_rule_test.cc"],
     deps = [
+        ":mock_tool_data_provider",
         ":signal_provider",
         ":sparse_core_bound_rule",
-        ":tool_data_provider",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
         "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",
-        "@org_xprof//plugin/xprof/protobuf:overview_page_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:tpu_input_pipeline_proto_cc",
     ],
