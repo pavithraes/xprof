@@ -995,7 +995,7 @@ void ConvertAllocationTimeline(const HloProtoBufferWrapper& wrapper,
     auto buffer_allocation_offset = buffer_allocation_offsets[buffer_id++];
     add_rect(0, buffer_allocation_offset, total_x_size,
              buffer_allocation->size(), buffer_allocation->description(),
-             kBufferColors[buffer_id % num_lb_colors]);
+             "#ffffffff");
 
     for (const auto& assigned : buffer_allocation->proto().assigned()) {
       const LogicalBufferStruct* logical_buffer =
