@@ -19,11 +19,13 @@ limitations under the License.
 
 #include "absl/log/log.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_join.h"
 #include "grpcpp/server_context.h"
 #include "grpcpp/support/status.h"
 #include "xprof/convert/profile_processor_factory.h"
 #include "xprof/convert/tool_options.h"
 #include "plugin/xprof/worker/grpc_utils.h"
+#include "tsl/platform/host_info.h"
 
 namespace xprof {
 namespace profiler {
@@ -32,9 +34,12 @@ namespace profiler {
     ::grpc::ServerContext* context,
     const ::xprof::pywrap::WorkerProfileDataRequest* request,
     ::xprof::pywrap::WorkerProfileDataResponse* response) {
-  LOG(INFO) << "ProfileWorkerServiceImpl::GetProfileData called with request: "
-            << request->DebugString();
   const auto& origin_request = request->origin_request();
+  LOG(INFO) << "GetProfileData tool:" << origin_request.tool_name()
+            << " session:" << origin_request.session_id() << " params:{"
+            << absl::StrJoin(origin_request.parameters(), ",",
+                             absl::PairFormatter("="))
+            << "}";
   tensorflow::profiler::ToolOptions tool_options;
   for (const auto& [key, value] : origin_request.parameters()) {
     tool_options[key] = value;
@@ -42,6 +47,8 @@ namespace profiler {
   auto processor = xprof::ProfileProcessorFactory::GetInstance().Create(
       origin_request.tool_name(), tool_options);
   if (!processor) {
+    LOG(ERROR) << "GetProfileData failed: Can not find tool: "
+               << origin_request.tool_name();
     return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT,
                           "Can not find tool: " + origin_request.tool_name());
   }
@@ -49,11 +56,17 @@ namespace profiler {
   absl::StatusOr<std::string> map_output_file =
       processor->Map(origin_request.session_id());
   if (!map_output_file.ok()) {
+    LOG(ERROR) << "GetProfileData failed with status: "
+               << map_output_file.status();
     return ToGrpcStatus(map_output_file.status());
   }
   response->set_output(*map_output_file);
+  response->set_worker_id(tsl::port::Hostname());
+
   LOG(INFO)
-      << "ProfileWorkerServiceImpl::GetProfileData finished successfully.";
+      << "ProfileWorkerServiceImpl::GetProfileData finished successfully by "
+         "worker: "
+      << response->worker_id();
   return ::grpc::Status::OK;
 }
 

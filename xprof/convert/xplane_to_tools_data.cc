@@ -463,8 +463,15 @@ absl::StatusOr<std::string> CallWorkerService(const std::string& xspace_path,
       stub->GetProfileData(&context, request, &response);
 
   if (!grpc_status.ok()) {
+    LOG(ERROR) << "gRPC call to worker failed for tool: " << tool_name
+               << ", session: " << xspace_path
+               << ", status_code: " << grpc_status.error_code()
+               << ", error_message: " << grpc_status.error_message();
     return ::xprof::profiler::ToAbslStatus(grpc_status);
   }
+  LOG(INFO) << "gRPC response: tool=" << tool_name
+            << ", session=" << xspace_path
+            << ", worker_id=" << response.worker_id();
   return response.output();
 }
 
