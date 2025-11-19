@@ -450,7 +450,7 @@ class ToolsCache:
       return None
     except OSError as e:
       logger.error(
-          'OSError getting stat for local file %s: %s', file_path_str, e
+          'OSError getting stat for local file %s: %r', file_path_str, e
       )
       return None
 
@@ -486,7 +486,7 @@ class ToolsCache:
       return None
     except Exception as e:  # pylint: disable=broad-exception-caught
       logger.exception(
-          'Unexpected error getting hash for GCS path %s: %s', file_path_str, e
+          'Unexpected error getting hash for GCS path %s: %r', file_path_str, e
       )
       return None
 
@@ -527,7 +527,7 @@ class ToolsCache:
         file_identifiers[xplane_file.name] = file_id
       return file_identifiers
     except OSError as e:
-      logger.warning('Could not glob files in %s: %s', self._profile_run_dir, e)
+      logger.warning('Could not glob files in %s: %r', self._profile_run_dir, e)
       return None
 
   def load(self) -> Optional[List[str]]:
@@ -544,7 +544,7 @@ class ToolsCache:
         cached_data = json.load(f)
     except (OSError, json.JSONDecodeError) as e:
       logger.warning(
-          'Error reading or decoding cache file %s: %s, invalidating.',
+          'Error reading or decoding cache file %s: %r, invalidating.',
           self._cache_file,
           e,
       )
@@ -606,7 +606,7 @@ class ToolsCache:
         json.dump(new_cache_data, f, sort_keys=True, indent=2)
       logger.info('ToolsCache saved: %s', self._cache_file)
     except (OSError, TypeError) as e:
-      logger.error('Error writing cache file %s: %s', self._cache_file, e)
+      logger.error('Error writing cache file %s: %r', self._cache_file, e)
 
   def invalidate(self) -> None:
     """Deletes the cache file, forcing regeneration on the next load."""
@@ -616,7 +616,7 @@ class ToolsCache:
     except FileNotFoundError:
       pass
     except OSError as e:
-      logger.error('Error removing cache file %s: %s', self._cache_file, e)
+      logger.error('Error removing cache file %s: %r', self._cache_file, e)
 
 
 class _TfProfiler:
@@ -960,9 +960,9 @@ class ProfilePlugin(base_plugin.TBPlugin):
         if host_name:
           all_xplane_files[host_name] = xplane_path
     except OSError as e:
-      logger.warning('Cannot read asset directory: %s, OpError %s', run_dir, e)
+      logger.warning('Cannot read asset directory: %s, OpError %r', run_dir, e)
       raise IOError(
-          'Cannot read asset directory: %s, OpError %s' % (run_dir, e)
+          'Cannot read asset directory: %s, OpError %r' % (run_dir, e)
       ) from e
 
     if hosts_param and self._does_tool_support_multi_hosts_processing(tool):
@@ -1049,7 +1049,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
       else:
         use_saved_result = False
     except OSError as e:
-      logger.warning('Cannot read cache version file: %s', e)
+      logger.warning('Cannot read cache version file: %r', e)
       use_saved_result = False
 
     graph_viewer_options = self._get_graph_viewer_options(request)
@@ -1105,15 +1105,15 @@ class ProfilePlugin(base_plugin.TBPlugin):
         data, content_type = convert.xspace_to_tool_data(
             asset_paths, tool, params)
       except AttributeError as e:
-        logger.warning('Error generating analysis results due to %s', e)
+        logger.warning('Error generating analysis results due to %r', e)
         raise AttributeError(
-            'Error generating analysis results due to %s' % e
+            'Error generating analysis results due to %r' % e
         ) from e
       except ValueError as e:
-        logger.warning('XPlane convert to tool data failed as %s', e)
+        logger.warning('XPlane convert to tool data failed as %r', e)
         raise e
       except FileNotFoundError as e:
-        logger.warning('XPlane convert to tool data failed as %s', e)
+        logger.warning('XPlane convert to tool data failed as %r', e)
         raise e
 
       # Write cache version file if use_saved_result is False.
@@ -1124,7 +1124,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
           ) as f:
             f.write(version.__version__)
         except OSError as e:
-          logger.warning('Cannot write cache version file: %s', e)
+          logger.warning('Cannot write cache version file: %r', e)
 
       return data, content_type, content_encoding
 
@@ -1147,7 +1147,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
       path = epath.Path(run_dir)
       filenames = path.glob(tool_pattern)
     except OSError as e:
-      logger.warning('Cannot read asset directory: %s, OpError %s', run_dir, e)
+      logger.warning('Cannot read asset directory: %s, OpError %r', run_dir, e)
     filenames = [os.fspath(os.path.basename(f)) for f in filenames]
     for filename in filenames:
       module_name, _ = _parse_filename(filename)
@@ -1492,7 +1492,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
       all_filenames = [f.name for f in profile_run_dir.iterdir()]
     except OSError as e:
       logger.warning(
-          'Cannot read asset directory: %s, Error %s', profile_run_dir, e
+          'Cannot read asset directory: %s, Error %r', profile_run_dir, e
       )
       return tools
 
