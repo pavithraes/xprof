@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package tensorflow.profiler;
+
+// Proto to store EventTimeFractionAnalyzer's results for a single host.
+message EventTimeFractionAnalyzerResult {
+  repeated float event_time_fractions = 1;
+}

@@ -240,6 +240,11 @@ xprof_proto_library(
 )
 
 xprof_proto_library(
+    name = "event_time_fraction_analyzer_proto",
+    srcs = ["event_time_fraction_analyzer.proto"],
+)
+
+xprof_proto_library(
     name = "protos_all",
     create_go_proto = False,
     create_java_proto = False,
@@ -247,6 +252,7 @@ xprof_proto_library(
         ":dcn_collective_info_proto",
         ":dcn_slack_analysis_proto",
         ":diagnostics_proto",
+        ":event_time_fraction_analyzer_proto",
         ":hardware_types_proto",
         ":hlo_stats_proto",
         ":inference_stats_proto",
@@ -285,6 +291,7 @@ exports_files(
         "dcn_collective_info.proto",
         "dcn_slack_analysis.proto",
         "diagnostics.proto",
+        "event_time_fraction_analyzer.proto",
         "hardware_types.proto",
         "hlo_stats.proto",
         "inference_stats.proto",
