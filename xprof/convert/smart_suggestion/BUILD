@@ -17,6 +17,7 @@ cc_library(
     deps = [
         ":constants",
         ":tool_data_provider",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@org_xprof//plugin/xprof/protobuf:input_pipeline_proto_cc",

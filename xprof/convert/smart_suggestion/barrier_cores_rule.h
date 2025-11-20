@@ -47,7 +47,6 @@ class BarrierCoresRule : public SmartSuggestionRule {
     if (!special_op_percent.ok()) {
       return false;
     }
-
     return *special_op_percent >= kSpecialOpBoundThresholdInPercent;
   }
 
@@ -59,8 +58,10 @@ class BarrierCoresRule : public SmartSuggestionRule {
       const SignalProvider& signal_provider) const override {
     SmartSuggestion suggestion;
     suggestion.set_rule_name("BarrierCoresRule");
-    TF_ASSIGN_OR_RETURN(double special_op_percent,
-                        signal_provider.GetAvgEventTimePercent(kSpecialOpName));
+    // GetAvgEventTimePercent is guaranteed to return an ok status if
+    // MeetsConditions returned true.
+    double special_op_percent =
+        signal_provider.GetAvgEventTimePercent(kSpecialOpName).value();
     auto display_name = absl::StrCat("TPU ", kSpecialOpName);
     // TODO(zhuruiyang): The current suggestion text is hard-coded for just
     // barrier-cores. We will need to update it to support other special ops.

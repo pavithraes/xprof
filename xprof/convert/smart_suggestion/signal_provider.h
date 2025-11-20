@@ -20,6 +20,7 @@ limitations under the License.
 #include <string>
 #include <utility>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/status/status.h"
 #include "xla/tsl/platform/statusor.h"
@@ -130,6 +131,11 @@ class SignalProvider {
   // Returns the average percentage of step time for a given event name.
   absl::StatusOr<double> GetAvgEventTimePercent(
       const std::string& event_name) const {
+    auto it = avg_event_time_percent_cache_.find(event_name);
+    if (it != avg_event_time_percent_cache_.end()) {
+      return it->second;
+    }
+
     TF_ASSIGN_OR_RETURN(
         auto event_time_of_interest,
         tool_data_provider_->GetEventTimeFractionEachStep(event_name));
@@ -140,9 +146,13 @@ class SignalProvider {
     }
 
     if (event_time_of_interest.empty()) {
+      avg_event_time_percent_cache_[event_name] = 0.0;
       return 0.0;
     }
-    return (total_percent / event_time_of_interest.size()) * 100.0;
+    double avg_percent = (total_percent /
+       event_time_of_interest.size()) * 100.0;
+    avg_event_time_percent_cache_[event_name] = avg_percent;
+    return avg_percent;
   }
 
   // Returns the percentage of time that is spent on SparseCore.
@@ -191,6 +201,8 @@ class SignalProvider {
 
  private:
   std::unique_ptr<ToolDataProvider> tool_data_provider_;
+  mutable absl::flat_hash_map<std::string, double>
+      avg_event_time_percent_cache_;
 };
 
 }  // namespace profiler
