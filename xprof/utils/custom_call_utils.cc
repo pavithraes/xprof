@@ -18,6 +18,13 @@ namespace xprof {
 
 absl::StatusOr<std::string> GetCustomCallText(
     const xla::HloInstruction& hlo_instruction) {
+  mlir::MLIRContext context(mlir::MLIRContext::Threading::DISABLED);
+  context.allowUnregisteredDialects(true);
+  return GetCustomCallText(hlo_instruction, context);
+}
+
+absl::StatusOr<std::string> GetCustomCallText(
+    const xla::HloInstruction& hlo_instruction, mlir::MLIRContext& context) {
   if (!hlo_instruction.has_backend_config()) {
     return absl::NotFoundError("Backend config not found");
   }
@@ -30,8 +37,6 @@ absl::StatusOr<std::string> GetCustomCallText(
     return absl::NotFoundError("Custom call config not found");
   }
   CustomCallConfig custom_call_config = config.custom_call_config();
-  mlir::MLIRContext context(mlir::MLIRContext::Threading::DISABLED);
-  context.allowUnregisteredDialects(true);
   TF_ASSIGN_OR_RETURN(
       mlir::OwningOpRef<mlir::ModuleOp> mlir_op,
       xla::ParseMlirModuleString(

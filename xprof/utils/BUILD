@@ -653,7 +653,6 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@llvm-project//mlir:IR",
-        "@tsl//tsl/platform:protobuf",
         "@xla//xla/hlo/ir:hlo",
         "@xla//xla/pjrt:mlir_to_hlo",
         "@xla//xla/service/llvm_ir:llvm_util",
