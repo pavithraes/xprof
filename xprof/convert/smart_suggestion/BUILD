@@ -184,7 +184,6 @@ cc_library(
         ":host_processing_bound_rule",
         ":memory_bound_rule",
         ":smart_suggestion_rule_factory",
-        ":sparse_core_bound_rule",
         ":tensor_core_idle_bound_rule",
     ],
 )
