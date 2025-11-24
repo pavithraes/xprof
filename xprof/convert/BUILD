@@ -543,6 +543,7 @@ cc_library(
     hdrs = ["op_metrics_to_record.h"],
     deps = [
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
         "@org_xprof//plugin/xprof/protobuf:hardware_types_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:op_metrics_proto_cc",
