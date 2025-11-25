@@ -99,6 +99,22 @@ mat-panel-title {
   background-color: transparent;
 }
 
+.experimental-badge {
+  display: flex;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: black;
+  background-color: orange;
+  border: 2px solid orange;
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-left: 12px;
+  vertical-align: middle;
+  user-select: none;
+  cursor: default;
+}
+
 mat-expansion-panel-header.cdk-keyboard-focused,
 mat-expansion-panel:not(.mat-expanded) mat-expansion-panel-header:hover {
   background-color: $card-title-focus-background-color;
