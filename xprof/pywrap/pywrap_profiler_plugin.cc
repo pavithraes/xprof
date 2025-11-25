@@ -13,9 +13,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
+
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "pybind11/pybind11.h"  // from @pybind11
 #include "xla/pjrt/status_casters.h"
-#include "xla/tsl/platform/types.h"
 #include "xla/tsl/profiler/rpc/client/capture_profile.h"
 #include "xprof/convert/tool_options.h"
 #include "plugin/xprof/worker/stub_factory.h"
@@ -35,20 +41,15 @@ ToolOptions ToolOptionsFromPythonDict(const py::dict& dictionary) {
   ToolOptions map;
   for (const auto& item : dictionary) {
     std::variant<bool, int, std::string> value;
-    try {
+    if (py::isinstance<py::bool_>(item.second)) {
       value = item.second.cast<bool>();
-    } catch (...) {
-      try {
-        value = item.second.cast<int>();
-      } catch (...) {
-        try {
-          value = item.second.cast<std::string>();
-        } catch (...) {
-          continue;
-        }
-      }
+    } else if (py::isinstance<py::int_>(item.second)) {
+      value = item.second.cast<int>();
+    } else if (py::isinstance<py::str>(item.second)) {
+      value = item.second.cast<std::string>();
+    } else {
+      continue;
     }
-
     map.emplace(item.first.cast<std::string>(), value);
   }
   return map;

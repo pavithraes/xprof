@@ -24,11 +24,12 @@ pytype_extension(
     ],
     deps = [
         ":profiler_plugin_impl",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@org_xprof//plugin/xprof/worker:stub_factory",
         "@org_xprof//xprof/convert:tool_options",
         "@pybind11",
         "@xla//xla/pjrt:status_casters",
-        "@xla//xla/tsl/platform:types",
         "@xla//xla/tsl/platform/cloud:gcs_file_system",
         "@xla//xla/tsl/profiler/rpc/client:capture_profile",
     ],
