@@ -28,7 +28,7 @@ void LoadFonts(float pixel_ratio) {
   config.RasterizerDensity = pixel_ratio;
   config.RasterizerMultiply = pixel_ratio;
   // Use light hinting to make the font look less bold.
-  config.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LightHinting;
+  config.FontLoaderFlags = ImGuiFreeTypeBuilderFlags_LightHinting;
 
   static const ImWchar kRangesBasic[] = {
       0x0020, 0x00FF,  // Basic Latin + Latin Supplement

@@ -332,8 +332,8 @@ static void CreateFontsTexture() {
   sampler_desc.magFilter = wgpu::FilterMode::Linear;
   bd->render_resources.sampler = bd->device.CreateSampler(&sampler_desc);
 
-  io.Fonts->SetTexID(
-      static_cast<ImTextureID>(bd->render_resources.font_texture_view.Get()));
+  io.Fonts->SetTexID(reinterpret_cast<ImTextureID>(
+      bd->render_resources.font_texture_view.Get()));
 }
 
 static void CreateUniformBuffer() {
