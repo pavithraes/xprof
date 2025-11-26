@@ -1944,6 +1944,7 @@ dashboard would integrate trace viewer app using iframe.
         this._dirty = true;
         this._model = new tr.Model();
         this._loadedTraceEvents = new Set();
+        this._asyncTrackState = new Map();
         this._filteredByVisibility = jsonData['filteredByVisibility'];
         const fullTimespan = jsonData['fullTimespan'];
         this._fullBounds = {min: fullTimespan[0], max: fullTimespan[1]};
