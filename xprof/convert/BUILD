@@ -567,6 +567,7 @@ cc_library(
     deps = [
         ":data_table_utils",
         ":op_metrics_to_record",
+        ":source_info_utils",
         "@com_google_absl//absl/strings",
         "@org_xprof//plugin/xprof/protobuf:hlo_stats_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:op_metrics_proto_cc",
@@ -579,12 +580,33 @@ cc_library(
 )
 
 cc_library(
+    name = "source_info_utils",
+    hdrs = ["source_info_utils.h"],
+    deps = [
+        "@com_google_absl//absl/strings",
+        "@org_xprof//plugin/xprof/protobuf:source_info_proto_cc",
+    ],
+)
+
+cc_test(
+    name = "source_info_utils_test",
+    srcs = ["source_info_utils_test.cc"],
+    deps = [
+        ":source_info_utils",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+        "@org_xprof//plugin/xprof/protobuf:source_info_proto_cc",
+    ],
+)
+
+cc_library(
     name = "op_stats_to_roofline_model",
     srcs = ["op_stats_to_roofline_model.cc"],
     hdrs = ["op_stats_to_roofline_model.h"],
     deps = [
         ":op_metrics_db_combiner",
         ":op_metrics_to_record",
+        ":source_info_utils",
         "@com_google_absl//absl/log:check",
         "@com_google_absl//absl/strings",
         "@org_xprof//plugin/xprof/protobuf:hardware_types_proto_cc",

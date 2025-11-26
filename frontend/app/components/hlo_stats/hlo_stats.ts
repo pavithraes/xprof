@@ -30,7 +30,6 @@ const PROGRAM_ID = 'program_id';
 const RANK_ID = 'rank';
 const SELF_TIME_ID = 'total_self_time';
 const SOURCE_INFO_ID = 'source_info';
-const SOURCE_STACK_ID = 'source_stack';
 const TF_OP_NAME_ID = 'tf_op_name';
 const TOTAL_TIME_ID = 'total_time';
 
@@ -232,68 +231,6 @@ export class HloStats extends Dashboard implements OnDestroy {
   }
 
   /**
-   * Merges the source info and stack columns into a single column.
-   *
-   * If any of the following conditions are met, the original data is returned:
-   * - `data.cols` is `null`.
-   * - `data.cols` does not contain a column with ID `SOURCE_INFO_ID`.
-   * - `data.cols` does not contain a column with ID `SOURCE_STACK_ID`.
-   *
-   * If the original data is not returned, then a shallow copy is returned where
-   * the column with ID `SOURCE_STACK_ID` is removed and its content is merged
-   * into the column with ID `SOURCE_INFO_ID`.
-   *
-   * TODO(b/411696636): Simplify the logic after new changes are applied.
-   */
-  private mergeSourceInfoColumns(data: SimpleDataTable): SimpleDataTable {
-    const infoColIdx =
-        data.cols?.findIndex((col) => col.id === SOURCE_INFO_ID) ?? -1;
-    const stackColIdx =
-        data.cols?.findIndex((col) => col.id === SOURCE_STACK_ID) ?? -1;
-
-    if (infoColIdx === -1 || stackColIdx === -1) {
-      return data;
-    }
-
-    function removeSourceStackColumn<T>(array: T[]): T[] {
-      return array.filter((_, idx) => idx !== stackColIdx);
-    }
-
-    function sourceInfoCell(
-        sourceInfo: string,
-        sourceStack: string,
-        ): google.visualization.DataObjectCell {
-      return {
-        v: sourceInfo,
-        // We show the source stack in a tooltip. Also, we assume that neither
-        // `sourceStack` nor `sourceInfo` contains HTML tags. In other words,
-        // we don't need to escape them.
-        f: `<div title="${sourceStack}" class="source-info-cell">${
-            sourceInfo}</div>`,
-      };
-    }
-
-    const updatedData = {
-      ...data,
-      cols: removeSourceStackColumn(data?.cols || []),
-      rows: (data?.rows || []).map((row, index) => {
-        const cells = row.c || [];
-        const sourceInfo = (cells[infoColIdx]?.v as string) || '';
-        const sourceStack = (cells[stackColIdx]?.v as string) || '';
-        return {
-          ...row,
-          c: removeSourceStackColumn([
-            ...cells.slice(0, infoColIdx),
-            sourceInfoCell(sourceInfo, sourceStack),
-            ...cells.slice(infoColIdx + 1),
-          ]),
-        };
-      }),
-    };
-    return updatedData;
-  }
-
-  /**
    * Adds a click listener to the source info cells.
    *
    * If "Show Source Code" is checked, then whenever user clicks on the source
@@ -342,15 +279,11 @@ export class HloStats extends Dashboard implements OnDestroy {
   private process(data: SimpleDataTable|null) {
     if (!data) return;
 
-    // `mergeSourceInfoColumns` needs to be called before `parseData`, because
-    // it removes a column.
-    const dataWithSourceInfo = this.mergeSourceInfoColumns(data);
-
-    this.parseData(dataWithSourceInfo);
+    this.parseData(data);
     this.drawFlopRateChart();
     this.updateOpReplicaGroupChart();
 
-    const updatedData = this.addGraphViewerLinkInTableData(dataWithSourceInfo);
+    const updatedData = this.addGraphViewerLinkInTableData(data);
     this.dataInfoForTable = {
       ...this.dataInfoForTable,
       data: updatedData,

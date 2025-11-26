@@ -30,6 +30,7 @@ limitations under the License.
 #include "xprof/convert/data_table_utils.h"
 #include "xprof/convert/op_metrics_db_combiner.h"
 #include "xprof/convert/op_metrics_to_record.h"
+#include "xprof/convert/source_info_utils.h"
 #include "plugin/xprof/protobuf/hardware_types.pb.h"
 #include "plugin/xprof/protobuf/op_metrics.pb.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
@@ -288,19 +289,6 @@ RooflineModelDatabase ConvertOpStatsToRooflineModel(
                                  apply_time_scale_multiplier);
   PopulateStepDiagnostics(op_stats, roofline_model_db.mutable_diagnostics());
   return roofline_model_db;
-}
-
-// Helper function to format source info
-std::string SourceInfoFormattedText(
-    const tensorflow::profiler::SourceInfo& source_info) {
-  if (source_info.file_name().empty() || source_info.line_number() == -1)
-    return "";
-  // `title` attribute is used to show the full stack trace in the tooltip.
-  // We assume that the interpolated strings do not contain any HTML tags. In
-  // other words, we assume that they don't need to be escaped.
-  return absl::StrCat("<div class='source-info-cell' title='",
-                      source_info.stack_frame(), "'>", source_info.file_name(),
-                      ":", source_info.line_number(), "</div>");
 }
 
 // Helper function to get step string

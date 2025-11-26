@@ -26,6 +26,7 @@ limitations under the License.
 #include "xla/tsl/profiler/utils/tf_op_utils.h"
 #include "xprof/convert/data_table_utils.h"
 #include "xprof/convert/op_metrics_to_record.h"
+#include "xprof/convert/source_info_utils.h"
 #include "plugin/xprof/protobuf/hlo_stats.pb.h"
 #include "plugin/xprof/protobuf/op_metrics.pb.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
@@ -137,7 +138,6 @@ std::vector<std::vector<std::string>> HloStatsDataTableColumns() {
       {"outside_compilation", "string", "Outside Compilation"},
       {"autotuned", "string", "Autotuned"},
       {"source_info", "string", "Source Info"},
-      {"source_stack", "string", "Source Stack"},
   };
   return kColumns;
 }
@@ -175,9 +175,7 @@ std::unique_ptr<tensorflow::profiler::DataTable> CreateHloStatsDataTable(
     row->AddTextCell(record.rematerialization() ? "Yes" : "No");
     row->AddTextCell(record.outside_compilation() ? "Yes" : "No");
     row->AddTextCell(record.autotuned() ? "Yes" : "No");
-    row->AddTextCell(ToSourceTopLine(record.source_info().file_name(),
-                                 record.source_info().line_number()));
-    row->AddTextCell(record.source_info().stack_frame());
+    row->AddTextCell(SourceInfoFormattedText(record.source_info()));
   }
   return data_table;
 }
