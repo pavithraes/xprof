@@ -11,17 +11,25 @@ namespace traceviewer {
 //
 // For example, to get the color #C597FF (RR=C5, GG=97, BB=FF), the
 // ImU32 value is defined as 0xFF_FF97C5 (AA=FF, BB=FF, GG=97, RR=C5).
-//
-// These colors are from the Material Design color palette:
+
+// Static palette:
 // go/keep-sorted start
 // Blue 80: #A1C9FF
-inline constexpr ImU32 kMaterialBlue80 = 0xFFFFC9A1;
+inline constexpr ImU32 kBlue80 = 0xFFFFC9A1;
 // Green 80: #80DA88
-inline constexpr ImU32 kMaterialGreen80 = 0xFF88DA80;
+inline constexpr ImU32 kGreen80 = 0xFF88DA80;
 // Purple 70: #C597FF
-inline constexpr ImU32 kMaterialPurple70 = 0xFFFF97C5;
+inline constexpr ImU32 kPurple70 = 0xFFFF97C5;
 // Yellow 90: #FFE07C
-inline constexpr ImU32 kMaterialYellow90 = 0xFF7CE0FF;
+inline constexpr ImU32 kYellow90 = 0xFF7CE0FF;
+// go/keep-sorted end
+
+// Baseline palette:
+// go/keep-sorted start
+// Baseline Primary: #0B57D0
+inline constexpr ImU32 kPrimary40 = 0xFFD0570B;
+// Baseline Secondary: #C2E7FF
+inline constexpr ImU32 kSecondary90 = 0xFFFFE7C2;
 // go/keep-sorted end
 
 }  // namespace traceviewer

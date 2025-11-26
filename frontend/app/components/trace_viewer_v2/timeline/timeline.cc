@@ -10,6 +10,7 @@
 #include "xprof/frontend/app/components/trace_viewer_v2/event_data.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/helper/time_formatter.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/constants.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/draw_utils.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
 #include "absl/base/nullability.h"
@@ -49,9 +50,6 @@ void Timeline::SetVisibleRange(const TimeRange& range, bool animate) {
 }
 
 void Timeline::Draw() {
-  if (timeline_data_.groups.empty()) {
-    return;
-  }
   event_clicked_this_frame_ = false;
 
   const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -60,6 +58,10 @@ void Timeline::Draw() {
   ImGui::SetNextWindowViewport(viewport->ID);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
   ImGui::Begin("Timeline viewer", nullptr, kImGuiWindowFlags);
+
+  if (timeline_data_.groups.empty()) {
+    DrawLoadingIndicator(viewport);
+  }
 
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
 

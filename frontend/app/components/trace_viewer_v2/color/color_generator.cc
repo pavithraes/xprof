@@ -13,10 +13,10 @@ namespace traceviewer {
 namespace {
 
 static constexpr ImU32 event_colors[] = {
-    kMaterialPurple70,
-    kMaterialGreen80,
-    kMaterialBlue80,
-    kMaterialYellow90,
+    kPurple70,
+    kGreen80,
+    kBlue80,
+    kYellow90,
 };
 
 // Generates colors based on string IDs.

@@ -16,7 +16,6 @@ cc_library(
         "//third_party/dear_imgui",
         "//util/hash:highway_fingerprint",
         "@com_google_absl//absl/base:no_destructor",
-        "@com_google_absl//absl/hash",
         "@com_google_absl//absl/strings",
     ],
 )
