@@ -547,7 +547,7 @@ void Timeline::DrawRuler(Pixel timeline_width) {
     const double px_per_time_unit_val = px_per_time_unit(timeline_width);
     if (px_per_time_unit_val > 0) {
       // Draw horizontal line
-      const float line_y = pos.y + kRulerHeight;
+      const Pixel line_y = pos.y + kRulerHeight;
       draw_list->AddLine(ImVec2(pos.x, line_y),
                          ImVec2(pos.x + timeline_width, line_y),
                          kRulerLineColor);
@@ -556,6 +556,7 @@ void Timeline::DrawRuler(Pixel timeline_width) {
           kMinTickDistancePx / px_per_time_unit_val;
       const Microseconds tick_interval =
           CalculateNiceInterval(min_time_interval);
+      const Pixel major_tick_dist_px = tick_interval * px_per_time_unit_val;
 
       const Microseconds view_start = visible_range().start();
       const Microseconds trace_start = data_time_range_.start();
@@ -564,25 +565,40 @@ void Timeline::DrawRuler(Pixel timeline_width) {
       const Microseconds first_tick_time_relative =
           std::floor(view_start_relative / tick_interval) * tick_interval;
 
-      for (Microseconds t_relative = first_tick_time_relative;;
-           t_relative += tick_interval) {
-        const Microseconds t_absolute = t_relative + trace_start;
-        const float x = TimeToScreenX(t_absolute, pos.x, px_per_time_unit_val);
+      const Pixel minor_tick_dist_px =
+          major_tick_dist_px / static_cast<float>(kMinorTickDivisions);
 
+      Microseconds t_relative = first_tick_time_relative;
+      Pixel x =
+          TimeToScreenX(t_relative + trace_start, pos.x, px_per_time_unit_val);
+
+      for (;; t_relative += tick_interval, x += major_tick_dist_px) {
         if (x > pos.x + timeline_width + kRulerScreenBuffer) {
           break;
         }
 
-        if (x < pos.x - kRulerScreenBuffer) {
-          continue;
+        // Draw major tick.
+        if (x >= pos.x - kRulerScreenBuffer) {
+          draw_list->AddLine(ImVec2(x, line_y - kRulerTickHeight),
+                             ImVec2(x, line_y), kRulerLineColor);
+
+          const std::string text = FormatTime(t_relative);
+          draw_list->AddText(ImVec2(x + kRulerTextPadding, pos.y),
+                             kRulerTextColor, text.c_str());
         }
 
-        draw_list->AddLine(ImVec2(x, line_y - kRulerTickHeight),
-                           ImVec2(x, line_y), kRulerLineColor);
-
-        const std::string text = FormatTime(t_relative);
-        draw_list->AddText(ImVec2(x + kRulerTextPadding, pos.y),
-                           kRulerTextColor, text.c_str());
+        // Draw minor ticks for the current interval.
+        for (int i = 1; i < kMinorTickDivisions; ++i) {
+          const Pixel minor_x = x + i * minor_tick_dist_px;
+          if (minor_x > pos.x + timeline_width + kRulerScreenBuffer) {
+            break;
+          }
+          if (minor_x >= pos.x - kRulerScreenBuffer) {
+            draw_list->AddLine(
+                ImVec2(minor_x, line_y - kRulerTickHeight / 2.0f),
+                ImVec2(minor_x, line_y), kRulerLineColor);
+          }
+        }
       }
     }
 

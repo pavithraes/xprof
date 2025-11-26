@@ -31,6 +31,7 @@ inline constexpr Pixel kRulerHeight = 20.0f;
 inline constexpr Pixel kRulerScreenBuffer = 5.0f;
 inline constexpr Pixel kRulerTextPadding = 2.0f;
 inline constexpr Pixel kRulerTickHeight = 8.0f;
+inline constexpr int kMinorTickDivisions = 5;
 // go/keep-sorted end
 
 // Rendering Constants
