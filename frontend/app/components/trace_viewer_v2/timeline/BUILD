@@ -98,6 +98,7 @@ cc_library(
     deps = [
         ":constants",
         "//third_party/dear_imgui",
+        "@com_google_absl//absl/strings:string_view",
         "@org_xprof//frontend/app/components/trace_viewer_v2/color:colors",
     ],
 )

@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 
 #include "xprof/frontend/app/components/trace_viewer_v2/color/colors.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/constants.h"
+#include "absl/strings/string_view.h"
 #include "third_party/dear_imgui/imgui.h"
 
 namespace traceviewer {
@@ -21,7 +23,32 @@ constexpr float kAnimationDuration = 3.0f;
 constexpr Pixel kProgressBarGap = 4.0f;
 // A scaling factor used in easing calculations for animation.
 constexpr float kProgressScale = 2.0f;
-constexpr Pixel kTextOffsetY = 16.0f;
+constexpr Pixel kTextOffsetY = 8.0f;
+
+// Tutorial messages displayed in the loading indicator.
+constexpr absl::string_view kTutorials[] = {
+    "Pan: A/D or Shift+Scroll",
+    "Zoom: W/S or Ctrl+Scroll",
+    "Scroll: Up/Down Arrow or Scroll",
+};
+// The interval in seconds to display each tutorial message.
+constexpr float kTutorialInterval = 1.5f;
+// The padding adding a gap between the progress indicator and the tutorial text
+constexpr float kTutorialTextPaddingTop = 32.0f;
+
+void DrawTutorialText(ImDrawList* draw_list, ImVec2 center, float time) {
+  int num_tutorials = std::size(kTutorials);
+  int tutorial_index =
+      static_cast<int>(time / kTutorialInterval) % num_tutorials;
+  absl::string_view tutorial = kTutorials[tutorial_index];
+
+  ImVec2 text_size =
+      ImGui::CalcTextSize(tutorial.data(), tutorial.data() + tutorial.size());
+  ImVec2 text_pos =
+      ImVec2(center.x - text_size.x / 2.0f, center.y + kTutorialTextPaddingTop);
+  draw_list->AddText(text_pos, kBlackColor, tutorial.data(),
+                     tutorial.data() + tutorial.size());
+}
 
 // Draws a "Loading data..." text message centered below the progress bar.
 void DrawLoadingText(const ImGuiViewport* viewport) {
@@ -104,6 +131,8 @@ void DrawLoadingIndicator(const ImGuiViewport* viewport) {
   }
 
   DrawLoadingText(viewport);
+
+  DrawTutorialText(draw_list, center, time);
 }
 
 }  // namespace traceviewer
