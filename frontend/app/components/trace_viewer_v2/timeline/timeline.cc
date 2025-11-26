@@ -69,7 +69,7 @@ void Timeline::Draw() {
       ImGui::GetContentRegionAvail().x - label_width_ - kTimelinePaddingRight;
   const double px_per_time_unit_val = px_per_time_unit(timeline_width);
 
-  DrawRuler(timeline_width);
+  DrawRuler(timeline_width, viewport->Pos.y + viewport->Size.y);
 
   // The tracks are in a child window to allow scrolling independently of the
   // ruler.
@@ -530,7 +530,7 @@ void Timeline::HandleKeyboard() {
 // Draws the timeline ruler. This includes the main horizontal line,
 // vertical tick marks indicating time intervals, and their corresponding time
 // labels.
-void Timeline::DrawRuler(Pixel timeline_width) {
+void Timeline::DrawRuler(Pixel timeline_width, Pixel viewport_bottom) {
   if (ImGui::BeginTable("Ruler", 2, kImGuiTableFlags)) {
     ImGui::TableSetupColumn("Labels", ImGuiTableColumnFlags_WidthFixed,
                             label_width_);
@@ -581,6 +581,8 @@ void Timeline::DrawRuler(Pixel timeline_width) {
         if (x >= pos.x - kRulerScreenBuffer) {
           draw_list->AddLine(ImVec2(x, line_y - kRulerTickHeight),
                              ImVec2(x, line_y), kRulerLineColor);
+          draw_list->AddLine(ImVec2(x, line_y), ImVec2(x, viewport_bottom),
+                             kLightGrayColor);
 
           const std::string text = FormatTime(t_relative);
           draw_list->AddText(ImVec2(x + kRulerTextPadding, pos.y),

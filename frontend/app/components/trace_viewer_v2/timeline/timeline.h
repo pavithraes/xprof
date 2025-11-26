@@ -137,7 +137,9 @@ class Timeline {
   virtual void Zoom(float zoom_factor);
 
  private:
-  void DrawRuler(Pixel timeline_width);
+  // Draws the timeline ruler. `viewport_bottom` is the y-coordinate of the
+  // bottom of the viewport, used to draw vertical grid lines across the tracks.
+  void DrawRuler(Pixel timeline_width, Pixel viewport_bottom);
 
   double px_per_time_unit() const;
   double px_per_time_unit(Pixel timeline_width) const;
