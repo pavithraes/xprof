@@ -1,4 +1,4 @@
-import {Component, EventEmitter, Input, OnChanges, Output, SimpleChanges} from '@angular/core';
+import {Component, ElementRef, EventEmitter, Input, Output, ViewChild, AfterViewInit} from '@angular/core';
 import {NavigationEvent} from 'org_xprof/frontend/app/common/interfaces/navigation_event';
 
 /** A side navigation component. */
@@ -8,25 +8,57 @@ import {NavigationEvent} from 'org_xprof/frontend/app/common/interfaces/navigati
   templateUrl: './memory_viewer_control.ng.html',
   styleUrls: ['./memory_viewer_control.scss'],
 })
-export class MemoryViewerControl implements OnChanges {
+export class MemoryViewerControl implements AfterViewInit {
+  private moduleListInternal: string[] = [];
+
   /** The hlo module list. */
-  @Input() moduleList: string[] = [];
-  @Input() firstLoadSelectedModule = '';
-  @Input() firstLoadSelectedMemorySpaceColor = '';
+  @Input()
+  set moduleList(value: string[]) {
+    this.moduleListInternal = value || [];
+  }
+  get moduleList(): string[] {
+    return this.moduleListInternal;
+  }
+
+  /** The initially selected module. */
+  @Input()
+  set firstLoadSelectedModule(value: string) {
+    this.selectedModule = value;
+  }
+
+  /** The initially selected memory space color. */
+  @Input()
+  set firstLoadSelectedMemorySpaceColor(value: string) {
+    this.selectedMemorySpaceColor = value;
+  }
 
   /** The event when the controls are changed. */
   @Output() readonly changed = new EventEmitter<NavigationEvent>();
 
+  @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
+
   selectedModule = '';
   selectedMemorySpaceColor = '';
+  filterText = '';
 
-  ngOnChanges(changes: SimpleChanges) {
-    if (changes['firstLoadSelectedModule']) {
-      this.selectedModule = this.firstLoadSelectedModule;
+  get filteredModuleList(): string[] {
+    if (!this.moduleListInternal) {
+      return [];
     }
-    if (changes['firstLoadSelectedMemorySpaceColor']) {
-      this.selectedMemorySpaceColor = this.firstLoadSelectedMemorySpaceColor;
+    if (!this.filterText) {
+      return [...this.moduleListInternal];
     }
+    const filter = this.filterText.toLowerCase();
+    return this.moduleListInternal.filter(
+        module => module.toLowerCase().includes(filter));
+  }
+
+  ngAfterViewInit() {
+    // Defer setting focus on the input to a new task. This is a workaround
+    // to prevent an ExpressionChangedAfterItHasBeenCheckedError.
+    setTimeout(() => {
+      this.searchInput.nativeElement.focus();
+    }, 0);
   }
 
   emitUpdateEvent() {
