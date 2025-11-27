@@ -84,7 +84,11 @@
 </as-split-area>
 
 <as-split-area [size]="20" *ngIf="sourceCodeServiceIsAvailable && showStackTrace">
-  <stack-trace-snippet
+  <source-mapper
+      [sessionId]="currentRun"
+      [opName]="selectedOpName"
+      [opCategory]="selectedOpCategory"
+      [programId]="currentProgramId"
       [sourceFileAndLineNumber]="sourceFileAndLineNumber"
       [stackTrace]="stackTrace" />
 </as-split-area>

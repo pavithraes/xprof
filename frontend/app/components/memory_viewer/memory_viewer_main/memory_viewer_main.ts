@@ -61,6 +61,8 @@ export class MemoryViewerMain implements OnDestroy, OnChanges {
   diagnostics: Diagnostics = {info: [], warnings: [], errors: []};
   sourceFileAndLineNumber = '';
   stackTrace = '';
+  selectedOpName = '';
+  selectedOpCategory = '';
   showStackTrace = false;
   sourceCodeServiceIsAvailable = false;
 
@@ -101,6 +103,8 @@ export class MemoryViewerMain implements OnDestroy, OnChanges {
           `${heapObject.sourceInfo?.fileName || ''}:${
               heapObject.sourceInfo?.lineNumber || -1}`;
       this.stackTrace = heapObject.sourceInfo?.stackFrame || '';
+      this.selectedOpName = heapObject.instructionName || '';
+      this.selectedOpCategory = heapObject.opcode || '';
     } else {
       this.activeInfo = undefined;
       this.selectedIndex = -1;
@@ -108,6 +112,8 @@ export class MemoryViewerMain implements OnDestroy, OnChanges {
       this.selectedIndexByPaddingSize = -1;
       this.sourceFileAndLineNumber = '';
       this.stackTrace = '';
+      this.selectedOpName = '';
+      this.selectedOpCategory = '';
     }
   }
 
@@ -124,6 +130,11 @@ export class MemoryViewerMain implements OnDestroy, OnChanges {
       }
     }
     return bufferSpan;
+  }
+
+  // Module Name format: module_name_string(program_id)
+  get currentProgramId() {
+    return this.currentModule?.split('(')[1]?.split(')')[0];
   }
 
   setSelectedHeapObject(selectedIndex: number) {

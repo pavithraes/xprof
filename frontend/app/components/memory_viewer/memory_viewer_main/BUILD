@@ -30,7 +30,7 @@ xprof_ng_module(
         "@org_xprof//frontend/app/components/memory_viewer/max_heap_chart",
         "@org_xprof//frontend/app/components/memory_viewer/memory_usage",
         "@org_xprof//frontend/app/components/memory_viewer/program_order_chart",
-        "@org_xprof//frontend/app/components/stack_trace_snippet",
+        "@org_xprof//frontend/app/components/source_mapper",
         "@org_xprof//frontend/app/services/source_code_service:source_code_service_interface",
         "@org_xprof//frontend/app/store",
     ],
