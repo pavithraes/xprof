@@ -56,14 +56,15 @@ void Timeline::Draw() {
   ImGui::SetNextWindowPos(viewport->Pos);
   ImGui::SetNextWindowSize(viewport->Size);
   ImGui::SetNextWindowViewport(viewport->ID);
+
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+
   ImGui::Begin("Timeline viewer", nullptr, kImGuiWindowFlags);
 
   if (timeline_data_.groups.empty()) {
     DrawLoadingIndicator(viewport);
   }
-
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
 
   const Pixel timeline_width =
       ImGui::GetContentRegionAvail().x - label_width_ - kTimelinePaddingRight;
@@ -97,71 +98,13 @@ void Timeline::Draw() {
     ImGui::Unindent((group.nesting_level + 1) * kIndentSize);
 
     ImGui::TableNextColumn();
-    const int start_level = group.start_level;
-    int end_level = (group_index + 1 < timeline_data_.groups.size())
-                        ? timeline_data_.groups[group_index + 1].start_level
-                        // If this is the last group, the end level is the total
-                        // number of levels.
-                        : timeline_data_.events_by_level.size();
-    // Ensure end_level is not less than start_level, to avoid negative height.
-    end_level = std::max(start_level, end_level);
 
-    // Calculate group height. Ensure a minimum height of one level to prevent
-    // ImGui::BeginChild from auto-resizing, even if a group contains no levels.
-    // This is important for parent groups (e.g., a process) that might not
-    // contain any event levels directly.
-    // TODO: b/453676716 - Add tests for group height calculation.
-    const Pixel group_height = std::max(1, end_level - start_level) *
-                               (kEventHeight + kEventPaddingBottom);
-    // Groups might have the same name. We add the index of the group to the ID
-    // to ensure each ImGui::BeginChild call has a unique ID, otherwise ImGui
-    // might ignore later calls with the same name.
-    const std::string timeline_child_id =
-        absl::StrCat("TimelineChild_", group.name, "_", group_index);
-
-    if (ImGui::BeginChild(timeline_child_id.c_str(), ImVec2(0, group_height),
-                          ImGuiChildFlags_None, kLaneFlags)) {
-      const ImVec2 pos = ImGui::GetCursorScreenPos();
-      const ImVec2 max = ImGui::GetContentRegionMax();
-
-      for (int level = start_level; level < end_level; ++level) {
-        // This is a sanity check to ensure the level is within the bounds of
-        // events_by_level.
-        if (level < timeline_data_.events_by_level.size()) {
-          // TODO: b/453676716 - Add boundary test cases for this function.
-          DrawEventsForLevel(timeline_data_.events_by_level[level],
-                             px_per_time_unit_val,
-                             /*level_in_group=*/level - start_level, pos, max);
-        }
-      }
-    }
-    ImGui::EndChild();
-
-    if (group_index < timeline_data_.groups.size() - 1) {
-      ImDrawList* draw_list = ImGui::GetWindowDrawList();
-      float line_y =
-          ImGui::GetItemRectMax().y + ImGui::GetStyle().CellPadding.y;
-      draw_list->AddLine(ImVec2(viewport->Pos.x + label_width_ + 15, line_y),
-                         ImVec2(viewport->Pos.x + viewport->Size.x, line_y),
-                         kLightGrayColor);
-    }
+    DrawGroup(group_index, px_per_time_unit_val);
   }
 
   ImGui::EndTable();
 
-  // If an event was selected, and the user clicks on an empty area
-  // (i.e., not on any event), deselect the event.
-  if (selected_event_index_ != -1 && ImGui::IsMouseClicked(0) &&
-      ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) &&
-      !event_clicked_this_frame_) {
-    selected_event_index_ = -1;
-
-    EventData event_data;
-    event_data[std::string(kEventSelectedIndex)] = -1;
-    event_data[std::string(kEventSelectedName)] = std::string("");
-
-    event_callback_(kEventSelected, event_data);
-  }
+  HandleEventDeselection();
 
   // Handle continuous keyboard and mouse wheel input for timeline navigation.
   // These functions are called every frame to ensure smooth and responsive
@@ -388,6 +331,89 @@ double Timeline::px_per_time_unit(Pixel timeline_width) const {
   }
 }
 
+// Draws the timeline ruler. This includes the main horizontal line,
+// vertical tick marks indicating time intervals, and their corresponding time
+// labels.
+void Timeline::DrawRuler(Pixel timeline_width, Pixel viewport_bottom) {
+  if (ImGui::BeginTable("Ruler", 2, kImGuiTableFlags)) {
+    ImGui::TableSetupColumn("Labels", ImGuiTableColumnFlags_WidthFixed,
+                            label_width_);
+    ImGui::TableSetupColumn("Timeline", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableNextRow();
+    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
+                           ImGui::GetColorU32(ImGuiCol_WindowBg));
+    ImGui::TableNextColumn();
+    ImGui::TableNextColumn();
+
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImDrawList* const draw_list = ImGui::GetWindowDrawList();
+
+    const double px_per_time_unit_val = px_per_time_unit(timeline_width);
+    if (px_per_time_unit_val > 0) {
+      // Draw horizontal line
+      const Pixel line_y = pos.y + kRulerHeight;
+      draw_list->AddLine(ImVec2(pos.x, line_y),
+                         ImVec2(pos.x + timeline_width, line_y),
+                         kRulerLineColor);
+
+      const Microseconds min_time_interval =
+          kMinTickDistancePx / px_per_time_unit_val;
+      const Microseconds tick_interval =
+          CalculateNiceInterval(min_time_interval);
+      const Pixel major_tick_dist_px = tick_interval * px_per_time_unit_val;
+
+      const Microseconds view_start = visible_range().start();
+      const Microseconds trace_start = data_time_range_.start();
+
+      const Microseconds view_start_relative = view_start - trace_start;
+      const Microseconds first_tick_time_relative =
+          std::floor(view_start_relative / tick_interval) * tick_interval;
+
+      const Pixel minor_tick_dist_px =
+          major_tick_dist_px / static_cast<float>(kMinorTickDivisions);
+
+      Microseconds t_relative = first_tick_time_relative;
+      Pixel x =
+          TimeToScreenX(t_relative + trace_start, pos.x, px_per_time_unit_val);
+
+      for (;; t_relative += tick_interval, x += major_tick_dist_px) {
+        if (x > pos.x + timeline_width + kRulerScreenBuffer) {
+          break;
+        }
+
+        // Draw major tick.
+        if (x >= pos.x - kRulerScreenBuffer) {
+          draw_list->AddLine(ImVec2(x, line_y - kRulerTickHeight),
+                             ImVec2(x, line_y), kRulerLineColor);
+          draw_list->AddLine(ImVec2(x, line_y), ImVec2(x, viewport_bottom),
+                             kLightGrayColor);
+
+          const std::string text = FormatTime(t_relative);
+          draw_list->AddText(ImVec2(x + kRulerTextPadding, pos.y),
+                             kRulerTextColor, text.c_str());
+        }
+
+        // Draw minor ticks for the current interval.
+        for (int i = 1; i < kMinorTickDivisions; ++i) {
+          const Pixel minor_x = x + i * minor_tick_dist_px;
+          if (minor_x > pos.x + timeline_width + kRulerScreenBuffer) {
+            break;
+          }
+          if (minor_x >= pos.x - kRulerScreenBuffer) {
+            draw_list->AddLine(
+                ImVec2(minor_x, line_y - kRulerTickHeight / 2.0f),
+                ImVec2(minor_x, line_y), kRulerLineColor);
+          }
+        }
+      }
+    }
+
+    // Reserve space for the ruler
+    ImGui::Dummy(ImVec2(0.0f, kRulerHeight + ImGui::GetStyle().CellPadding.y));
+    ImGui::EndTable();
+  }
+}
+
 void Timeline::DrawEventName(absl::string_view event_name,
                              const EventRect& event_rect,
                              ImDrawList* absl_nonnull draw_list) const {
@@ -492,6 +518,58 @@ void Timeline::DrawEventsForLevel(absl::Span<const int> event_indices,
   }
 }
 
+void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
+  const Group& group = timeline_data_.groups[group_index];
+  const int start_level = group.start_level;
+  int end_level = (group_index + 1 < timeline_data_.groups.size())
+                      ? timeline_data_.groups[group_index + 1].start_level
+                      // If this is the last group, the end level is the total
+                      // number of levels.
+                      : timeline_data_.events_by_level.size();
+  // Ensure end_level is not less than start_level, to avoid negative height.
+  end_level = std::max(start_level, end_level);
+
+  // Calculate group height. Ensure a minimum height of one level to prevent
+  // ImGui::BeginChild from auto-resizing, even if a group contains no levels.
+  // This is important for parent groups (e.g., a process) that might not
+  // contain any event levels directly.
+  // TODO: b/453676716 - Add tests for group height calculation.
+  const Pixel group_height = std::max(1, end_level - start_level) *
+                             (kEventHeight + kEventPaddingBottom);
+  // Groups might have the same name. We add the index of the group to the ID
+  // to ensure each ImGui::BeginChild call has a unique ID, otherwise ImGui
+  // might ignore later calls with the same name.
+  const std::string timeline_child_id =
+      absl::StrCat("TimelineChild_", group.name, "_", group_index);
+
+  if (ImGui::BeginChild(timeline_child_id.c_str(), ImVec2(0, group_height),
+                        ImGuiChildFlags_None, kLaneFlags)) {
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const ImVec2 max = ImGui::GetContentRegionMax();
+
+    for (int level = start_level; level < end_level; ++level) {
+      // This is a sanity check to ensure the level is within the bounds of
+      // events_by_level.
+      if (level < timeline_data_.events_by_level.size()) {
+        // TODO: b/453676716 - Add boundary test cases for this function.
+        DrawEventsForLevel(timeline_data_.events_by_level[level],
+                           px_per_time_unit_val,
+                           /*level_in_group=*/level - start_level, pos, max);
+      }
+    }
+  }
+  ImGui::EndChild();
+
+  if (group_index < timeline_data_.groups.size() - 1) {
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    float line_y = ImGui::GetItemRectMax().y + ImGui::GetStyle().CellPadding.y;
+    draw_list->AddLine(ImVec2(viewport->Pos.x + label_width_ + 15, line_y),
+                       ImVec2(viewport->Pos.x + viewport->Size.x, line_y),
+                       kLightGrayColor);
+  }
+}
+
 void Timeline::HandleKeyboard() {
   const ImGuiIO& io = ImGui::GetIO();
 
@@ -527,89 +605,6 @@ void Timeline::HandleKeyboard() {
   }
 }
 
-// Draws the timeline ruler. This includes the main horizontal line,
-// vertical tick marks indicating time intervals, and their corresponding time
-// labels.
-void Timeline::DrawRuler(Pixel timeline_width, Pixel viewport_bottom) {
-  if (ImGui::BeginTable("Ruler", 2, kImGuiTableFlags)) {
-    ImGui::TableSetupColumn("Labels", ImGuiTableColumnFlags_WidthFixed,
-                            label_width_);
-    ImGui::TableSetupColumn("Timeline", ImGuiTableColumnFlags_WidthStretch);
-    ImGui::TableNextRow();
-    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
-                           ImGui::GetColorU32(ImGuiCol_WindowBg));
-    ImGui::TableNextColumn();
-    ImGui::TableNextColumn();
-
-    const ImVec2 pos = ImGui::GetCursorScreenPos();
-    ImDrawList* const draw_list = ImGui::GetWindowDrawList();
-
-    const double px_per_time_unit_val = px_per_time_unit(timeline_width);
-    if (px_per_time_unit_val > 0) {
-      // Draw horizontal line
-      const Pixel line_y = pos.y + kRulerHeight;
-      draw_list->AddLine(ImVec2(pos.x, line_y),
-                         ImVec2(pos.x + timeline_width, line_y),
-                         kRulerLineColor);
-
-      const Microseconds min_time_interval =
-          kMinTickDistancePx / px_per_time_unit_val;
-      const Microseconds tick_interval =
-          CalculateNiceInterval(min_time_interval);
-      const Pixel major_tick_dist_px = tick_interval * px_per_time_unit_val;
-
-      const Microseconds view_start = visible_range().start();
-      const Microseconds trace_start = data_time_range_.start();
-
-      const Microseconds view_start_relative = view_start - trace_start;
-      const Microseconds first_tick_time_relative =
-          std::floor(view_start_relative / tick_interval) * tick_interval;
-
-      const Pixel minor_tick_dist_px =
-          major_tick_dist_px / static_cast<float>(kMinorTickDivisions);
-
-      Microseconds t_relative = first_tick_time_relative;
-      Pixel x =
-          TimeToScreenX(t_relative + trace_start, pos.x, px_per_time_unit_val);
-
-      for (;; t_relative += tick_interval, x += major_tick_dist_px) {
-        if (x > pos.x + timeline_width + kRulerScreenBuffer) {
-          break;
-        }
-
-        // Draw major tick.
-        if (x >= pos.x - kRulerScreenBuffer) {
-          draw_list->AddLine(ImVec2(x, line_y - kRulerTickHeight),
-                             ImVec2(x, line_y), kRulerLineColor);
-          draw_list->AddLine(ImVec2(x, line_y), ImVec2(x, viewport_bottom),
-                             kLightGrayColor);
-
-          const std::string text = FormatTime(t_relative);
-          draw_list->AddText(ImVec2(x + kRulerTextPadding, pos.y),
-                             kRulerTextColor, text.c_str());
-        }
-
-        // Draw minor ticks for the current interval.
-        for (int i = 1; i < kMinorTickDivisions; ++i) {
-          const Pixel minor_x = x + i * minor_tick_dist_px;
-          if (minor_x > pos.x + timeline_width + kRulerScreenBuffer) {
-            break;
-          }
-          if (minor_x >= pos.x - kRulerScreenBuffer) {
-            draw_list->AddLine(
-                ImVec2(minor_x, line_y - kRulerTickHeight / 2.0f),
-                ImVec2(minor_x, line_y), kRulerLineColor);
-          }
-        }
-      }
-    }
-
-    // Reserve space for the ruler
-    ImGui::Dummy(ImVec2(0.0f, kRulerHeight + ImGui::GetStyle().CellPadding.y));
-    ImGui::EndTable();
-  }
-}
-
 void Timeline::HandleWheel() {
   const ImGuiIO& io = ImGui::GetIO();
 
@@ -633,6 +628,22 @@ void Timeline::HandleWheel() {
   } else {
     // Otherwise, scroll the timeline vertically.
     Scroll(io.MouseWheel);
+  }
+}
+
+void Timeline::HandleEventDeselection() {
+  // If an event was selected, and the user clicks on an empty area
+  // (i.e., not on any event), deselect the event.
+  if (selected_event_index_ != -1 && ImGui::IsMouseClicked(0) &&
+      ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) &&
+      !event_clicked_this_frame_) {
+    selected_event_index_ = -1;
+
+    EventData event_data;
+    event_data[std::string(kEventSelectedIndex)] = -1;
+    event_data[std::string(kEventSelectedName)] = std::string("");
+
+    event_callback_(kEventSelected, event_data);
   }
 }
 

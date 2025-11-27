@@ -137,12 +137,12 @@ class Timeline {
   virtual void Zoom(float zoom_factor);
 
  private:
+  double px_per_time_unit() const;
+  double px_per_time_unit(Pixel timeline_width) const;
+
   // Draws the timeline ruler. `viewport_bottom` is the y-coordinate of the
   // bottom of the viewport, used to draw vertical grid lines across the tracks.
   void DrawRuler(Pixel timeline_width, Pixel viewport_bottom);
-
-  double px_per_time_unit() const;
-  double px_per_time_unit(Pixel timeline_width) const;
 
   void DrawEventName(absl::string_view event_name, const EventRect& rect,
                      ImDrawList* absl_nonnull draw_list) const;
@@ -154,11 +154,16 @@ class Timeline {
                           double px_per_time_unit, int level_in_group,
                           const ImVec2& pos, const ImVec2& max);
 
+  void DrawGroup(int group_index, double px_per_time_unit_val);
+
   // Handles keyboard input for panning and zooming.
   void HandleKeyboard();
 
   // Handles mouse wheel input for scrolling.
   void HandleWheel();
+
+  // Handles deselection of events when clicking on an empty area.
+  void HandleEventDeselection();
 
   // Private static constants.
   static constexpr ImGuiWindowFlags kImGuiWindowFlags =
