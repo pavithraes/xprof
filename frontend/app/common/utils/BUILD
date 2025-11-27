@@ -25,3 +25,11 @@ ts_library(
         "@org_xprof//frontend/app/store",
     ],
 )
+
+ts_library(
+    name = "source_info_utils",
+    srcs = [
+        "source_info_utils.ts",
+    ],
+    deps = ["@npm//safevalues"],
+)

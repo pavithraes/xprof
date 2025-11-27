@@ -16,11 +16,13 @@ xprof_ng_module(
     # strict_templates = False,
     deps = [
         "@npm//@angular/core",
+        "@npm//safevalues",
         "@org_xprof//frontend/app/common/angular:angular_material_icon",
         "@org_xprof//frontend/app/common/angular:angular_material_slide_toggle",
         "@org_xprof//frontend/app/common/constants:roofline_model_constants",
         "@org_xprof//frontend/app/common/interfaces",
         "@org_xprof//frontend/app/common/interfaces:chart",
+        "@org_xprof//frontend/app/common/utils:source_info_utils",
         "@org_xprof//frontend/app/components/chart",
         "@org_xprof//frontend/app/components/chart:chart_options",
         "@org_xprof//frontend/app/components/chart:data_processor",
@@ -29,7 +31,7 @@ xprof_ng_module(
         "@org_xprof//frontend/app/components/chart/table",
         "@org_xprof//frontend/app/components/controls/category_filter",
         "@org_xprof//frontend/app/components/controls/string_filter",
-        "@org_xprof//frontend/app/components/stack_trace_snippet",
+        "@org_xprof//frontend/app/components/source_mapper",
         "@org_xprof//frontend/app/services/source_code_service:source_code_service_interface",
     ],
 )
