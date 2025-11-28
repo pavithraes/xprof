@@ -35,6 +35,7 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "xla/hlo/ir/hlo_opcode.h"
 #include "xla/tsl/platform/logging.h"
 #include "xla/tsl/platform/types.h"
 #include "xla/tsl/profiler/utils/math_utils.h"
@@ -245,6 +246,28 @@ void SetOpMetricsFromHloEvent(const tsl::profiler::XEventVisitor& hlo_event,
                                        normalized_duration_ps);
     op_metrics->set_dma_stall_ps(op_metrics->dma_stall_ps() + dma_stall_ps);
   }
+  // Fill The Custom Call Information
+  if (op_metrics->category() ==
+      xla::HloOpcodeString(xla::HloOpcode::kCustomCall) ) {
+    hlo_event.ForEachStat([&](const XStatVisitor& stat) {
+      if (!stat.Type()) return;
+      switch (static_cast<StatType>(*stat.Type())) {
+        case StatType::kBytesAccessed:
+          op_metrics->set_bytes_accessed(op_metrics->bytes_accessed() +
+                                         stat.IntOrUintValue());
+          break;
+        case StatType::kModelFlops:
+          op_metrics->set_model_flops(op_metrics->model_flops() +
+                                       stat.IntOrUintValue());
+          break;
+        case StatType::kFlops:
+          op_metrics->set_flops(op_metrics->flops() + stat.IntOrUintValue());
+          break;
+        default:
+          break;
+      }
+    });
+  }
 }
 
 void MergeOpMetrics(const OpMetrics& src, OpMetrics& dst) {
@@ -263,15 +286,18 @@ void MergeOpMetrics(const OpMetrics& src, OpMetrics& dst) {
 }
 
 void AdjustFlopsAndBytesAccessed(OpMetrics& op_metrics) {
-  op_metrics.set_flops(op_metrics.flops() * op_metrics.occurrences());
-  if (op_metrics.model_flops() > 0) {
-    op_metrics.set_model_flops(op_metrics.model_flops() *
-                               op_metrics.occurrences());
-  } else {
-    op_metrics.set_model_flops(op_metrics.flops());
-  }
-  op_metrics.set_bytes_accessed(op_metrics.bytes_accessed() *
+  if (op_metrics.category() !=
+      xla::HloOpcodeString(xla::HloOpcode::kCustomCall)) {
+    op_metrics.set_flops(op_metrics.flops() * op_metrics.occurrences());
+    if (op_metrics.model_flops() > 0) {
+      op_metrics.set_model_flops(op_metrics.model_flops() *
                                 op_metrics.occurrences());
+    } else {
+      op_metrics.set_model_flops(op_metrics.flops());
+    }
+    op_metrics.set_bytes_accessed(op_metrics.bytes_accessed() *
+                                op_metrics.occurrences());
+  }
   for (auto& memory_access : *op_metrics.mutable_memory_accessed_breakdown()) {
     memory_access.set_bytes_accessed(memory_access.bytes_accessed() *
                                      op_metrics.occurrences());

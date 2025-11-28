@@ -102,6 +102,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@org_xprof//plugin/xprof/protobuf:op_metrics_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:source_info_proto_cc",
+        "@xla//xla/hlo/ir:hlo",
         "@xla//xla/tsl/platform:logging",
         "@xla//xla/tsl/platform:macros",
         "@xla//xla/tsl/platform:types",
