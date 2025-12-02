@@ -1102,22 +1102,82 @@ TEST_F(RealTimelineImGuiFixture, ShiftClickEventTogglesCurtain) {
   ImGui::GetIO().AddKeyEvent(ImGuiMod_Shift, true);
   ImGui::GetIO().MouseDown[0] = true;
 
-  // Shift-click, should set the curtain
+  // First shift-click, should add a curtain range.
   SimulateFrame();
 
-  ASSERT_TRUE(timeline_.selected_time_range().has_value());
-  EXPECT_EQ(timeline_.selected_time_range()->start(), 10.0);
-  EXPECT_EQ(timeline_.selected_time_range()->end(), 30.0);
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 1);
+  EXPECT_EQ(timeline_.selected_time_ranges()[0].start(), 10.0);
+  EXPECT_EQ(timeline_.selected_time_ranges()[0].end(), 30.0);
 
   // Frame with mouse up
   ImGui::GetIO().MouseDown[0] = false;
   SimulateFrame();
 
-  // Shift-click again, should toggle the curtain off
+  // Second shift-click on the same event, should remove the curtain.
   ImGui::GetIO().MouseDown[0] = true;
   SimulateFrame();
 
-  EXPECT_FALSE(timeline_.selected_time_range().has_value());
+  EXPECT_TRUE(timeline_.selected_time_ranges().empty());
+
+  // Reset the mouse and shift key to avoid affecting other tests.
+  ImGui::GetIO().MouseDown[0] = false;
+  ImGui::GetIO().AddKeyEvent(ImGuiMod_Shift, false);
+}
+
+TEST_F(RealTimelineImGuiFixture,
+       ShiftClickMultipleEventsSelectsMultipleRanges) {
+  FlameChartTimelineData data;
+  data.groups.push_back({"Group 1", 0, 0});
+  data.events_by_level.push_back({0, 1});  // event 0 and 1 on level 0
+  data.entry_names.push_back("event1");
+  data.entry_names.push_back("event2");
+  data.entry_levels.push_back(0);
+  data.entry_levels.push_back(0);
+  data.entry_start_times.push_back(10.0);
+  data.entry_start_times.push_back(50.0);
+  data.entry_total_times.push_back(20.0);
+  data.entry_total_times.push_back(10.0);
+  timeline_.set_timeline_data(std::move(data));
+  timeline_.SetVisibleRange({0.0, 100.0});
+
+  ImGui::GetIO().AddKeyEvent(ImGuiMod_Shift, true);
+
+  // First shift-click on event 1.
+  ImGui::GetIO().MousePos = ImVec2(500.f, 40.f);  // Position over event 1.
+  ImGui::GetIO().MouseDown[0] = true;
+  SimulateFrame();
+
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 1);
+  EXPECT_EQ(timeline_.selected_time_ranges()[0].start(), 10.0);
+  EXPECT_EQ(timeline_.selected_time_ranges()[0].end(), 30.0);
+
+  // Frame with mouse up.
+  ImGui::GetIO().MouseDown[0] = false;
+  SimulateFrame();
+
+  // Second shift-click on event 2.
+  ImGui::GetIO().MousePos = ImVec2(1100.f, 40.f);  // Position over event 2.
+  ImGui::GetIO().MouseDown[0] = true;
+  SimulateFrame();
+
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 2);
+  EXPECT_EQ(timeline_.selected_time_ranges()[0].start(), 10.0);
+  EXPECT_EQ(timeline_.selected_time_ranges()[0].end(), 30.0);
+  EXPECT_EQ(timeline_.selected_time_ranges()[1].start(), 50.0);
+  EXPECT_EQ(timeline_.selected_time_ranges()[1].end(), 60.0);
+
+  // Frame with mouse up.
+  ImGui::GetIO().MouseDown[0] = false;
+  SimulateFrame();
+
+  // Third shift-click on event 1 again to deselect.
+  ImGui::GetIO().MousePos = ImVec2(500.f, 40.f);  // Position over event 1.
+  ImGui::GetIO().MouseDown[0] = true;
+  SimulateFrame();
+
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 1);
+  EXPECT_EQ(timeline_.selected_time_ranges()[0].start(), 50.0);
+  EXPECT_EQ(timeline_.selected_time_ranges()[0].end(), 60.0);
 
   // Reset the mouse and shift key to avoid affecting other tests.
   ImGui::GetIO().MouseDown[0] = false;

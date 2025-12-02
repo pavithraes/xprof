@@ -4,16 +4,8 @@
 #include <cfloat>
 #include <cmath>
 #include <numeric>
-#include <optional>
 #include <string>
 
-#include "xprof/frontend/app/components/trace_viewer_v2/color/color_generator.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/event_data.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/helper/time_formatter.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/timeline/constants.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/timeline/draw_utils.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
 #include "absl/base/nullability.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_cat.h"
@@ -21,6 +13,13 @@
 #include "absl/types/span.h"
 #include "third_party/dear_imgui/imgui.h"
 #include "third_party/dear_imgui/imgui_internal.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/color/color_generator.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/event_data.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/helper/time_formatter.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/constants.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/draw_utils.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
 
 namespace traceviewer {
 namespace {
@@ -474,16 +473,21 @@ void Timeline::DrawEvent(int event_index, const EventRect& rect,
       if (ImGui::IsMouseClicked(0)) {
         event_clicked_this_frame_ = true;
 
+        // If shift is held down, select/deselect the time range of the event.
         if (ImGui::GetIO().KeyShift) {
           const Microseconds start =
               timeline_data_.entry_start_times[event_index];
           const Microseconds end =
               start + timeline_data_.entry_total_times[event_index];
-          TimeRange event_range(start, end);
-          if (selected_time_range_ == event_range) {
-            selected_time_range_ = std::nullopt;
+          TimeRange selected_time_range(start, end);
+          auto it = std::find(selected_time_ranges_.begin(),
+                              selected_time_ranges_.end(), selected_time_range);
+          // Click on the event to select, and click on the same event to
+          // de-select.
+          if (it != selected_time_ranges_.end()) {
+            selected_time_ranges_.erase(it);
           } else {
-            selected_time_range_ = event_range;
+            selected_time_ranges_.push_back(selected_time_range);
           }
         }
 
@@ -591,52 +595,52 @@ void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
 
 void Timeline::DrawSelectedTimeRange(Pixel timeline_width,
                                      double px_per_time_unit_val) {
-  if (!selected_time_range_) return;
+  for (const TimeRange& selected_time_range : selected_time_ranges_) {
+    const ImVec2 table_rect_min = ImGui::GetItemRectMin();
+    const ImVec2 table_rect_max = ImGui::GetItemRectMax();
+    const Pixel timeline_x_start = table_rect_min.x + label_width_;
 
-  const ImVec2 table_rect_min = ImGui::GetItemRectMin();
-  const ImVec2 table_rect_max = ImGui::GetItemRectMax();
-  const Pixel timeline_x_start = table_rect_min.x + label_width_;
+    const Pixel time_range_x_start = TimeToScreenX(
+        selected_time_range.start(), timeline_x_start, px_per_time_unit_val);
+    const Pixel time_range_x_end = TimeToScreenX(
+        selected_time_range.end(), timeline_x_start, px_per_time_unit_val);
+    // Clip the selection rectangle to the visible timeline bounds.
+    // If the selection starts before the timeline's visible area,
+    // clipped_x_start ensures we only start drawing from timeline_x_start.
+    const Pixel clipped_x_start =
+        std::max(time_range_x_start, timeline_x_start);
+    // If the selection ends after the timeline's visible area, clipped_x_end
+    // ensures we stop drawing at the right edge of the timeline.
+    const Pixel clipped_x_end =
+        std::min(time_range_x_end, timeline_x_start + timeline_width);
 
-  const Pixel time_range_x_start = TimeToScreenX(
-      selected_time_range_->start(), timeline_x_start, px_per_time_unit_val);
-  const Pixel time_range_x_end = TimeToScreenX(
-      selected_time_range_->end(), timeline_x_start, px_per_time_unit_val);
-  // Clip the selection rectangle to the visible timeline bounds.
-  // If the selection starts before the timeline's visible area,
-  // clipped_x_start ensures we only start drawing from timeline_x_start.
-  const Pixel clipped_x_start =
-      std::max(time_range_x_start, timeline_x_start);
-  // If the selection ends after the timeline's visible area, clipped_x_end
-  // ensures we stop drawing at the right edge of the timeline.
-  const Pixel clipped_x_end =
-      std::min(time_range_x_end, timeline_x_start + timeline_width);
+    if (clipped_x_end > clipped_x_start) {
+      // Use the foreground draw list to render over all other timeline content.
+      ImDrawList* const draw_list = ImGui::GetForegroundDrawList();
+      draw_list->AddRectFilled(ImVec2(clipped_x_start, table_rect_min.y),
+                               ImVec2(clipped_x_end, table_rect_max.y),
+                               kSelectedTimeRangeColor);
+      draw_list->AddLine(ImVec2(clipped_x_start, table_rect_min.y),
+                         ImVec2(clipped_x_start, table_rect_max.y),
+                         kSelectedTimeRangeBorderColor);
+      draw_list->AddLine(ImVec2(clipped_x_end, table_rect_min.y),
+                         ImVec2(clipped_x_end, table_rect_max.y),
+                         kSelectedTimeRangeBorderColor);
 
-  if (clipped_x_end > clipped_x_start) {
-    // Use the foreground draw list to render over all other timeline content.
-    ImDrawList* const draw_list = ImGui::GetForegroundDrawList();
-    draw_list->AddRectFilled(
-        ImVec2(clipped_x_start, table_rect_min.y),
-        ImVec2(clipped_x_end, table_rect_max.y),
-        kSelectedTimeRangeColor);
-    draw_list->AddLine(ImVec2(clipped_x_start, table_rect_min.y),
-                       ImVec2(clipped_x_start, table_rect_max.y),
-                       kSelectedTimeRangeBorderColor);
-    draw_list->AddLine(ImVec2(clipped_x_end, table_rect_min.y),
-                       ImVec2(clipped_x_end, table_rect_max.y),
-                       kSelectedTimeRangeBorderColor);
-
-    const std::string text = FormatTime(selected_time_range_->duration());
-    const ImVec2 text_size = ImGui::CalcTextSize(text.c_str());
-    // Only draw the text if the text fits within the selected time range.
-    if (clipped_x_end - clipped_x_start > text_size.x) {
-      const float text_x =
-          clipped_x_start + (clipped_x_end - clipped_x_start - text_size.x) / 2;
-      const ImVec2 window_pos = ImGui::GetWindowPos();
-      const ImVec2 window_size = ImGui::GetWindowSize();
-      const float text_y =
-          window_pos.y + window_size.y - text_size.y - kRulerTextPadding;
-      draw_list->AddText(ImVec2(text_x, text_y),
-                                              kRulerTextColor, text.c_str());
+      const std::string text = FormatTime(selected_time_range.duration());
+      const ImVec2 text_size = ImGui::CalcTextSize(text.c_str());
+      // Only draw the text if the text fits within the selected time range.
+      if (clipped_x_end - clipped_x_start > text_size.x) {
+        const float text_x =
+            clipped_x_start +
+            (clipped_x_end - clipped_x_start - text_size.x) / 2;
+        const ImVec2 window_pos = ImGui::GetWindowPos();
+        const ImVec2 window_size = ImGui::GetWindowSize();
+        const float text_y =
+            window_pos.y + window_size.y - text_size.y - kRulerTextPadding;
+        draw_list->AddText(ImVec2(text_x, text_y), kRulerTextColor,
+                           text.c_str());
+      }
     }
   }
 }
