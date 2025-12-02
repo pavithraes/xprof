@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, inject, Injector, NgZone, OnDestroy, ViewChild} from '@angular/core';
+import {Component, ElementRef, inject, Injector, NgZone, OnDestroy, Renderer2, ViewChild} from '@angular/core';
 import {FormControl} from '@angular/forms';
 import {ActivatedRoute, Params} from '@angular/router';
 import {Store} from '@ngrx/store';
@@ -6,7 +6,6 @@ import {Throbber} from 'org_xprof/frontend/app/common/classes/throbber';
 import {OpType} from 'org_xprof/frontend/app/common/constants/enums';
 import {ChartDataInfo} from 'org_xprof/frontend/app/common/interfaces/chart';
 import {SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
-import {parseSourceInfo} from 'org_xprof/frontend/app/common/utils/source_info_utils';
 import {setLoadingState} from 'org_xprof/frontend/app/common/utils/utils';
 import {CategoryTableDataProcessor} from 'org_xprof/frontend/app/components/chart/category_table_data_processor';
 import {Chart} from 'org_xprof/frontend/app/components/chart/chart';
@@ -41,14 +40,10 @@ const TOTAL_TIME_ID = 'total_time';
   templateUrl: './hlo_stats.ng.html',
   styleUrls: ['./hlo_stats.css'],
 })
-export class HloStats extends Dashboard implements OnDestroy, AfterViewInit {
+export class HloStats extends Dashboard implements OnDestroy {
   tool = 'hlo_op_stats';
   sessionId = '';
   host = '';
-  // Info for selected op.
-  selectedProgramId = '';
-  selectedOpName = '';
-  selectedOpCategory = '';
   private readonly injector = inject(Injector);
   private readonly dataService: DataServiceV2Interface =
       inject(DATA_SERVICE_INTERFACE_TOKEN);
@@ -116,8 +111,15 @@ export class HloStats extends Dashboard implements OnDestroy, AfterViewInit {
   tableColumnsControl = new FormControl<number[]>([]);
   tableColumns: Array<{index: number; label: string}> = [];
 
+  // We add a listener to `chart` and manipulate multiple elements of
+  // `chartElement`. Knowing that `Chart.elementRef` is private, we use
+  // `ViewChild` twice to access both. See `addSourceInfoClickListener` for
+  // more details.
   @ViewChild('table', {read: Chart, static: false})
-  tableRef: Chart|undefined = undefined;
+  chartRef: Chart|undefined = undefined;
+  @ViewChild('table', {read: ElementRef, static: false})
+  chartElementRef: ElementRef|undefined = undefined;
+  private readonly renderer: Renderer2 = inject(Renderer2);
   sourceFileAndLineNumber = '';
   stackTrace = '';
   showStackTrace = false;
@@ -144,6 +146,9 @@ export class HloStats extends Dashboard implements OnDestroy, AfterViewInit {
         this.injector.get(SOURCE_CODE_SERVICE_INTERFACE_TOKEN, null);
     this.sourceCodeServiceIsAvailable =
         sourceCodeService?.isAvailable() === true;
+    if (this.sourceCodeServiceIsAvailable) {
+      this.addSourceInfoClickListener();
+    }
   }
 
   processQuery(params: Params) {
@@ -225,61 +230,46 @@ export class HloStats extends Dashboard implements OnDestroy, AfterViewInit {
     return updatedData;
   }
 
-  ngAfterViewInit() {
-    if (this.sourceCodeServiceIsAvailable) {
-      this.addTableRowSelectListener();
-    }
-  }
-
-  private addTableRowSelectListener() {
-    const chart = this.tableRef?.chart;
-    if (!chart) {
+  /**
+   * Adds a click listener to the source info cells.
+   *
+   * If "Show Source Code" is checked, then whenever user clicks on the source
+   * info cell, we show snippets of source code around the stack trace.
+   *
+   * Unfortunately, `google.visualization.Table` does not provide any API to
+   * listen to click events on *cells*. So we manually add the click listener
+   * to the items in this table (see
+   * https://developers.google.com/chart/interactive/docs/gallery/table#events
+   * as a reference).
+   *
+   * Unfortunately, `google.visualization.Table` does not provide enough
+   * extension points to add interactive elements to cells. Therefore, we go
+   * to the native elements of the table and add the click listener to the
+   * cells with class `source-info-cell`.
+   */
+  private addSourceInfoClickListener() {
+    const chart = this.chartRef?.chart;
+    const chartElement = this.chartElementRef?.nativeElement;
+    if (!chart || !chartElement) {
+      // TODO: b/429036372 - Using setTimeout to detect change is inefficient.
       setTimeout(() => {
-        this.addTableRowSelectListener();
+        this.addSourceInfoClickListener();
       }, 100);
       return;
     }
-    google.visualization.events.addListener(chart, 'select', () => {
-      this.zone.run(() => {
-        const selection = chart.getSelection();
-        if (selection && selection.length > 0 && selection[0].row != null) {
-          const rowIndex = selection[0].row;
-          const rowData: Array<string|number|boolean|Date|null|undefined> = [];
-          if (this.dataView) {
-            for (let i = 0; i < this.dataView.getNumberOfColumns(); i++) {
-              rowData.push(this.dataView.getValue(rowIndex, i));
-            }
-            this.handleRowSelection(rowIndex, rowData);
+    google.visualization.events.addListener(chart, 'ready', () => {
+      this.renderer.listen(chartElement, 'click', (event: Event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement) {
+          if (target.classList.contains('source-info-cell')) {
+            this.zone.run(() => {
+              this.sourceFileAndLineNumber = target.textContent || '';
+              this.stackTrace = target.getAttribute('title') || '';
+            });
           }
         }
       });
     });
-  }
-
-  handleRowSelection(
-      rowIndex: number,
-      rowData: Array<string|number|boolean|Date|null|undefined>) {
-    if (!this.dataView || !this.dataTable) return;
-    const programId =
-        (rowData[this.dataTable.getColumnIndex(PROGRAM_ID)] as string ||
-         '').trim();
-    const opName =
-        (rowData[this.dataTable.getColumnIndex(OP_NAME_ID)] as string ||
-         '').trim();
-    const opCategory =
-        (rowData[this.dataTable.getColumnIndex(OP_CATEGORY_ID)] as string ||
-         '').trim();
-    const sourceInfoHtmlString =
-        (rowData[this.dataTable.getColumnIndex(SOURCE_INFO_ID)] as string ||
-         '').trim();
-    this.selectedProgramId = programId;
-    this.selectedOpName = opName;
-    this.selectedOpCategory = opCategory;
-
-    const {sourceFileAndLineNumber, stackTrace} =
-        parseSourceInfo(sourceInfoHtmlString);
-    this.sourceFileAndLineNumber = sourceFileAndLineNumber;
-    this.stackTrace = stackTrace;
   }
 
   toggleShowStackTrace() {
@@ -301,7 +291,6 @@ export class HloStats extends Dashboard implements OnDestroy, AfterViewInit {
   }
 
   override updateView() {
-    super.updateView();
     this.dataInfoForTable = {
       ...this.dataInfoForTable,
       filters: this.getFilters(),

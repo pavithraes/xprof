@@ -122,11 +122,7 @@
   </chart>
 </div>
 
-<source-mapper
+<stack-trace-snippet
     [sourceFileAndLineNumber]="sourceFileAndLineNumber"
     [stackTrace]="stackTrace"
-    [sessionId]="sessionId"
-    [programId]="selectedProgramId"
-    [opName]="selectedOpName"
-    [opCategory]="selectedOpCategory"
     *ngIf="sourceCodeServiceIsAvailable && showStackTrace"/>

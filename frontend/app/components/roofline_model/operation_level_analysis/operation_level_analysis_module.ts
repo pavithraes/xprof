@@ -6,7 +6,7 @@ import {ChartModule} from 'org_xprof/frontend/app/components/chart/chart';
 import {TableModule} from 'org_xprof/frontend/app/components/chart/table/table_module';
 import {CategoryFilterModule} from 'org_xprof/frontend/app/components/controls/category_filter/category_filter_module';
 import {StringFilterModule} from 'org_xprof/frontend/app/components/controls/string_filter/string_filter_module';
-import {SourceMapperModule} from 'org_xprof/frontend/app/components/source_mapper/source_mapper_module';
+import {StackTraceSnippetModule} from 'org_xprof/frontend/app/components/stack_trace_snippet/stack_trace_snippet_module';
 
 import {OperationLevelAnalysis} from './operation_level_analysis';
 
@@ -19,7 +19,7 @@ import {OperationLevelAnalysis} from './operation_level_analysis';
     ChartModule,
     MatIconModule,
     MatSlideToggleModule,
-    SourceMapperModule,
+    StackTraceSnippetModule,
     CommonModule,
   ],
   exports: [OperationLevelAnalysis],

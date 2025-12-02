@@ -1,8 +1,7 @@
-import {AfterViewInit, Component, EventEmitter, inject, Input, NgZone, OnChanges, OnInit, Output, SimpleChanges, ViewChild} from '@angular/core';
+import {Component, ElementRef, EventEmitter, inject, Input, NgZone, OnChanges, OnInit, Output, Renderer2, SimpleChanges, ViewChild} from '@angular/core';
 import {PIE_CHART_PALETTE} from 'org_xprof/frontend/app/common/constants/roofline_model_constants';
 import {ChartDataInfo} from 'org_xprof/frontend/app/common/interfaces/chart';
 import {SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
-import {parseSourceInfo, parseTextContent} from 'org_xprof/frontend/app/common/utils/source_info_utils';
 import {CategoryTableDataProcessor} from 'org_xprof/frontend/app/components/chart/category_table_data_processor';
 import {PIE_CHART_OPTIONS, SCATTER_CHART_OPTIONS} from 'org_xprof/frontend/app/components/chart/chart_options';
 import {Dashboard} from 'org_xprof/frontend/app/components/chart/dashboard/dashboard';
@@ -11,10 +10,6 @@ import {Table} from 'org_xprof/frontend/app/components/chart/table/table';
 import {SOURCE_CODE_SERVICE_INTERFACE_TOKEN} from 'org_xprof/frontend/app/services/source_code_service/source_code_service_interface';
 
 type ColumnIdxArr = Array<number|google.visualization.ColumnSpec>;
-const SOURCE_INFO_COLUMN_ID = 'source_info';
-const PROGRAM_ID_COLUMN_ID = 'hlo_module_id';
-const OP_NAME_COLUMN_ID = 'operation';
-const OP_CATEGORY_COLUMN_ID = 'category';
 
 /**
  * An operation level analysis table view component (step appregation: total).
@@ -26,8 +21,7 @@ const OP_CATEGORY_COLUMN_ID = 'category';
   styleUrls: ['./operation_level_analysis.scss'],
 })
 export class OperationLevelAnalysis extends Dashboard implements OnInit,
-                                                                 OnChanges,
-                                                                 AfterViewInit {
+                                                                 OnChanges {
   private readonly sourceCodeService =
       inject(SOURCE_CODE_SERVICE_INTERFACE_TOKEN, {optional: true});
   private readonly zone = inject(NgZone);
@@ -35,7 +29,6 @@ export class OperationLevelAnalysis extends Dashboard implements OnInit,
   // used for table chart and pie chart
   @Input() rooflineModelData?: google.visualization.DataTable|null = null;
   @Input() viewColumns: ColumnIdxArr = [];
-  @Input() sessionId = '';
   // data for scatter chart, heavey data preprocessing handled in parent
   @Input() rooflineSeriesData?: google.visualization.DataTable|null = null;
   @Input() scatterChartOptions: google.visualization.ScatterChartOptions = {};
@@ -72,101 +65,50 @@ export class OperationLevelAnalysis extends Dashboard implements OnInit,
 
   @ViewChild('table', {read: Table, static: false})
   tableRef: Table|undefined = undefined;
+  @ViewChild('table', {read: ElementRef, static: false})
+  chartElementRef: ElementRef|undefined = undefined;
+  private readonly renderer: Renderer2 = inject(Renderer2);
   sourceFileAndLineNumber = '';
   stackTrace = '';
   showStackTrace = false;
   sourceCodeServiceIsAvailable = false;
-  // Op info from selected row
-  selectedProgramId = '';
-  selectedOpName = '';
-  selectedOpCategory = '';
 
   constructor() {
     super();
     this.sourceCodeServiceIsAvailable =
         this.sourceCodeService?.isAvailable() === true;
+    if (this.sourceCodeServiceIsAvailable) {
+      this.addSourceInfoClickListener();
+    }
   }
 
   ngOnInit() {
     this.update();
   }
 
-  ngAfterViewInit() {
-    if (this.sourceCodeServiceIsAvailable) {
-      this.addTableRowSelectListener();
-    }
-  }
-
-  private addTableRowSelectListener() {
+  private addSourceInfoClickListener() {
     const chart = this.tableRef?.table;
-    if (!chart) {
+    const chartElement = this.chartElementRef?.nativeElement;
+    if (!chart || !chartElement) {
+      // TODO: b/429036372 - Using setTimeout to detect change is inefficient.
       setTimeout(() => {
-        this.addTableRowSelectListener();
+        this.addSourceInfoClickListener();
       }, 100);
       return;
     }
-    google.visualization.events.addListener(chart, 'select', () => {
-      this.zone.run(() => {
-        const selection = chart.getSelection();
-        if (selection && selection.length > 0 && selection[0].row != null) {
-          const rowIndex = selection[0].row;
-          const rowData: Array<string|number|boolean|Date|null|undefined> = [];
-          if (this.dataView) {
-            for (let i = 0; i < this.dataView.getNumberOfColumns(); i++) {
-              rowData.push(this.dataView.getValue(rowIndex, i));
-            }
-            this.handleRowSelection(rowIndex, rowData);
+    google.visualization.events.addListener(chart, 'ready', () => {
+      this.renderer.listen(chartElement, 'click', (event: Event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement) {
+          if (target.classList.contains('source-info-cell')) {
+            this.zone.run(() => {
+              this.sourceFileAndLineNumber = target.textContent || '';
+              this.stackTrace = target.getAttribute('title') || '';
+            });
           }
         }
       });
     });
-  }
-
-  // getter to map from column id to view index, so we can read the value from
-  // the selected row.
-  // We can remove this and use dataView.getColumnIndex() directly after
-  // google.visualization/types is updated to include the interface.
-  get tableColumnIdToViewIndexMap(): {[key: string]: number} {
-    if (!this.dataView || !this.dataTable) return {};
-    const columns = this.dataView.getViewColumns();
-    const tableColumnIdToViewIndexMap: {[key: string]: number} = {};
-    for (const [index, column] of columns.entries()) {
-      tableColumnIdToViewIndexMap[this.dataTable.getColumnId(column)] = index;
-    }
-    return tableColumnIdToViewIndexMap;
-  }
-
-  handleRowSelection(
-      rowIndex: number,
-      rowData: Array<string|number|boolean|Date|null|undefined>) {
-    if (!this.dataView || !this.dataTable) return;
-    const programId =
-        (rowData[this.tableColumnIdToViewIndexMap[PROGRAM_ID_COLUMN_ID]] as
-             string ||
-         '').trim();
-    // op name cell has a graph viewer link embedded and is an html string.
-    const opNameHtmlString =
-        (rowData[this.tableColumnIdToViewIndexMap[OP_NAME_COLUMN_ID]] as
-             string ||
-         '').trim();
-    const opName = parseTextContent(opNameHtmlString);
-    const opCategory =
-        (rowData[this.tableColumnIdToViewIndexMap[OP_CATEGORY_COLUMN_ID]] as
-             string ||
-         '').trim();
-
-    const sourceInfoHtmlString =
-        (rowData[this.tableColumnIdToViewIndexMap[SOURCE_INFO_COLUMN_ID]] as
-             string ||
-         '').trim();
-    this.selectedProgramId = programId;
-    this.selectedOpName = opName;
-    this.selectedOpCategory = opCategory;
-
-    const {sourceFileAndLineNumber, stackTrace} =
-        parseSourceInfo(sourceInfoHtmlString);
-    this.sourceFileAndLineNumber = sourceFileAndLineNumber;
-    this.stackTrace = stackTrace;
   }
 
   toggleShowStackTrace() {
