@@ -1,6 +1,7 @@
 #ifndef PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_TIMELINE_TIMELINE_H_
 #define PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_TIMELINE_TIMELINE_H_
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -74,6 +75,10 @@ class Timeline {
   // like zooming to a selection.
   void SetVisibleRange(const TimeRange& range, bool animate = false);
   const TimeRange& visible_range() const { return *visible_range_; }
+
+  const std::optional<TimeRange>& selected_time_range() const {
+    return selected_time_range_;
+  }
 
   void set_data_time_range(const TimeRange& range) { data_time_range_ = range; }
 
@@ -156,6 +161,9 @@ class Timeline {
 
   void DrawGroup(int group_index, double px_per_time_unit_val);
 
+  // Draws the selected time range.
+  void DrawSelectedTimeRange(Pixel timeline_width, double px_per_time_unit_val);
+
   // Handles keyboard input for panning and zooming.
   void HandleKeyboard();
 
@@ -197,6 +205,8 @@ class Timeline {
   // Flag to track if an event was clicked in the current frame. This is used
   // to detect clicks in empty areas for deselection logic.
   bool event_clicked_this_frame_ = false;
+
+  std::optional<TimeRange> selected_time_range_;
 };
 
 }  // namespace traceviewer

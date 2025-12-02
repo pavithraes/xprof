@@ -4,6 +4,7 @@
 #include <cfloat>
 #include <cmath>
 #include <numeric>
+#include <optional>
 #include <string>
 
 #include "xprof/frontend/app/components/trace_viewer_v2/color/color_generator.h"
@@ -58,6 +59,7 @@ void Timeline::Draw() {
   ImGui::SetNextWindowViewport(viewport->ID);
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
+  ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0.0f, 0.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
 
   ImGui::Begin("Timeline viewer", nullptr, kImGuiWindowFlags);
@@ -104,6 +106,8 @@ void Timeline::Draw() {
 
   ImGui::EndTable();
 
+  DrawSelectedTimeRange(timeline_width, px_per_time_unit_val);
+
   HandleEventDeselection();
 
   // Handle continuous keyboard and mouse wheel input for timeline navigation.
@@ -116,8 +120,9 @@ void Timeline::Draw() {
 
   ImGui::EndChild();
   ImGui::PopStyleVar();  // ItemSpacing
+  ImGui::PopStyleVar();  // CellPadding
   ImGui::PopStyleVar();  // WindowRounding
-  ImGui::End();
+  ImGui::End();          // Timeline viewer
 }
 
 EventRect Timeline::CalculateEventRect(Microseconds start, Microseconds end,
@@ -468,6 +473,20 @@ void Timeline::DrawEvent(int event_index, const EventRect& rect,
       // ImGuiMouseButton enum. We check if the left mouse button was clicked.
       if (ImGui::IsMouseClicked(0)) {
         event_clicked_this_frame_ = true;
+
+        if (ImGui::GetIO().KeyShift) {
+          const Microseconds start =
+              timeline_data_.entry_start_times[event_index];
+          const Microseconds end =
+              start + timeline_data_.entry_total_times[event_index];
+          TimeRange event_range(start, end);
+          if (selected_time_range_ == event_range) {
+            selected_time_range_ = std::nullopt;
+          } else {
+            selected_time_range_ = event_range;
+          }
+        }
+
         if (selected_event_index_ != event_index) {
           selected_event_index_ = event_index;
 
@@ -567,6 +586,44 @@ void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
     draw_list->AddLine(ImVec2(viewport->Pos.x + label_width_ + 15, line_y),
                        ImVec2(viewport->Pos.x + viewport->Size.x, line_y),
                        kLightGrayColor);
+  }
+}
+
+void Timeline::DrawSelectedTimeRange(Pixel timeline_width,
+                                     double px_per_time_unit_val) {
+  if (!selected_time_range_) return;
+
+  const ImVec2 table_rect_min = ImGui::GetItemRectMin();
+  const ImVec2 table_rect_max = ImGui::GetItemRectMax();
+  const Pixel timeline_x_start = table_rect_min.x + label_width_;
+
+  const Pixel time_range_x_start = TimeToScreenX(
+      selected_time_range_->start(), timeline_x_start, px_per_time_unit_val);
+  const Pixel time_range_x_end = TimeToScreenX(
+      selected_time_range_->end(), timeline_x_start, px_per_time_unit_val);
+  // Clip the selection rectangle to the visible timeline bounds.
+  // If the selection starts before the timeline's visible area,
+  // clipped_x_start ensures we only start drawing from timeline_x_start.
+  const Pixel clipped_x_start =
+      std::max(time_range_x_start, timeline_x_start);
+  // If the selection ends after the timeline's visible area, clipped_x_end
+  // ensures we stop drawing at the right edge of the timeline.
+  const Pixel clipped_x_end =
+      std::min(time_range_x_end, timeline_x_start + timeline_width);
+
+  if (clipped_x_end > clipped_x_start) {
+    // Use the foreground draw list to render over all other timeline content.
+    ImDrawList* const draw_list = ImGui::GetForegroundDrawList();
+    draw_list->AddRectFilled(
+        ImVec2(clipped_x_start, table_rect_min.y),
+        ImVec2(clipped_x_end, table_rect_max.y),
+        kSelectedTimeRangeColor);
+    draw_list->AddLine(ImVec2(clipped_x_start, table_rect_min.y),
+                       ImVec2(clipped_x_start, table_rect_max.y),
+                       kSelectedTimeRangeBorderColor);
+    draw_list->AddLine(ImVec2(clipped_x_end, table_rect_min.y),
+                       ImVec2(clipped_x_end, table_rect_max.y),
+                       kSelectedTimeRangeBorderColor);
   }
 }
 
