@@ -624,6 +624,20 @@ void Timeline::DrawSelectedTimeRange(Pixel timeline_width,
     draw_list->AddLine(ImVec2(clipped_x_end, table_rect_min.y),
                        ImVec2(clipped_x_end, table_rect_max.y),
                        kSelectedTimeRangeBorderColor);
+
+    const std::string text = FormatTime(selected_time_range_->duration());
+    const ImVec2 text_size = ImGui::CalcTextSize(text.c_str());
+    // Only draw the text if the text fits within the selected time range.
+    if (clipped_x_end - clipped_x_start > text_size.x) {
+      const float text_x =
+          clipped_x_start + (clipped_x_end - clipped_x_start - text_size.x) / 2;
+      const ImVec2 window_pos = ImGui::GetWindowPos();
+      const ImVec2 window_size = ImGui::GetWindowSize();
+      const float text_y =
+          window_pos.y + window_size.y - text_size.y - kRulerTextPadding;
+      draw_list->AddText(ImVec2(text_x, text_y),
+                                              kRulerTextColor, text.c_str());
+    }
   }
 }
 
