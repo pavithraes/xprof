@@ -140,18 +140,22 @@ class SignalProvider {
         const auto* analyzer_result,
         tool_data_provider_->GetEventTimeFractionAnalyzerResult(event_name));
 
-    double total_percent = 0;
-    for (float event_percent : analyzer_result->event_time_fractions()) {
-      total_percent += event_percent;
+    double total_fraction = 0;
+    int count = 0;
+    for (auto& fractions_per_chip :
+         analyzer_result->chip_event_time_fractions()) {
+      for (float event_fraction :
+           fractions_per_chip.second.event_time_fractions()) {
+        total_fraction += event_fraction;
+        count++;
+      }
     }
 
-    if (analyzer_result->event_time_fractions().empty()) {
+    if (count == 0) {
       avg_event_time_percent_cache_[event_name] = 0.0;
       return 0.0;
     }
-    double avg_percent =
-        (total_percent / analyzer_result->event_time_fractions().size()) *
-        100.0;
+    double avg_percent = (total_fraction / count) * 100.0;
     avg_event_time_percent_cache_[event_name] = avg_percent;
     return avg_percent;
   }
