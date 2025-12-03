@@ -18,12 +18,13 @@ limitations under the License.
 #include <string>
 
 #include "google/protobuf/any.pb.h"
+#include "<gtest/gtest.h>"
 #include "xla/hlo/ir/hlo_opcode.h"
 #include "xla/tsl/profiler/utils/timespan.h"
-#include "<gtest/gtest.h>"
 #include "tsl/platform/protobuf.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
 #include "plugin/xprof/protobuf/steps_db.pb.h"
+#include "plugin/xprof/protobuf/tpu_input_pipeline.pb.h"
 #include "xprof/utils/event_span.h"
 #include "xprof/utils/op_metrics_db_utils.h"
 
@@ -226,6 +227,53 @@ TEST(TfOpStatsToInputPipelineAnalysisTest, EnsureSparseCoreStepsSetStepNumber) {
   PerTpuStepDetails per_step_data =
       ComputeTpuPerStepDataAcrossCores(per_core_step_info, core_details_map);
   EXPECT_EQ(per_step_data.step_number(), 1);
+}
+
+TEST(TfOpStatsToInputPipelineAnalysisTest,
+     ComputeTpuPerStepDataAcrossCoresSparseCoreOnly) {
+  PerCoreStepInfo per_core_step_info;
+  per_core_step_info.set_step_num(1);
+  tsl::protobuf::Map<uint32_t, StepInfoResult>& step_info_per_core =
+      *per_core_step_info.mutable_step_info_per_core();
+
+  // Add a SparseCore step
+  uint32_t sparse_core_id = kSparseCoreIndexStart + 1;
+  StepInfoResult& sc_step_info = step_info_per_core[sparse_core_id];
+  sc_step_info.set_step_num(1);
+  sc_step_info.set_begin_ps(100);
+  sc_step_info.set_duration_ps(1000*1e9);
+  GenericStepBreakdown sparse_core_step_breakdown;
+  tsl::protobuf::Map<std::string, uint64_t>& sc_category_ps =
+      *sparse_core_step_breakdown.mutable_category_ps();
+  sc_category_ps[tensorflow::profiler::kIdle] = 200*1e9;
+  sc_category_ps["sparse_core_busy_ops"] = 800*1e9;
+  sc_step_info.mutable_step_breakdown()->PackFrom(sparse_core_step_breakdown);
+
+  // Setup CoreDetails for the SparseCore
+  tsl::protobuf::Map<uint32_t, CoreDetails> core_details_map;
+  CoreDetails& sc_core_details = core_details_map[sparse_core_id];
+  sc_core_details.set_is_sparse_core(true);
+
+  PerTpuStepDetails per_step_data =
+      ComputeTpuPerStepDataAcrossCores(per_core_step_info, core_details_map);
+
+  // Verify that TensorCore related fields are not UINT64_MAX and are 0.
+  EXPECT_EQ(per_step_data.tc_compute_time_ms(), 0);
+  EXPECT_EQ(per_step_data.tc_infeed_time_ms(), 0);
+  EXPECT_EQ(per_step_data.tc_outfeed_time_ms(), 0);
+  EXPECT_EQ(per_step_data.tc_idle_time_ms(), 0);
+  EXPECT_EQ(per_step_data.all_reduce_compute_time_ms(), 0);
+  EXPECT_EQ(per_step_data.all_reduce_sync_time_ms(), 0);
+  EXPECT_EQ(per_step_data.scv0_compute_time_ms(), 0);
+  EXPECT_EQ(per_step_data.scv0_infeed_time_ms(), 0);
+  EXPECT_EQ(per_step_data.host_transfer_ms(), 0);
+
+  // Also check SparseCore fields are populated correctly.
+  EXPECT_EQ(per_step_data.sc_compute_time_ms(), 800);
+  EXPECT_EQ(per_step_data.sc_idle_time_ms(), 200);
+  EXPECT_EQ(per_step_data.sc_outfeed_time_ms(), 0);
+  EXPECT_EQ(per_step_data.sc_infeed_time_ms(), 0);
+  EXPECT_EQ(per_step_data.sc_step_time_ms(), 1000);
 }
 
 }  // namespace

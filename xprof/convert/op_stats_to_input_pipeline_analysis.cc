@@ -1012,13 +1012,19 @@ PerTpuStepDetails ComputeTpuPerStepDataAcrossCores(
     }
   }
 
-  per_step_data.set_tc_outfeed_time_ms(
-      tsl::profiler::PicoToMilli(tc_outfeed_time_in_ps.avg()));
+  if (!tc_outfeed_time_in_ps.empty()) {
+    per_step_data.set_tc_outfeed_time_ms(
+        tsl::profiler::PicoToMilli(tc_outfeed_time_in_ps.avg()));
+  }
   // The TC compute time is the minimum of the optimal step time across cores.
-  per_step_data.set_tc_compute_time_ms(
-      tsl::profiler::PicoToMilli(optimal_step_time_ps.min()));
-  per_step_data.set_host_transfer_ms(
-      tsl::profiler::PicoToMilli(host_send_recv_time_ps.max()));
+  if (!optimal_step_time_ps.empty()) {
+    per_step_data.set_tc_compute_time_ms(
+        tsl::profiler::PicoToMilli(optimal_step_time_ps.min()));
+  }
+  if (!host_send_recv_time_ps.empty()) {
+    per_step_data.set_host_transfer_ms(
+        tsl::profiler::PicoToMilli(host_send_recv_time_ps.max()));
+  }
   // TODO(b/153730997): Use the maximum step time.
   // The infeed time is the step time across cores minus all other times.
   // Previously, we used the maximum step time but changed to use the minimum
@@ -1044,9 +1050,11 @@ PerTpuStepDetails ComputeTpuPerStepDataAcrossCores(
 
   // The TC idle time is the time TC spends waiting for the host but not
   // waiting for input.
-  per_step_data.set_tc_idle_time_ms(
-      tsl::profiler::PicoToMilli(step_stats_in_ps.min()) -
-      NonIdleTimeMs(per_step_data));
+  if (!step_stats_in_ps.empty()) {
+    per_step_data.set_tc_idle_time_ms(
+        tsl::profiler::PicoToMilli(step_stats_in_ps.min()) -
+        NonIdleTimeMs(per_step_data));
+  }
   if (per_step_data.tc_idle_time_ms() < 0) {
     per_step_data.set_tc_idle_time_ms(0);
   }
@@ -1056,20 +1064,32 @@ PerTpuStepDetails ComputeTpuPerStepDataAcrossCores(
   per_step_data.set_all_reduce_sync_time_ms(
       tsl::profiler::PicoToMilli(max_all_reduce.sync_duration_ps));
 
-  per_step_data.set_infeed_percent_average(infeed_percent_stats.avg());
-  per_step_data.set_infeed_percent_minimum(infeed_percent_stats.min());
-  per_step_data.set_infeed_percent_maximum(infeed_percent_stats.max());
+  if (!infeed_percent_stats.empty()) {
+    per_step_data.set_infeed_percent_average(infeed_percent_stats.avg());
+    per_step_data.set_infeed_percent_minimum(infeed_percent_stats.min());
+    per_step_data.set_infeed_percent_maximum(infeed_percent_stats.max());
+  }
 
-  per_step_data.set_sc_infeed_time_ms(
-      tsl::profiler::PicoToMilli(sc_infeed_time_in_ps.avg()));
-  per_step_data.set_sc_outfeed_time_ms(
-      tsl::profiler::PicoToMilli(sc_outfeed_time_in_ps.avg()));
-  per_step_data.set_sc_compute_time_ms(
-      tsl::profiler::PicoToMilli(sc_compute_time_ps.min()));
-  per_step_data.set_sc_idle_time_ms(
-      tsl::profiler::PicoToMilli(sc_idle_time_in_ps.avg()));
-  per_step_data.set_sc_step_time_ms(
-      tsl::profiler::PicoToMilli(sc_step_stats_in_ps.avg()));
+  if (!sc_infeed_time_in_ps.empty()) {
+    per_step_data.set_sc_infeed_time_ms(
+        tsl::profiler::PicoToMilli(sc_infeed_time_in_ps.avg()));
+  }
+  if (!sc_outfeed_time_in_ps.empty()) {
+    per_step_data.set_sc_outfeed_time_ms(
+        tsl::profiler::PicoToMilli(sc_outfeed_time_in_ps.avg()));
+  }
+  if (!sc_compute_time_ps.empty()) {
+    per_step_data.set_sc_compute_time_ms(
+        tsl::profiler::PicoToMilli(sc_compute_time_ps.min()));
+  }
+  if (!sc_idle_time_in_ps.empty()) {
+    per_step_data.set_sc_idle_time_ms(
+        tsl::profiler::PicoToMilli(sc_idle_time_in_ps.avg()));
+  }
+  if (!sc_step_stats_in_ps.empty()) {
+    per_step_data.set_sc_step_time_ms(
+        tsl::profiler::PicoToMilli(sc_step_stats_in_ps.avg()));
+  }
   if (per_step_data.sc_idle_time_ms() < 0) {
     per_step_data.set_sc_idle_time_ms(0);
   }

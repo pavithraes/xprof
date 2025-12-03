@@ -808,6 +808,7 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@org_xprof//plugin/xprof/protobuf:op_stats_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:steps_db_proto_cc",
+        "@org_xprof//plugin/xprof/protobuf:tpu_input_pipeline_proto_cc",
         "@org_xprof//xprof/utils:event_span",
         "@org_xprof//xprof/utils:op_metrics_db_utils",
         "@tsl//tsl/platform:protobuf",
