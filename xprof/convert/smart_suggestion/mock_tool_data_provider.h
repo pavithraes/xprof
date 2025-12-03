@@ -24,6 +24,7 @@ limitations under the License.
 #include "plugin/xprof/protobuf/event_time_fraction_analyzer.pb.h"
 #include "plugin/xprof/protobuf/input_pipeline.pb.h"
 #include "plugin/xprof/protobuf/overview_page.pb.h"
+#include "tensorflow/core/profiler/protobuf/op_stats.pb.h"
 
 namespace tensorflow {
 namespace profiler {
@@ -38,6 +39,8 @@ class MockToolDataProvider : public ToolDataProvider {
   MOCK_METHOD(absl::StatusOr<const EventTimeFractionAnalyzerResult*>,
               GetEventTimeFractionAnalyzerResult, (const std::string&),
               (override));
+  MOCK_METHOD(absl::StatusOr<const OpStats*>, GetOpStats,
+              (), (override));
 };
 
 }  // namespace profiler

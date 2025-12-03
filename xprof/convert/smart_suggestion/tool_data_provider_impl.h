@@ -19,7 +19,6 @@ limitations under the License.
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -73,6 +72,10 @@ class ToolDataProviderImpl : public ToolDataProvider {
 
   absl::StatusOr<const EventTimeFractionAnalyzerResult*>
   GetEventTimeFractionAnalyzerResult(const std::string& target_event_name) {
+    return absl::UnimplementedError("Not implemented yet.");
+  }
+
+  absl::StatusOr<const OpStats*> GetOpStats() override {
     return absl::UnimplementedError("Not implemented yet.");
   }
 

@@ -38,6 +38,10 @@ inline constexpr double kMxuUtilizationHighThreshold = 70.0;
 // considered input bound.
 inline constexpr double kInfeedPercentageThreshold = 10.0;
 
+// Threshold for collective op percentage of step time for bottleneck
+// classification.
+inline constexpr double kCollectiveBoundThresholdInPercent = 30.0;
+
 }  // namespace profiler
 }  // namespace tensorflow
 
