@@ -105,7 +105,7 @@ void Timeline::Draw() {
 
   ImGui::EndTable();
 
-  DrawSelectedTimeRange(timeline_width, px_per_time_unit_val);
+  DrawSelectedTimeRanges(timeline_width, px_per_time_unit_val);
 
   HandleEventDeselection();
 
@@ -116,6 +116,7 @@ void Timeline::Draw() {
   // performs lightweight checks and calculations.
   HandleKeyboard();
   HandleWheel();
+  HandleMouse();
 
   ImGui::EndChild();
   ImGui::PopStyleVar();  // ItemSpacing
@@ -593,55 +594,64 @@ void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
   }
 }
 
-void Timeline::DrawSelectedTimeRange(Pixel timeline_width,
+void Timeline::DrawSelectedTimeRange(const TimeRange& range,
+                                     Pixel timeline_width,
                                      double px_per_time_unit_val) {
-  for (const TimeRange& selected_time_range : selected_time_ranges_) {
-    const ImVec2 table_rect_min = ImGui::GetItemRectMin();
-    const ImVec2 table_rect_max = ImGui::GetItemRectMax();
-    const Pixel timeline_x_start = table_rect_min.x + label_width_;
+  const ImVec2 table_rect_min = ImGui::GetItemRectMin();
+  const ImVec2 table_rect_max = ImGui::GetItemRectMax();
+  const Pixel timeline_x_start = table_rect_min.x + label_width_;
 
-    const Pixel time_range_x_start = TimeToScreenX(
-        selected_time_range.start(), timeline_x_start, px_per_time_unit_val);
-    const Pixel time_range_x_end = TimeToScreenX(
-        selected_time_range.end(), timeline_x_start, px_per_time_unit_val);
-    // Clip the selection rectangle to the visible timeline bounds.
-    // If the selection starts before the timeline's visible area,
-    // clipped_x_start ensures we only start drawing from timeline_x_start.
-    const Pixel clipped_x_start =
-        std::max(time_range_x_start, timeline_x_start);
-    // If the selection ends after the timeline's visible area, clipped_x_end
-    // ensures we stop drawing at the right edge of the timeline.
-    const Pixel clipped_x_end =
-        std::min(time_range_x_end, timeline_x_start + timeline_width);
+  const Pixel time_range_x_start =
+      TimeToScreenX(range.start(), timeline_x_start, px_per_time_unit_val);
+  const Pixel time_range_x_end =
+      TimeToScreenX(range.end(), timeline_x_start, px_per_time_unit_val);
+  // Clip the selection rectangle to the visible timeline bounds.
+  // If the selection starts before the timeline's visible area,
+  // clipped_x_start ensures we only start drawing from timeline_x_start.
+  const Pixel clipped_x_start = std::max(time_range_x_start, timeline_x_start);
+  // If the selection ends after the timeline's visible area, clipped_x_end
+  // ensures we stop drawing at the right edge of the timeline.
+  const Pixel clipped_x_end =
+      std::min(time_range_x_end, timeline_x_start + timeline_width);
 
-    if (clipped_x_end > clipped_x_start) {
-      // Use the foreground draw list to render over all other timeline content.
-      ImDrawList* const draw_list = ImGui::GetForegroundDrawList();
-      draw_list->AddRectFilled(ImVec2(clipped_x_start, table_rect_min.y),
-                               ImVec2(clipped_x_end, table_rect_max.y),
-                               kSelectedTimeRangeColor);
-      draw_list->AddLine(ImVec2(clipped_x_start, table_rect_min.y),
-                         ImVec2(clipped_x_start, table_rect_max.y),
-                         kSelectedTimeRangeBorderColor);
-      draw_list->AddLine(ImVec2(clipped_x_end, table_rect_min.y),
-                         ImVec2(clipped_x_end, table_rect_max.y),
-                         kSelectedTimeRangeBorderColor);
+  if (clipped_x_end > clipped_x_start) {
+    // Use the foreground draw list to render over all other timeline content.
+    ImDrawList* const draw_list = ImGui::GetForegroundDrawList();
+    draw_list->AddRectFilled(ImVec2(clipped_x_start, table_rect_min.y),
+                             ImVec2(clipped_x_end, table_rect_max.y),
+                             kSelectedTimeRangeColor);
+    draw_list->AddLine(ImVec2(clipped_x_start, table_rect_min.y),
+                       ImVec2(clipped_x_start, table_rect_max.y),
+                       kSelectedTimeRangeBorderColor);
+    draw_list->AddLine(ImVec2(clipped_x_end, table_rect_min.y),
+                       ImVec2(clipped_x_end, table_rect_max.y),
+                       kSelectedTimeRangeBorderColor);
 
-      const std::string text = FormatTime(selected_time_range.duration());
-      const ImVec2 text_size = ImGui::CalcTextSize(text.c_str());
-      // Only draw the text if the text fits within the selected time range.
-      if (clipped_x_end - clipped_x_start > text_size.x) {
-        const float text_x =
-            clipped_x_start +
-            (clipped_x_end - clipped_x_start - text_size.x) / 2;
-        const ImVec2 window_pos = ImGui::GetWindowPos();
-        const ImVec2 window_size = ImGui::GetWindowSize();
-        const float text_y =
-            window_pos.y + window_size.y - text_size.y - kRulerTextPadding;
-        draw_list->AddText(ImVec2(text_x, text_y), kRulerTextColor,
-                           text.c_str());
-      }
+    const std::string text = FormatTime(range.duration());
+    const ImVec2 text_size = ImGui::CalcTextSize(text.c_str());
+    // Only draw the text if the text fits within the selected time range.
+    if (clipped_x_end - clipped_x_start > text_size.x) {
+      const float text_x =
+          clipped_x_start + (clipped_x_end - clipped_x_start - text_size.x) / 2;
+      const ImVec2 window_pos = ImGui::GetWindowPos();
+      const ImVec2 window_size = ImGui::GetWindowSize();
+      const float text_y =
+          window_pos.y + window_size.y - text_size.y - kRulerTextPadding;
+      draw_list->AddText(ImVec2(text_x, text_y), kRulerTextColor, text.c_str());
     }
+  }
+}
+
+void Timeline::DrawSelectedTimeRanges(Pixel timeline_width,
+                                      double px_per_time_unit_val) {
+  for (const TimeRange& selected_time_range : selected_time_ranges_) {
+    DrawSelectedTimeRange(selected_time_range, timeline_width,
+                          px_per_time_unit_val);
+  }
+
+  if (current_selected_time_range_) {
+    DrawSelectedTimeRange(*current_selected_time_range_, timeline_width,
+                          px_per_time_unit_val);
   }
 }
 
@@ -677,6 +687,58 @@ void Timeline::HandleKeyboard() {
   if (ImGui::IsKeyDown(ImGuiKey_S)) {
     float multiplier = GetSpeedMultiplier(io, ImGuiKey_S);
     Zoom(1.0f + kZoomSpeed * io.DeltaTime * multiplier);
+  }
+}
+
+void Timeline::HandleMouse() {
+  // Determine the bounding box for the timeline area.
+  const ImVec2 main_window_pos = ImGui::GetWindowPos();
+  const ImVec2 content_min = ImGui::GetWindowContentRegionMin();
+  const ImVec2 timeline_area_pos(
+      main_window_pos.x + content_min.x + label_width_,
+      main_window_pos.y + content_min.y);
+  const Pixel timeline_width =
+      ImGui::GetContentRegionAvail().x - label_width_ - kTimelinePaddingRight;
+  const ImRect timeline_area(
+      timeline_area_pos, ImVec2(timeline_area_pos.x + timeline_width,
+                                main_window_pos.y + ImGui::GetWindowHeight()));
+
+  ImGuiIO& io = ImGui::GetIO();
+  const bool is_mouse_over_timeline =
+      ImGui::IsMouseHoveringRect(timeline_area.Min, timeline_area.Max);
+
+  if (!is_mouse_over_timeline && !is_dragging_) {
+    return;
+  }
+
+  if (is_mouse_over_timeline && ImGui::IsMouseClicked(0) && io.KeyShift &&
+      !event_clicked_this_frame_) {
+    is_dragging_ = true;
+    const double px_per_time = px_per_time_unit();
+    drag_start_time_ =
+        PixelToTime(io.MousePos.x - timeline_area.Min.x, px_per_time);
+    current_selected_time_range_ =
+        TimeRange(drag_start_time_, drag_start_time_);
+  }
+
+  if (is_dragging_) {
+    if (ImGui::IsMouseDown(0)) {
+      const double px_per_time = px_per_time_unit();
+      Microseconds current_time =
+          PixelToTime(io.MousePos.x - timeline_area.Min.x, px_per_time);
+      current_selected_time_range_ =
+          TimeRange(std::min(drag_start_time_, current_time),
+                    std::max(drag_start_time_, current_time));
+    }
+
+    if (ImGui::IsMouseReleased(0)) {
+      is_dragging_ = false;
+      if (current_selected_time_range_ &&
+          current_selected_time_range_->duration() > 0) {
+        selected_time_ranges_.push_back(*current_selected_time_range_);
+      }
+      current_selected_time_range_.reset();
+    }
   }
 }
 

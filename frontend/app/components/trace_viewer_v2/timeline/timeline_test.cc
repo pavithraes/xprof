@@ -1227,6 +1227,114 @@ TEST_F(RealTimelineImGuiFixture, ZoomInBeyondMinDurationShouldBeConstrained) {
   EXPECT_DOUBLE_EQ(timeline_.visible_range().center(), 50.0);
 }
 
+
+
+class TimelineDragSelectionTest : public RealTimelineImGuiFixture {
+ protected:
+  void SetUp() override {
+    RealTimelineImGuiFixture::SetUp();
+    // Set a visible range that results in a round number for px_per_time_unit
+    // to make test calculations predictable. With a timeline width of 1653px
+    // (based on 1920px window width and paddings), a duration of 165.3 gives
+    // 10px per microsecond.
+    timeline_.SetVisibleRange({0.0, 165.3});
+    timeline_.set_data_time_range({0.0, 165.3});
+
+    ImGui::GetIO().AddKeyEvent(ImGuiMod_Shift, true);
+  }
+
+  void TearDown() override {
+    ImGui::GetIO().AddKeyEvent(ImGuiMod_Shift, false);
+    RealTimelineImGuiFixture::TearDown();
+  }
+};
+
+TEST_F(TimelineDragSelectionTest, ShiftDragCreatesTimeSelection) {
+  ImGuiIO& io = ImGui::GetIO();
+
+  // Start drag in timeline area.
+  // The label column is 250px wide, so timeline starts after that.
+  io.MousePos = ImVec2(308.0f, 50.0f);
+  io.AddMouseButtonEvent(0, true);
+  SimulateFrame();
+
+  // Dragging
+  io.MousePos = ImVec2(508.0f, 50.0f);
+  SimulateFrame();
+
+  // End drag
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 1);
+  const TimeRange& range = timeline_.selected_time_ranges()[0];
+  EXPECT_DOUBLE_EQ(range.start(), 5.0);
+  EXPECT_DOUBLE_EQ(range.end(), 25.0);
+}
+
+TEST_F(TimelineDragSelectionTest, ShiftDragCreatesMultipleTimeSelections) {
+  ImGuiIO& io = ImGui::GetIO();
+
+  // First drag
+  io.MousePos = ImVec2(308.0f, 50.0f);
+  io.AddMouseButtonEvent(0, true);
+  SimulateFrame();
+  io.MousePos = ImVec2(408.0f, 50.0f);
+  SimulateFrame();
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 1);
+  EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[0].start(), 5.0);
+  EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[0].end(), 15.0);
+
+  // Second drag
+  io.MousePos = ImVec2(508.0f, 50.0f);
+  io.AddMouseButtonEvent(0, true);
+  SimulateFrame();
+  io.MousePos = ImVec2(608.0f, 50.0f);
+  SimulateFrame();
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 2);
+  EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[0].start(), 5.0);
+  EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[0].end(), 15.0);
+  EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[1].start(), 25.0);
+  EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[1].end(), 35.0);
+}
+
+TEST_F(TimelineDragSelectionTest, DraggingUpdatesCurrentSelectedTimeRange) {
+  ImGuiIO& io = ImGui::GetIO();
+
+  // Start drag in timeline area.
+  io.MousePos = ImVec2(308.0f, 50.0f);
+  io.AddMouseButtonEvent(0, true);
+  SimulateFrame();
+
+  // Dragging
+  io.MousePos = ImVec2(508.0f, 50.0f);
+  SimulateFrame();
+
+  // During drag, current_selected_time_range_ should be set, but
+  // selected_time_ranges_ should be empty.
+  ASSERT_TRUE(timeline_.current_selected_time_range().has_value());
+  EXPECT_DOUBLE_EQ(timeline_.current_selected_time_range()->start(), 5.0);
+  EXPECT_DOUBLE_EQ(timeline_.current_selected_time_range()->end(), 25.0);
+  EXPECT_TRUE(timeline_.selected_time_ranges().empty());
+
+  // End drag
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  // After drag, current_selected_time_range_ should be reset, and
+  // selected_time_ranges_ should contain the new range.
+  EXPECT_FALSE(timeline_.current_selected_time_range().has_value());
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 1);
+  EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[0].start(), 5.0);
+  EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[0].end(), 25.0);
+}
+
 }  // namespace
 }  // namespace testing
 }  // namespace traceviewer

@@ -1,6 +1,7 @@
 #ifndef PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_TIMELINE_TIMELINE_H_
 #define PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_TIMELINE_TIMELINE_H_
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -77,6 +78,10 @@ class Timeline {
 
   const std::vector<TimeRange>& selected_time_ranges() const {
     return selected_time_ranges_;
+  }
+
+  const std::optional<TimeRange>& current_selected_time_range() const {
+    return current_selected_time_range_;
   }
 
   void set_data_time_range(const TimeRange& range) { data_time_range_ = range; }
@@ -160,8 +165,13 @@ class Timeline {
 
   void DrawGroup(int group_index, double px_per_time_unit_val);
 
-  // Draws the selected time range.
-  void DrawSelectedTimeRange(Pixel timeline_width, double px_per_time_unit_val);
+  // Draws a single selected time range.
+  void DrawSelectedTimeRange(const TimeRange& range, Pixel timeline_width,
+                             double px_per_time_unit_val);
+
+  // Draws all the selected time ranges, including the current selected range.
+  void DrawSelectedTimeRanges(Pixel timeline_width,
+                              double px_per_time_unit_val);
 
   // Handles keyboard input for panning and zooming.
   void HandleKeyboard();
@@ -171,6 +181,9 @@ class Timeline {
 
   // Handles deselection of events when clicking on an empty area.
   void HandleEventDeselection();
+
+  // Handles mouse input for creating curtains.
+  void HandleMouse();
 
   // Private static constants.
   static constexpr ImGuiWindowFlags kImGuiWindowFlags =
@@ -205,7 +218,11 @@ class Timeline {
   // to detect clicks in empty areas for deselection logic.
   bool event_clicked_this_frame_ = false;
 
+  bool is_dragging_ = false;
+
   std::vector<TimeRange> selected_time_ranges_;
+  Microseconds drag_start_time_ = 0.0;
+  std::optional<TimeRange> current_selected_time_range_;
 };
 
 }  // namespace traceviewer
