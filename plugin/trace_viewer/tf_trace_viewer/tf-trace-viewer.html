@@ -842,6 +842,9 @@ dashboard would integrate trace viewer app using iframe.
           const hlo_module_id = event.args?.hlo_module_id || event.args?.program_id;
           if (hlo_module_name && hlo_module_id) {
             hloModule = `${hlo_module_name}(${hlo_module_id})}`;
+          } else if (hlo_module_name) {
+            // Less ideal case to disambiguate between modules due to missing id.
+            hloModule = hlo_module_name;
           } else {
             for (t in currentProcess.threads) {
               var thread = currentProcess.threads[t];

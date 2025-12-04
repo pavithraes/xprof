@@ -168,6 +168,7 @@ export class GraphViewer implements OnDestroy {
     this.dataService.getGraphTypes(this.sessionId).subscribe((types) => {
       if (types) {
         this.graphTypes = types;
+        this.updateView();
       }
     });
   }
@@ -196,8 +197,15 @@ export class GraphViewer implements OnDestroy {
                 this.selectedModule = this.moduleList[0];
                 this.onPlot();
               }
+            } else if (!modules.includes(this.selectedModule)) {
+              this.selectedModule =
+                  modules.find(
+                      (module: string) => module.includes(this.selectedModule),
+                      ) ||
+                  this.selectedModule;
             }
           }
+          this.updateView();
           this.loadingModuleList = false;
         });
   }
