@@ -406,6 +406,8 @@ OverviewPage ConvertOpStatsToOverviewPage(const OpStats& op_stats) {
   PopulateOverviewDiagnostics(op_stats, overview_page.mutable_diagnostics());
   overview_page.mutable_analysis()->set_mxu_utilization_percent(
       op_stats.performance_counter_result().matrix_unit_utilization_percent());
+  overview_page.mutable_analysis()->set_hbm_utilization_percent(
+      op_stats.performance_counter_result().hbm_utilization_percent());
   return overview_page;
 }
 
@@ -434,6 +436,9 @@ void AddCommonStats(DataTable* data_table,
   data_table->AddCustomProperty(
       "mxu_utilization_percent",
       StrFormatToPercentage(analysis.mxu_utilization_percent()));
+  data_table->AddCustomProperty(
+      "hbm_utilization_percent",
+      StrFormatToPercentage(analysis.hbm_utilization_percent()));
   if (analysis.program_goodput_percent()) {
     data_table->AddCustomProperty(
         "program_goodput_percent",
