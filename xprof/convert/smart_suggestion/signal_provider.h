@@ -199,24 +199,19 @@ class SignalProvider {
         const auto* analyzer_result,
         tool_data_provider_->GetEventTimeFractionAnalyzerResult(event_name));
 
-    double total_fraction = 0;
-    int count = 0;
+    tsl::Stat<float> event_time_fractions;
     for (auto& fractions_per_chip :
          analyzer_result->chip_event_time_fractions()) {
-      for (float event_fraction :
+      for (float event_time_fraction :
            fractions_per_chip.second.event_time_fractions()) {
-        total_fraction += event_fraction;
-        count++;
+        event_time_fractions.UpdateStat(event_time_fraction);
       }
     }
 
-    if (count == 0) {
-      avg_event_time_percent_cache_[event_name] = 0.0;
+    if (event_time_fractions.count() == 0) {
       return 0.0;
     }
-    double avg_percent = (total_fraction / count) * 100.0;
-    avg_event_time_percent_cache_[event_name] = avg_percent;
-    return avg_percent;
+    return event_time_fractions.avg() * 100.0;
   }
 
   // Returns the percentage of time that is spent on SparseCore.
