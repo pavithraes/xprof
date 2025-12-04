@@ -158,7 +158,6 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
-        "@xla//xla/tsl/platform:statusor",
     ],
 )
 
@@ -252,6 +251,7 @@ cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
+        "@org_xprof//plugin/xprof/protobuf:event_time_fraction_analyzer_proto_cc",
         "@org_xprof//plugin/xprof/protobuf:smart_suggestion_proto_cc",
     ],
 )

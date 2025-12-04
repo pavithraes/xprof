@@ -25,6 +25,7 @@ limitations under the License.
 #include "absl/status/statusor.h"
 #include "xprof/convert/smart_suggestion/mock_tool_data_provider.h"
 #include "xprof/convert/smart_suggestion/signal_provider.h"
+#include "plugin/xprof/protobuf/event_time_fraction_analyzer.pb.h"
 #include "plugin/xprof/protobuf/smart_suggestion.pb.h"
 
 namespace tensorflow {
