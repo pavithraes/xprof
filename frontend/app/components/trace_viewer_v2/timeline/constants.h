@@ -64,9 +64,9 @@ inline constexpr Pixel kSelectedBorderThickness = 2.0f;
 
 // Time Range Selection Constants
 // go/keep-sorted start
-// A semi-transparent blue for the curtain border. #A1C9FF at 60% opacity.
-inline constexpr ImU32 kSelectedTimeRangeBorderColor = 0x99FFC9A1;
-// A semi-transparent blue for the curtain highlight. #A1C9FF at 30% opacity.
+// A solid blue for the curtain border. #A1C9FFFF at 100% opacity.
+inline constexpr ImU32 kSelectedTimeRangeBorderColor = 0xFFFFC9A1;
+// A semi-transparent blue for the curtain highlight. #A1C9FF4D at 30% opacity.
 inline constexpr ImU32 kSelectedTimeRangeColor = 0x4DFFC9A1;
 // go/keep-sorted end
 

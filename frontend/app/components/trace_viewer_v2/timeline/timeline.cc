@@ -625,12 +625,17 @@ void Timeline::DrawSelectedTimeRange(const TimeRange& range,
     draw_list->AddRectFilled(ImVec2(clipped_x_start, table_rect_min.y),
                              ImVec2(clipped_x_end, table_rect_max.y),
                              kSelectedTimeRangeColor);
-    draw_list->AddLine(ImVec2(clipped_x_start, table_rect_min.y),
-                       ImVec2(clipped_x_start, table_rect_max.y),
-                       kSelectedTimeRangeBorderColor);
-    draw_list->AddLine(ImVec2(clipped_x_end, table_rect_min.y),
-                       ImVec2(clipped_x_end, table_rect_max.y),
-                       kSelectedTimeRangeBorderColor);
+    // Only draw the border if the edge of the time range is visible.
+    if (time_range_x_start >= timeline_x_start) {
+      draw_list->AddLine(ImVec2(time_range_x_start, table_rect_min.y),
+                         ImVec2(time_range_x_start, table_rect_max.y),
+                         kSelectedTimeRangeBorderColor);
+    }
+    if (time_range_x_end <= timeline_x_start + timeline_width) {
+      draw_list->AddLine(ImVec2(time_range_x_end, table_rect_min.y),
+                         ImVec2(time_range_x_end, table_rect_max.y),
+                         kSelectedTimeRangeBorderColor);
+    }
 
     const std::string text = FormatTime(range.duration());
     const ImVec2 text_size = ImGui::CalcTextSize(text.c_str());
