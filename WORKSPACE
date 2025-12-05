@@ -41,6 +41,14 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "com_googlesource_code_re2",
+    repo_mapping = {"@abseil-cpp": "@com_google_absl"},
+    sha256 = "87f6029d2f6de8aa023654240a03ada90e876ce9a4676e258dd01ea4c26ffd67",
+    strip_prefix = "re2-2025-11-05",
+    urls = ["https://github.com/google/re2/archive/2025-11-05.tar.gz"],
+)
+
 load(
     "@rules_ml_toolchain//cc/deps:cc_toolchain_deps.bzl",
     "cc_toolchain_deps",
