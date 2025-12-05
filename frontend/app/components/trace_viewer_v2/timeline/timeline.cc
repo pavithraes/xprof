@@ -105,8 +105,6 @@ void Timeline::Draw() {
 
   ImGui::EndTable();
 
-  DrawSelectedTimeRanges(timeline_width, px_per_time_unit_val);
-
   HandleEventDeselection();
 
   // Handle continuous keyboard and mouse wheel input for timeline navigation.
@@ -117,6 +115,13 @@ void Timeline::Draw() {
   HandleKeyboard();
   HandleWheel();
   HandleMouse();
+
+  // Keep this at the end.
+  // `DrawSelectedTimeRanges` should be called after all other timeline content
+  // (events, ruler, etc.) has been drawn. This ensures that the selected time
+  // range is rendered on top of everything else within the current ImGui
+  // window, without affecting global foreground elements like tooltips.
+  DrawSelectedTimeRanges(timeline_width, px_per_time_unit_val);
 
   ImGui::EndChild();
   ImGui::PopStyleVar();  // ItemSpacing
@@ -615,8 +620,8 @@ void Timeline::DrawSelectedTimeRange(const TimeRange& range,
       std::min(time_range_x_end, timeline_x_start + timeline_width);
 
   if (clipped_x_end > clipped_x_start) {
-    // Use the foreground draw list to render over all other timeline content.
-    ImDrawList* const draw_list = ImGui::GetForegroundDrawList();
+    // Use the window draw list to render over all other timeline content.
+    ImDrawList* const draw_list = ImGui::GetWindowDrawList();
     draw_list->AddRectFilled(ImVec2(clipped_x_start, table_rect_min.y),
                              ImVec2(clipped_x_end, table_rect_max.y),
                              kSelectedTimeRangeColor);
