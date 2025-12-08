@@ -33,9 +33,6 @@ namespace profiler {
 // TODO(zhuruiyang): We will need to update it to support other special ops with
 // a vector of op strings.
 constexpr char kSpecialOpName[] = "barrier-cores";
-// If the percentage of step time that is due to the special op is higher than
-// this threshold, it is considered a bottleneck.
-constexpr double kSpecialOpBoundThresholdInPercent = 10;
 
 // Rule to detect high special op percentage bottleneck.
 class BarrierCoresRule : public SmartSuggestionRule {

@@ -24,15 +24,12 @@ limitations under the License.
 #include "absl/strings/str_format.h"
 #include "xla/tsl/platform/statusor.h"
 #include "xprof/convert/smart_suggestion/signal_provider.h"
+#include "xprof/convert/smart_suggestion/constants.h"
 #include "xprof/convert/smart_suggestion/smart_suggestion_rule.h"
 #include "plugin/xprof/protobuf/smart_suggestion.pb.h"
 
 namespace tensorflow {
 namespace profiler {
-
-// If the percentage of SparseCore time is higher than
-// kSparseCoreTimeThresholdInPercent, it is considered SparseCore time bound.
-constexpr double kSparseCoreTimeThresholdInPercent = 10;
 
 // Rule to detect high SparseCore time bottleneck.
 class SparseCoreBoundRule : public SmartSuggestionRule {

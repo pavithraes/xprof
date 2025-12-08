@@ -46,6 +46,28 @@ inline constexpr double kCollectiveBoundThresholdInPercent = 30.0;
 // classification.
 inline constexpr double kDataShuffleBoundThresholdInPercent = 30.0;
 
+// If the percentage of SparseCore time is higher than
+// kSparseCoreTimeThresholdInPercent, it is considered SparseCore time bound.
+inline constexpr double kSparseCoreTimeThresholdInPercent = 10;
+
+// If the percentage of input time that is due to data transfer is high than
+// kDataTransferBoundThresholdInPercent, it is considered data transfer bound.
+inline constexpr double kDataTransferBoundThresholdInPercent = 30.0;
+
+// If the percentage of input time that is due to host processing is high than
+// kHostProcessingBoundThresholdInPercent, it is considered host processing
+// bound.
+inline constexpr double kHostProcessingBoundThresholdInPercent = 50.0;
+
+// If the percentage of TensorCore idle time is higher than
+// kTensorCoreIdleTimeThresholdInPercent, it is considered TensorCore idle
+// bound.
+inline constexpr double kTensorCoreIdleTimeThresholdInPercent = 10.0;
+
+// If the percentage of step time that is due to the special op is higher than
+// this threshold, it is considered a bottleneck.
+inline constexpr double kSpecialOpBoundThresholdInPercent = 10;
+
 }  // namespace profiler
 }  // namespace tensorflow
 
