@@ -75,6 +75,36 @@ class HloModuleUtilsTest : public xla::HloTestBase {
 
     return xla::HloModule::CreateFromProto(module_proto, module->config());
   }
+
+  absl::StatusOr<std::unique_ptr<xla::HloModule>>
+  GetModuleWithSourceLocation() {
+    const char file_name[] = "main.py";
+    const int line_number = 10;
+    const char text[] = R"(
+    HloModule a_module
+
+    ENTRY main {
+      %c = s32[] constant(1)
+      ROOT %result = s32[] parameter(0)
+    }
+    )";
+    TF_ASSIGN_OR_RETURN(auto module, ParseAndReturnVerifiedModule(text));
+
+    auto module_proto = module->ToProto();
+
+    for (auto& computation : *module_proto.mutable_computations()) {
+      if (computation.id() == module_proto.entry_computation_id()) {
+        for (auto& instruction : *computation.mutable_instructions()) {
+          if (instruction.id() == computation.root_id()) {
+            instruction.mutable_metadata()->set_source_file(file_name);
+            instruction.mutable_metadata()->set_source_line(line_number);
+          }
+        }
+      }
+    }
+
+    return xla::HloModule::CreateFromProto(module_proto, module->config());
+  }
 };
 
 TEST_F(HloModuleUtilsTest, TestGetLocationStack) {
@@ -96,6 +126,18 @@ TEST_F(HloModuleUtilsTest, TestGetSourceInfo) {
   EXPECT_EQ(source_info.source_file, "main.py");
   EXPECT_EQ(source_info.source_line, 10);
   EXPECT_EQ(source_info.stack_frame, "main.py:10:5\n");
+}
+
+TEST_F(HloModuleUtilsTest, TestGetSourceInfoFallback) {
+  TF_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<xla::HloModule> module_with_source_location,
+      GetModuleWithSourceLocation());
+  const auto* root_instruction =
+      module_with_source_location->entry_computation()->root_instruction();
+  auto source_info = GetSourceInfo(*root_instruction);
+  EXPECT_EQ(source_info.source_file, "main.py");
+  EXPECT_EQ(source_info.source_line, 10);
+  EXPECT_EQ(source_info.stack_frame, "");
 }
 
 }  // namespace
