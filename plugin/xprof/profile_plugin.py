@@ -1044,7 +1044,6 @@ class ProfilePlugin(base_plugin.TBPlugin):
               'No xplane file found for host: %s in run: %s'
               % (selected_host, run)
           )
-      logger.info('Inside trace_viewer@, asset_paths: %s')
     elif host == ALL_HOSTS:
       asset_paths = list(all_xplane_files.values())
       selected_hosts = list(all_xplane_files.keys())
