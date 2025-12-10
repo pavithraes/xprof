@@ -163,8 +163,7 @@ void DeviceOpMetricsDbBuilder::EnterOpMetadata(
     op_metrics->set_long_name(std::string(long_name));
   }
   op_metrics->set_is_eager(op_metrics->is_eager() || is_eager);
-  op_metrics->mutable_source_info()->set_file_name(
-      std::string(op_source_info.source_file));
+  op_metrics->mutable_source_info()->set_file_name(op_source_info.source_file);
   op_metrics->mutable_source_info()->set_line_number(
       op_source_info.source_line);
   op_metrics->mutable_source_info()->set_stack_frame(
