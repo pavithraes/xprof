@@ -7,9 +7,14 @@ package tensorflow.profiler;
 option cc_enable_arenas = true;
 
 // 'Task' contains information about a task that profiler traced.
+// Next ID: 19
 message Task {
   // The most recent changelist number from the client that built the binary.
   optional int64 changelist = 1;
+  // The workspace ID of the client that built the binary.
+  optional string workspace_id = 17;
+  // The snapshot of the client that built the binary.
+  optional int64 snapshot = 18;
   // True if the client that built the binary was mint (no local changes).
   optional bool clean_build = 2;
   // Build time (in ns relative to the Unix epoch).
