@@ -25,6 +25,7 @@ namespace {
 
 const char* const kWindowTarget = EMSCRIPTEN_EVENT_TARGET_WINDOW;
 const char* const kCanvasTarget = "#canvas";
+constexpr float kScrollbarSize = 10.0f;
 
 void ApplyLightTheme() {
   ImGui::StyleColorsLight();
@@ -52,9 +53,11 @@ void Application::Initialize() {
   CanvasState::Update();
   const CanvasState& initial_canvas_state = CanvasState::Current();
 
-  // Load fonts and colors
+  // Load fonts, colors and styles.
   fonts::LoadFonts(initial_canvas_state.device_pixel_ratio());
+  // TODO: b/450584482 - Add a dark theme for the timeline.
   ApplyLightTheme();
+  ImGui::GetStyle().ScrollbarSize = kScrollbarSize;
 
   // Initialize the platform
   platform_ = std::make_unique<WGPURenderPlatform>();

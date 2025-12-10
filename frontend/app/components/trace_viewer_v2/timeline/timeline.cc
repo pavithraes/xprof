@@ -75,9 +75,11 @@ void Timeline::Draw() {
 
   // The tracks are in a child window to allow scrolling independently of the
   // ruler.
-  ImGui::BeginChild(
-      "Tracks", ImVec2(0, 0), ImGuiChildFlags_None,
-      ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
+  // Keep the NoScrollWithMouse flag to disable the default scroll behavior
+  // of ImGui, and use the custom scroll handler defined in `HandleWheel`
+  // instead.
+  ImGui::BeginChild("Tracks", ImVec2(0, 0), ImGuiChildFlags_None,
+                    ImGuiWindowFlags_NoScrollWithMouse);
 
   ImGui::BeginTable("Timeline", 2, kImGuiTableFlags, ImVec2(0.0f, -FLT_MIN));
   ImGui::TableSetupColumn("Labels", ImGuiTableColumnFlags_WidthFixed,
