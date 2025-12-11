@@ -4,11 +4,11 @@
 #include <utility>
 #include <vector>
 
+#include "testing/base/public/gmock.h"
+#include "<gtest/gtest.h>"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/timeline.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
-#include "testing/base/public/gmock.h"
-#include "<gtest/gtest.h>"
 
 namespace traceviewer {
 
@@ -206,6 +206,227 @@ TEST_F(DataProviderTest, ProcessMultipleProcesses) {
 
   EXPECT_THAT(data.entry_levels, ElementsAre(0, 1, 2));
   EXPECT_THAT(data.entry_start_times, ElementsAre(1000.0, 1100.0, 1200.0));
+}
+
+TEST_F(DataProviderTest, ProcessSingleCounterEvent) {
+  TraceEvent counter_event;
+  counter_event.ph = Phase::kCounter;
+  counter_event.pid = 1;
+  counter_event.name = "Counter A";
+  counter_event.counter_timestamps = {10.0, 20.0, 30.0};
+  counter_event.counter_values = {1.0, 5.0, 2.0};
+
+  const std::vector<TraceEvent> events = {counter_event};
+
+  data_provider_.ProcessTraceEvents(events, timeline_);
+
+  const FlameChartTimelineData& data = timeline_.timeline_data();
+
+  ASSERT_THAT(data.groups, SizeIs(2));  // Process group + Counter group
+
+  EXPECT_EQ(data.groups[0].name, "Process 1");
+  EXPECT_EQ(data.groups[0].nesting_level, 0);
+
+  EXPECT_EQ(data.groups[1].name, "Counter A");
+  EXPECT_EQ(data.groups[1].type, Group::Type::kCounter);
+  EXPECT_EQ(data.groups[1].nesting_level, 1);
+
+  ASSERT_TRUE(data.counter_data_by_group_index.count(1));
+
+  const CounterData& counter_data = data.counter_data_by_group_index.at(1);
+
+  EXPECT_THAT(counter_data.timestamps, ElementsAre(10.0, 20.0, 30.0));
+  EXPECT_THAT(counter_data.values, ElementsAre(1.0, 5.0, 2.0));
+  EXPECT_DOUBLE_EQ(counter_data.min_value, 1.0);
+  EXPECT_DOUBLE_EQ(counter_data.max_value, 5.0);
+
+  EXPECT_DOUBLE_EQ(timeline_.visible_range().start(), 10.0);
+  EXPECT_DOUBLE_EQ(timeline_.visible_range().end(), 30.0);
+}
+
+TEST_F(DataProviderTest, ProcessMultipleCounterEventsSorted) {
+  TraceEvent event1;
+  event1.ph = Phase::kCounter;
+  event1.pid = 1;
+  event1.name = "Counter A";
+  event1.ts = 100.0;  // ordering key
+  event1.counter_timestamps = {100.0, 110.0};
+  event1.counter_values = {10.0, 11.0};
+
+  TraceEvent event2;
+  event2.ph = Phase::kCounter;
+  event2.pid = 1;
+  event2.name = "Counter A";
+  event2.ts = 50.0;  // ordering key, should come before event1
+  event2.counter_timestamps = {50.0, 60.0};
+  event2.counter_values = {5.0, 6.0};
+
+  const std::vector<TraceEvent> events = {
+      event1, event2,
+      TraceEvent{Phase::kComplete, 1, 1, "Complete Event", 0.0, 10.0}};
+
+  data_provider_.ProcessTraceEvents(events, timeline_);
+
+  const FlameChartTimelineData& data = timeline_.timeline_data();
+
+  ASSERT_TRUE(data.counter_data_by_group_index.count(2));
+
+  const CounterData& counter_data = data.counter_data_by_group_index.at(2);
+
+  EXPECT_THAT(counter_data.timestamps, ElementsAre(50.0, 60.0, 100.0, 110.0));
+  EXPECT_THAT(counter_data.values, ElementsAre(5.0, 6.0, 10.0, 11.0));
+}
+
+TEST_F(DataProviderTest, ProcessCounterEventAndCompleteEvent) {
+  TraceEvent counter_event;
+  counter_event.ph = Phase::kCounter;
+  counter_event.pid = 1;
+  counter_event.name = "Counter A";
+  counter_event.counter_timestamps = {10.0, 20.0, 30.0};
+  counter_event.counter_values = {1.0, 5.0, 2.0};
+
+  const std::vector<TraceEvent> events = {
+      counter_event,
+      TraceEvent{Phase::kComplete, 1, 1, "Complete Event", 0.0, 10.0}};
+
+  data_provider_.ProcessTraceEvents(events, timeline_);
+
+  const FlameChartTimelineData& data = timeline_.timeline_data();
+
+  ASSERT_THAT(data.groups,
+              SizeIs(3));  // Process group + Thread group + Counter group
+
+  EXPECT_EQ(data.groups[0].name, "Process 1");
+  EXPECT_EQ(data.groups[0].nesting_level, 0);
+
+  EXPECT_EQ(data.groups[1].name, "Thread 1");
+  EXPECT_EQ(data.groups[1].nesting_level, 1);
+
+  EXPECT_EQ(data.groups[2].name, "Counter A");
+  EXPECT_EQ(data.groups[2].type, Group::Type::kCounter);
+  EXPECT_EQ(data.groups[2].nesting_level, 1);
+
+  ASSERT_TRUE(data.counter_data_by_group_index.count(2));
+
+  const CounterData& counter_data = data.counter_data_by_group_index.at(2);
+
+  EXPECT_THAT(counter_data.timestamps, ElementsAre(10.0, 20.0, 30.0));
+  EXPECT_THAT(counter_data.values, ElementsAre(1.0, 5.0, 2.0));
+  EXPECT_DOUBLE_EQ(counter_data.min_value, 1.0);
+  EXPECT_DOUBLE_EQ(counter_data.max_value, 5.0);
+
+  EXPECT_DOUBLE_EQ(timeline_.visible_range().start(), 0.0);
+  EXPECT_DOUBLE_EQ(timeline_.visible_range().end(), 30.0);
+}
+
+TEST_F(DataProviderTest, ProcessCounterEventAndCompleteEventInDifferentPid) {
+  TraceEvent counter_event;
+  counter_event.ph = Phase::kCounter;
+  counter_event.pid = 1;
+  counter_event.name = "Counter A";
+  counter_event.counter_timestamps = {10.0, 20.0, 30.0};
+  counter_event.counter_values = {1.0, 5.0, 2.0};
+
+  const std::vector<TraceEvent> events = {
+      counter_event,
+      TraceEvent{Phase::kComplete, 2, 1, "Complete Event", 0.0, 10.0}};
+
+  data_provider_.ProcessTraceEvents(events, timeline_);
+
+  const FlameChartTimelineData& data = timeline_.timeline_data();
+
+  ASSERT_THAT(data.groups,
+              SizeIs(4));  // Process 1, Counter A, Process 2, Thread 1
+
+  EXPECT_EQ(data.groups[0].name, "Process 1");
+  EXPECT_EQ(data.groups[0].nesting_level, 0);
+
+  EXPECT_EQ(data.groups[1].name, "Counter A");
+  EXPECT_EQ(data.groups[1].type, Group::Type::kCounter);
+  EXPECT_EQ(data.groups[1].nesting_level, 1);
+
+  EXPECT_EQ(data.groups[2].name, "Process 2");
+  EXPECT_EQ(data.groups[2].nesting_level, 0);
+
+  EXPECT_EQ(data.groups[3].name, "Thread 1");
+  EXPECT_EQ(data.groups[3].nesting_level, 1);
+
+  ASSERT_TRUE(data.counter_data_by_group_index.count(1));
+}
+
+TEST_F(DataProviderTest, CounterTrackIncrementsLevel) {
+  // Process 1: Thread 1 (1 level), Counter A
+  // Process 2: Thread 2
+  TraceEvent t1_event{Phase::kComplete, 1, 1, "Thread1Event", 0.0, 10.0};
+
+  TraceEvent counter_event;
+  counter_event.ph = Phase::kCounter;
+  counter_event.pid = 1;
+  counter_event.name = "CounterA";
+  counter_event.counter_timestamps = {0.0};
+  counter_event.counter_values = {0.0};
+
+  TraceEvent t2_event{Phase::kComplete, 2, 2, "Thread2Event", 0.0, 10.0};
+
+  data_provider_.ProcessTraceEvents({t1_event, t2_event, counter_event},
+                                    timeline_);
+
+  const FlameChartTimelineData& data = timeline_.timeline_data();
+
+  // Expected Groups:
+  // 0: Process 1
+  // 1: Thread 1 (pid 1, tid 1). start_level = 0.
+  // 2: CounterA (pid 1). start_level = 1.
+  // 3: Process 2
+  // 4: Thread 2 (pid 2, tid 2). start_level = 2 (IF incremented) OR 1 (IF
+  // NOT).
+
+  ASSERT_THAT(data.groups, SizeIs(5));
+
+  EXPECT_EQ(data.groups[1].name, "Thread 1");
+  EXPECT_EQ(data.groups[1].start_level, 0);
+
+  EXPECT_EQ(data.groups[2].name, "CounterA");
+  EXPECT_EQ(data.groups[2].start_level, 1);
+
+  EXPECT_EQ(data.groups[4].name, "Thread 2");
+  EXPECT_EQ(data.groups[4].start_level, 2);
+}
+
+TEST_F(DataProviderTest, ProcessCounterEventReservesCapacityCorrectly) {
+  TraceEvent counter_event;
+  counter_event.ph = Phase::kCounter;
+  counter_event.pid = 1;
+  counter_event.name = "Counter A";
+
+  // Use a number that is likely to cause capacity mismatch if not reserved.
+  // 100 elements.
+  // Without reserve: 1 -> 2 -> 4 -> 8 -> 16 -> 32 -> 64 -> 128. Capacity = 128.
+  // With reserve(100): Capacity = 100 (typically).
+  const int kNumEntries = 100;
+  counter_event.counter_timestamps.reserve(kNumEntries);
+  counter_event.counter_values.reserve(kNumEntries);
+  for (int i = 0; i < kNumEntries; ++i) {
+    counter_event.counter_timestamps.push_back(static_cast<double>(i));
+    counter_event.counter_values.push_back(static_cast<double>(i));
+  }
+
+  data_provider_.ProcessTraceEvents({counter_event}, timeline_);
+
+  const FlameChartTimelineData& data = timeline_.timeline_data();
+
+  // Group 0 is process, Group 1 is counter.
+  ASSERT_TRUE(data.counter_data_by_group_index.count(1));
+
+  const CounterData& counter_data = data.counter_data_by_group_index.at(1);
+
+  EXPECT_THAT(counter_data.timestamps, SizeIs(kNumEntries));
+
+  // Verify that capacity matches size, implying reserve was called with correct
+  // size. Without reserve, capacity would likely be the next power of 2 (e.g.,
+  // 128 for 100 elements).
+  EXPECT_EQ(counter_data.timestamps.capacity(), kNumEntries);
+  EXPECT_EQ(counter_data.values.capacity(), kNumEntries);
 }
 
 }  // namespace

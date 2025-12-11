@@ -1,21 +1,22 @@
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/data_provider.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/timeline/timeline.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event_tree.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/btree_map.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/timeline.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event_tree.h"
 #include "util/gtl/comparator.h"
 
 namespace traceviewer {
@@ -33,6 +34,9 @@ struct TraceInformation {
   absl::btree_map<ProcessId,
                   absl::btree_map<ThreadId, std::vector<const TraceEvent*>>>
       events_by_pid_tid;
+  absl::btree_map<ProcessId,
+                  absl::btree_map<std::string, std::vector<const TraceEvent*>>>
+      counters_by_pid_name;
   absl::btree_map<std::pair<ProcessId, ThreadId>, std::string> thread_names;
   absl::btree_map<ProcessId, std::string> process_names;
 };
@@ -101,6 +105,38 @@ void HandleCompleteEvent(const TraceEvent& event,
   trace_info.events_by_pid_tid[event.pid][event.tid].push_back(&event);
 }
 
+// Handles a counter event ('ph' == 'C'). These events represent a counter value
+// at a specific timestamp. The function groups events by process ID and counter
+// name.
+// An example of the JSON structure for such an event is shown below:
+// {
+//   "pid": 3,
+//   "name": "Counter A",
+//   "ts": 6845940.1418570001,
+//   "dur": 3208616.194286,
+//   "cname": "thread_state_running",
+//   "ph": "C",
+//   "args": {
+//     "group_id": 0,
+//     "step_name": "0",
+//     "entries": [
+//       {
+//         "ts": 6845940.1418570001,
+//         "value": 1.0
+//       },
+//       {
+//         "ts": 6845940.1418570001,
+//         "value": 5.0
+//       }
+//     ]
+//   }
+// }
+// (See AddCounterEvent in google3/third_party/xprof/convert/trace_viewer/
+// trace_events_to_json.h for a more detailed view of XProf counter events.)
+void HandleCounterEvent(const TraceEvent& event, TraceInformation& trace_info) {
+  trace_info.counters_by_pid_name[event.pid][event.name].push_back(&event);
+}
+
 struct TimeBounds {
   Microseconds min = std::numeric_limits<Microseconds>::max();
   Microseconds max = std::numeric_limits<Microseconds>::min();
@@ -142,9 +178,9 @@ void PopulateThreadTrack(ProcessId pid, ThreadId tid,
   const std::string thread_group_name = it == trace_info.thread_names.end()
                                             ? GetDefaultThreadName(tid)
                                             : it->second;
-  data.groups.push_back({thread_group_name,
-                         /*start_level=*/current_level,
-                         /*nesting_level=*/kThreadNestingLevel});
+  data.groups.push_back({.name = thread_group_name,
+                         .start_level = current_level,
+                         .nesting_level = kThreadNestingLevel});
 
   TraceEventTree event_tree = BuildTree(events);
 
@@ -155,22 +191,91 @@ void PopulateThreadTrack(ProcessId pid, ThreadId tid,
   current_level = max_level + 1;
 }
 
-void PopulateProcessTrack(
-    ProcessId pid,
-    const absl::btree_map<ThreadId, std::vector<const TraceEvent*>>&
-        events_by_tid,
-    const TraceInformation& trace_info, int& current_level,
-    FlameChartTimelineData& data, TimeBounds& bounds) {
+void PopulateCounterTrack(ProcessId pid, const std::string& name,
+                          absl::Span<const TraceEvent* const> events,
+                          const TraceInformation& trace_info,
+                          int& current_level, FlameChartTimelineData& data,
+                          TimeBounds& bounds) {
+  Group group;
+  group.type = Group::Type::kCounter;
+  group.name = name;
+  group.nesting_level = kThreadNestingLevel;
+  group.start_level = current_level;
+
+  size_t total_entries = 0;
+  // The number of counter events per counter track won't be too large, so
+  // it's fine to iterate twice to reserve vector capacity.
+  for (const TraceEvent* event : events) {
+    total_entries += event->counter_timestamps.size();
+  }
+
+  CounterData counter_data;
+  counter_data.timestamps.reserve(total_entries);
+  counter_data.values.reserve(total_entries);
+
+  for (const TraceEvent* event : events) {
+    for (size_t i = 0; i < event->counter_timestamps.size(); ++i) {
+      Microseconds ts = event->counter_timestamps[i];
+      double val = event->counter_values[i];
+
+      counter_data.timestamps.push_back(ts);
+      counter_data.values.push_back(val);
+
+      counter_data.min_value = std::min(counter_data.min_value, val);
+      counter_data.max_value = std::max(counter_data.max_value, val);
+
+      bounds.min = std::min(bounds.min, ts);
+      bounds.max = std::max(bounds.max, ts);
+    }
+  }
+
+  data.groups.push_back(std::move(group));
+
+  data.counter_data_by_group_index[data.groups.size() - 1] =
+      std::move(counter_data);
+
+  // Increment the level by one for the next group. This will be used for binary
+  // search for the visible groups.
+  current_level++;
+}
+
+void PopulateProcessTrack(ProcessId pid, const TraceInformation& trace_info,
+                          int& current_level, FlameChartTimelineData& data,
+                          TimeBounds& bounds) {
+  const auto it_events = trace_info.events_by_pid_tid.find(pid);
+  const bool has_events = it_events != trace_info.events_by_pid_tid.end() &&
+                          !it_events->second.empty();
+
+  const auto it_counters = trace_info.counters_by_pid_name.find(pid);
+  const bool has_counters =
+      it_counters != trace_info.counters_by_pid_name.end() &&
+      !it_counters->second.empty();
+
+  if (!has_events && !has_counters) {
+    // No events or counters for this process, so skip this process group.
+    return;
+  }
+
   const auto it = trace_info.process_names.find(pid);
   const std::string process_group_name = it == trace_info.process_names.end()
                                              ? GetDefaultProcessName(pid)
                                              : it->second;
-  data.groups.push_back({process_group_name, /*start_level=*/current_level,
-                         /*nesting_level=*/kProcessNestingLevel});
+  data.groups.push_back({.name = process_group_name,
+                         .start_level = current_level,
+                         .nesting_level = kProcessNestingLevel});
 
-  for (const auto& [tid, events] : events_by_tid) {
-    PopulateThreadTrack(pid, tid, events, trace_info, current_level, data,
-                        bounds);
+  if (has_events) {
+    for (const auto& [tid, events] : it_events->second) {
+      PopulateThreadTrack(pid, tid, events, trace_info, current_level, data,
+                          bounds);
+    }
+  }
+
+  if (has_counters) {
+    for (const auto& [name, events] : it_counters->second) {
+      PopulateCounterTrack(pid, name, events, trace_info, current_level, data,
+                           bounds);
+    }
   }
 }
 
@@ -179,9 +284,8 @@ FlameChartTimelineData CreateTimelineData(const TraceInformation& trace_info,
   FlameChartTimelineData data;
   int current_level = 0;
 
-  for (const auto& [pid, events_by_tid] : trace_info.events_by_pid_tid) {
-    PopulateProcessTrack(pid, events_by_tid, trace_info, current_level, data,
-                         bounds);
+  for (const auto& [pid, _] : trace_info.process_names) {
+    PopulateProcessTrack(pid, trace_info, current_level, data, bounds);
   }
 
   data.events_by_level.resize(current_level);
@@ -213,12 +317,25 @@ void DataProvider::ProcessTraceEvents(absl::Span<const TraceEvent> event_list,
       case Phase::kComplete:
         HandleCompleteEvent(event, trace_info);
         break;
+      case Phase::kCounter:
+        HandleCounterEvent(event, trace_info);
+        break;
       default:
         // Ignore other event types.
         // TODO: b/444013042 - Check the backend to confirm if we need to handle
         // more types in the future.
         break;
     }
+  }
+
+  // Sort events, first by timestamp (ascending), then by duration
+  // (descending).
+  // Ensure all processes have a name in process_names.
+  for (const auto& [pid, _] : trace_info.events_by_pid_tid) {
+    trace_info.process_names.try_emplace(pid, GetDefaultProcessName(pid));
+  }
+  for (const auto& [pid, _] : trace_info.counters_by_pid_name) {
+    trace_info.process_names.try_emplace(pid, GetDefaultProcessName(pid));
   }
 
   // Sort events, first by timestamp (ascending), then by duration
@@ -230,6 +347,13 @@ void DataProvider::ProcessTraceEvents(absl::Span<const TraceEvent> event_list,
                       gtl::OrderBy([](const TraceEvent* e) { return e->ts; }),
                       gtl::OrderBy([](const TraceEvent* e) { return e->dur; },
                                    gtl::Greater())));
+    }
+  }
+
+  for (auto& [pid, counters_by_name] : trace_info.counters_by_pid_name) {
+    for (auto& [name, events] : counters_by_name) {
+      absl::c_stable_sort(
+          events, gtl::OrderBy([](const TraceEvent* e) { return e->ts; }));
     }
   }
 

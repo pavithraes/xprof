@@ -6,16 +6,16 @@
 #include <utility>
 #include <vector>
 
-#include "xprof/frontend/app/components/trace_viewer_v2/animation.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/event_data.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/timeline/constants.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
 #include "absl/base/nullability.h"
 #include "absl/functional/any_invocable.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "third_party/dear_imgui/imgui.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/animation.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/event_data.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/constants.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
 
 namespace traceviewer {
 
@@ -27,23 +27,48 @@ struct EventRect {
   Pixel bottom = 0.0f;
 };
 
-// Represents a grouping of timeline tracks, such as threads or processes.
+struct CounterData {
+  std::vector<Microseconds> timestamps;
+  std::vector<double> values;
+  double min_value = std::numeric_limits<double>::max();
+  double max_value = std::numeric_limits<double>::lowest();
+};
+
+// Represents a grouping of timeline tracks, such as processes, threads, or
+// counters.
 struct Group {
+  enum class Type { kFlame, kCounter };
+  Type type = Type::kFlame;
   std::string name;
+  // The start level of the groups of complete events.
+  // For flame groups, we increment the group level by real events' levels.
+  // For counter groups, we increment the group level by 1.
   int start_level = 0;
   int nesting_level = 0;
   // TODO - b/444029726: Add other fields like expanded, hidden
 };
 
-// Holds all the data required to render a flame chart, including event timing,
-// grouping information, and mappings between levels and events.
+// Holds all the data required to render a flame chart and counter lines,
+// including event timing, grouping information, and mappings between levels
+// and events.
 struct FlameChartTimelineData {
   std::vector<int> entry_levels;
   std::vector<Microseconds> entry_total_times;
   std::vector<Microseconds> entry_start_times;
   std::vector<std::string> entry_names;
   std::vector<Group> groups;
+  // A map from level to a list of event indices at that level.
+  // This is used to quickly draw events at a given level.
+  // Technically, we can calculate this in the Timeline class, but doing it here
+  // saves us from traversing all the events 2 times, though the time complexity
+  // are the same. But given there might be tens of thousands events, this
+  // optimization is worth it.
   std::vector<std::vector<int>> events_by_level;
+  // A map from group index to counter data.
+  // We use group index instead of PID as the key because a process (PID) can
+  // have multiple counter tracks associated with it. The group index uniquely
+  // identifies each track within the `groups` vector.
+  std::map<int, CounterData> counter_data_by_group_index;
 };
 
 // Renders an interactive timeline visualization for trace events, handling

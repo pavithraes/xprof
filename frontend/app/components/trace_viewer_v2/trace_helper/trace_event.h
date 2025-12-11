@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace traceviewer {
 
@@ -22,6 +23,7 @@ using Microseconds = double;
 // For XProf, we are only interested in metadata and complete events.
 enum class Phase : char {
   kComplete = 'X',
+  kCounter = 'C',
   kMetadata = 'M',
 
   // Represents an unknown or unspecified event phase.
@@ -44,6 +46,8 @@ struct TraceEvent {
   Microseconds ts = 0.0;
   Microseconds dur = 0.0;
   std::map<std::string, std::string> args;
+  std::vector<Microseconds> counter_timestamps;
+  std::vector<double> counter_values;
 };
 
 }  // namespace traceviewer
