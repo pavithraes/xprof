@@ -31,6 +31,24 @@ cc_test(
     deps = [
         ":preprocess_single_host_xplane",
         "//devtools/build/runtime:get_runfiles_dir",
+        # TODO(muditgokhale): Check if we can use benchmark_main instead of gunit_main.
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/log:check",
+        "@xla//xla/tsl/platform:env",
+        "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
+    ],
+)
+
+cc_test(
+    name = "xplane_to_op_stats_benchmark_test",
+    srcs = ["xplane_to_op_stats_benchmark_test.cc"],
+    data = [
+        "@org_xprof//xprof/convert/test_xplanes:gpu_training_2.xplane.pb",
+        "@org_xprof//xprof/convert/test_xplanes:tpu_inference_2.xplane.pb",
+    ],
+    deps = [
+        ":xplane_to_op_stats",
+        "//devtools/build/runtime:get_runfiles_dir",
         "@com_google_absl//absl/log:check",
         "@com_google_googletest//:gtest_main",
         "@tsl//tsl/profiler/protobuf:xplane_proto_cc",
