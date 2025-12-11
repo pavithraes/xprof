@@ -1,6 +1,8 @@
 #ifndef PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_TIMELINE_TIMELINE_H_
 #define PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_TIMELINE_TIMELINE_H_
 
+#include <limits>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -189,6 +191,10 @@ class Timeline {
                           const ImVec2& pos, const ImVec2& max);
 
   void DrawGroup(int group_index, double px_per_time_unit_val);
+
+  void DrawCounterTrack(const CounterData& counter_data,
+                        double px_per_time_unit_val, const ImVec2& pos,
+                        Pixel height);
 
   // Draws a single selected time range.
   void DrawSelectedTimeRange(const TimeRange& range, Pixel timeline_width,

@@ -2,6 +2,7 @@
 #define PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_TIMELINE_CONSTANTS_H_
 
 #include "third_party/dear_imgui/imgui.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/color/colors.h"
 
 namespace traceviewer {
 
@@ -18,6 +19,12 @@ inline constexpr ImU32 kBlueColor = IM_COL32(0, 0, 255, 255);
 inline constexpr ImU32 kLightGrayColor = IM_COL32(0xE3, 0xE3, 0xE3, 255);
 // White color with 30% opacity, rgba(255, 255, 255, 0.3).
 inline constexpr ImU32 kTransparentWhiteColor = IM_COL32(255, 255, 255, 77);
+// go/keep-sorted end
+
+// Counter Track Constants
+// go/keep-sorted start
+inline constexpr ImU32 kCounterTrackColor = kBlue80;
+inline constexpr Pixel kCounterTrackHeight = 40.0f;
 // go/keep-sorted end
 
 // Ruler Constants

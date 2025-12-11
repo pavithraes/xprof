@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <cstddef>
 #include <numeric>
 #include <string>
 
@@ -549,6 +550,56 @@ void Timeline::DrawEventsForLevel(absl::Span<const int> event_indices,
   }
 }
 
+void Timeline::DrawCounterTrack(const CounterData& data,
+                                double px_per_time_unit_val, const ImVec2& pos,
+                                Pixel height) {
+  // At least two timestamps are required to draw a line segment.
+  if (data.timestamps.size() < 2) return;
+
+  ImDrawList* const draw_list = ImGui::GetWindowDrawList();
+
+  if (!draw_list) return;
+  const double value_range = data.max_value - data.min_value;
+
+  // This should not happen with valid data where max_value >= min_value.
+  if (value_range < 0) {
+    LOG(ERROR) << "Invalid counter data: max_value " << data.max_value
+               << " is less than min_value " << data.min_value;
+    return;
+  }
+
+  // If all counter values are the same, draw a single horizontal line
+  // vertically centered in the track.
+  // Also avoid division by zero.
+  if (value_range == 0) {
+    const Pixel y = pos.y + height / 2.0f;
+    const Pixel x_start =
+        TimeToScreenX(data.timestamps.front(), pos.x, px_per_time_unit_val);
+    const Pixel x_end =
+        TimeToScreenX(data.timestamps.back(), pos.x, px_per_time_unit_val);
+    draw_list->AddLine(ImVec2(x_start, y), ImVec2(x_end, y),
+                       kCounterTrackColor);
+    return;
+  }
+
+  const float y_ratio = height / value_range;
+  const Pixel y_base = pos.y + height;
+
+  // Calculate the coordinates of the first point.
+  ImVec2 p1(TimeToScreenX(data.timestamps[0], pos.x, px_per_time_unit_val),
+            y_base - (data.values[0] - data.min_value) * y_ratio);
+
+  for (size_t i = 1; i < data.timestamps.size(); ++i) {
+    // Calculate the coordinates of the next point.
+    ImVec2 p2(TimeToScreenX(data.timestamps[i], pos.x, px_per_time_unit_val),
+              y_base - (data.values[i] - data.min_value) * y_ratio);
+
+    draw_list->AddLine(p1, p2, kCounterTrackColor);
+    // Reuse p2 as the start point for the next segment to avoid re-calculation.
+    p1 = p2;
+  }
+}
+
 void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
   const Group& group = timeline_data_.groups[group_index];
   const int start_level = group.start_level;
@@ -565,8 +616,10 @@ void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
   // This is important for parent groups (e.g., a process) that might not
   // contain any event levels directly.
   // TODO: b/453676716 - Add tests for group height calculation.
-  const Pixel group_height = std::max(1, end_level - start_level) *
-                             (kEventHeight + kEventPaddingBottom);
+  const Pixel group_height = group.type == Group::Type::kCounter
+                                 ? kCounterTrackHeight
+                                 : std::max(1, end_level - start_level) *
+                                       (kEventHeight + kEventPaddingBottom);
   // Groups might have the same name. We add the index of the group to the ID
   // to ensure each ImGui::BeginChild call has a unique ID, otherwise ImGui
   // might ignore later calls with the same name.
@@ -578,14 +631,22 @@ void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
     const ImVec2 pos = ImGui::GetCursorScreenPos();
     const ImVec2 max = ImGui::GetContentRegionMax();
 
-    for (int level = start_level; level < end_level; ++level) {
-      // This is a sanity check to ensure the level is within the bounds of
-      // events_by_level.
-      if (level < timeline_data_.events_by_level.size()) {
-        // TODO: b/453676716 - Add boundary test cases for this function.
-        DrawEventsForLevel(timeline_data_.events_by_level[level],
-                           px_per_time_unit_val,
-                           /*level_in_group=*/level - start_level, pos, max);
+    if (group.type == Group::Type::kCounter) {
+      const auto it =
+          timeline_data_.counter_data_by_group_index.find(group_index);
+      if (it != timeline_data_.counter_data_by_group_index.end()) {
+        DrawCounterTrack(it->second, px_per_time_unit_val, pos, group_height);
+      }
+    } else if (group.type == Group::Type::kFlame) {
+      for (int level = start_level; level < end_level; ++level) {
+        // This is a sanity check to ensure the level is within the bounds of
+        // events_by_level.
+        if (level < timeline_data_.events_by_level.size()) {
+          // TODO: b/453676716 - Add boundary test cases for this function.
+          DrawEventsForLevel(timeline_data_.events_by_level[level],
+                             px_per_time_unit_val,
+                             /*level_in_group=*/level - start_level, pos, max);
+        }
       }
     }
   }

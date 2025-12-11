@@ -1348,6 +1348,45 @@ TEST_F(TimelineDragSelectionTest, DraggingUpdatesCurrentSelectedTimeRange) {
   EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[0].end(), 25.0);
 }
 
+TEST_F(RealTimelineImGuiFixture, DrawCounterTrack) {
+  FlameChartTimelineData data;
+  data.groups.push_back({.type = Group::Type::kCounter,
+                         .name = "Counter Group",
+                         .start_level = 0,
+                         .nesting_level = 0});
+
+  CounterData counter_data;
+  counter_data.timestamps = {10.0, 20.0, 30.0};
+  counter_data.values = {0.0, 10.0, 5.0};
+  counter_data.min_value = 0.0;
+  counter_data.max_value = 10.0;
+  data.counter_data_by_group_index[0] = std::move(counter_data);
+
+  timeline_.set_timeline_data(std::move(data));
+  timeline_.SetVisibleRange({0.0, 100.0});
+
+  ImGui::NewFrame();
+  timeline_.Draw();
+
+  ImGuiWindow* counter_window = nullptr;
+  // The child window name is constructed as
+  // "TimelineChild_<group_name>_<group_index>". We search for a window that
+  // contains this string in its name.
+  const std::string child_id = "TimelineChild_Counter Group_0";
+  for (ImGuiWindow* w : ImGui::GetCurrentContext()->Windows) {
+    if (std::string(w->Name).find(child_id) != std::string::npos) {
+      counter_window = w;
+      break;
+    }
+  }
+  ASSERT_NE(counter_window, nullptr);
+
+  // Check if anything was drawn to this window's draw list.
+  EXPECT_FALSE(counter_window->DrawList->VtxBuffer.empty());
+
+  ImGui::EndFrame();
+}
+
 }  // namespace
 }  // namespace testing
 }  // namespace traceviewer

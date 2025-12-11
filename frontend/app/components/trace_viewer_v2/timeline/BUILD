@@ -8,7 +8,10 @@ package(default_visibility = [
 cc_library(
     name = "constants",
     hdrs = ["constants.h"],
-    deps = ["//third_party/dear_imgui"],
+    deps = [
+        "//third_party/dear_imgui",
+        "@org_xprof//frontend/app/components/trace_viewer_v2/color:colors",
+    ],
 )
 
 cc_library(
