@@ -3,13 +3,11 @@
 
 #include <emscripten/val.h>
 
-#include <vector>
-
 #include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
 
 namespace traceviewer {
 
-std::vector<TraceEvent> ParseTraceEvents(const emscripten::val& trace_data);
+ParsedTraceEvents ParseTraceEvents(const emscripten::val& trace_data);
 
 }  // namespace traceviewer
 

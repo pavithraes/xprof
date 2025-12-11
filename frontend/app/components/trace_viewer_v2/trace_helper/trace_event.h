@@ -50,6 +50,11 @@ struct TraceEvent {
   std::vector<double> counter_values;
 };
 
+struct ParsedTraceEvents {
+  std::vector<TraceEvent> flame_events;
+  std::vector<TraceEvent> counter_events;
+};
+
 }  // namespace traceviewer
 
 #endif  // PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_TRACE_HELPER_TRACE_EVENT_H_

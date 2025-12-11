@@ -102,33 +102,45 @@ std::optional<TraceEvent> FromVal(const emscripten::val& event) {
 
 }  // namespace
 
-std::vector<TraceEvent> ParseTraceEvents(const emscripten::val& trace_data) {
-  std::vector<TraceEvent> event_list;
+ParsedTraceEvents ParseTraceEvents(const emscripten::val& trace_data) {
+  ParsedTraceEvents result;
   if (!trace_data.hasOwnProperty("traceEvents")) {
-    return event_list;
+    return result;
   }
 
   emscripten::val events = trace_data["traceEvents"];
   const auto js_events = emscripten::vecFromJSArray<emscripten::val>(events);
-  event_list.reserve(js_events.size());
+  // Reserve space for the most common event type (flame events) to avoid
+  // reallocations.
+  // Don't need to reserve space for counter events as they are much smaller in
+  // number.
+  result.flame_events.reserve(js_events.size());
 
   for (const auto& js_event : js_events) {
     auto event_opt = FromVal(js_event);
     if (event_opt.has_value()) {
-      event_list.push_back(std::move(*event_opt));
+      if (event_opt->ph == Phase::kCounter) {
+        result.counter_events.push_back(std::move(*event_opt));
+      } else {
+        result.flame_events.push_back(std::move(*event_opt));
+      }
     }
   }
-  // Reclaim unused memory if the number of parsed events is significantly
-  // smaller than the reserved size.
-  event_list.shrink_to_fit();
-  return event_list;
+  // Reclaim unused memory.
+  result.flame_events.shrink_to_fit();
+  // We do also need to shrink the vectors for counter events because the memory
+  // will be increased during the `push_back` calls, usually it will be doubled
+  // when it reaches the capacity, so shrink it can still save some memory.
+  result.counter_events.shrink_to_fit();
+
+  return result;
 }
 
 void ParseAndProcessTraceEvents(const emscripten::val& trace_data) {
-  const std::vector<TraceEvent> event_list = ParseTraceEvents(trace_data);
+  const ParsedTraceEvents parsed_events = ParseTraceEvents(trace_data);
 
   Application::Instance().data_provider().ProcessTraceEvents(
-      event_list, Application::Instance().timeline());
+      parsed_events, Application::Instance().timeline());
 }
 
 EMSCRIPTEN_BINDINGS(trace_event_parser) {

@@ -299,9 +299,10 @@ FlameChartTimelineData CreateTimelineData(const TraceInformation& trace_info,
 
 // Processes a vector of TraceEvent structs.
 // This function is independent of Emscripten types.
-void DataProvider::ProcessTraceEvents(absl::Span<const TraceEvent> event_list,
+void DataProvider::ProcessTraceEvents(const ParsedTraceEvents& parsed_events,
                                       Timeline& timeline) {
-  if (event_list.empty()) {
+  if (parsed_events.flame_events.empty() &&
+      parsed_events.counter_events.empty()) {
     timeline.set_timeline_data({});
     timeline.set_data_time_range(TimeRange::Zero());
     timeline.SetVisibleRange(TimeRange::Zero());
@@ -309,7 +310,7 @@ void DataProvider::ProcessTraceEvents(absl::Span<const TraceEvent> event_list,
   }
 
   TraceInformation trace_info;
-  for (const auto& event : event_list) {
+  for (const auto& event : parsed_events.flame_events) {
     switch (event.ph) {
       case Phase::kMetadata:
         HandleMetadataEvent(event, trace_info);
@@ -317,15 +318,20 @@ void DataProvider::ProcessTraceEvents(absl::Span<const TraceEvent> event_list,
       case Phase::kComplete:
         HandleCompleteEvent(event, trace_info);
         break;
-      case Phase::kCounter:
-        HandleCounterEvent(event, trace_info);
-        break;
       default:
         // Ignore other event types.
         // TODO: b/444013042 - Check the backend to confirm if we need to handle
         // more types in the future.
         break;
     }
+  }
+
+  for (const auto& event : parsed_events.counter_events) {
+    if (event.ph != Phase::kCounter) {
+      // Should never happen. But add this check to be safe.
+      continue;
+    }
+    HandleCounterEvent(event, trace_info);
   }
 
   // Sort events, first by timestamp (ascending), then by duration

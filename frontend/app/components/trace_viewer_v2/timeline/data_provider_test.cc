@@ -42,7 +42,7 @@ class DataProviderTest : public ::testing::Test {
 TEST_F(DataProviderTest, ProcessEmptyTraceData) {
   const std::vector<TraceEvent> events;
 
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents({events, {}}, timeline_);
 
   EXPECT_THAT(timeline_.timeline_data().groups, IsEmpty());
   EXPECT_THAT(timeline_.timeline_data().entry_start_times, IsEmpty());
@@ -53,7 +53,7 @@ TEST_F(DataProviderTest, ProcessMetadataEvents) {
       CreateMetadataEvent(std::string(kThreadName), 1, 101, "Thread A"),
       CreateMetadataEvent(std::string(kProcessName), 1, 0, "Process 1")};
 
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents({events, {}}, timeline_);
 
   // Metadata alone doesn't create entries in timeline_data
   EXPECT_THAT(timeline_.timeline_data().groups, IsEmpty());
@@ -66,7 +66,7 @@ TEST_F(DataProviderTest, ProcessMetadataEventsWithEmptyName) {
       TraceEvent{Phase::kComplete, 1, 101, "Task A", 5000.0, 1000.0},
   };
 
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents({events, {}}, timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
 
@@ -87,7 +87,7 @@ TEST_F(DataProviderTest, ProcessMetadataEventsWithNoNameArg) {
       TraceEvent{Phase::kComplete, 1, 101, "Task A", 5000.0, 1000.0},
   };
 
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents({events, {}}, timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
 
@@ -104,7 +104,7 @@ TEST_F(DataProviderTest, ProcessCompleteEvents) {
       TraceEvent{Phase::kComplete, 1, 101, "Event 1", 1000.0, 200.0},
       TraceEvent{Phase::kComplete, 1, 102, "Event 2", 1100.0, 300.0}};
 
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents({events, {}}, timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
 
@@ -144,7 +144,7 @@ TEST_F(DataProviderTest, ProcessMixedEvents) {
       // No metadata for pid 2, uses default "Process 2".
       TraceEvent{Phase::kComplete, 2, 201, "Task C", 6000.0, 500.0}};
 
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents({events, {}}, timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
 
@@ -182,7 +182,7 @@ TEST_F(DataProviderTest, ProcessMultipleProcesses) {
       TraceEvent(Phase::kComplete, 1, 102, "Event A2", 1100.0, 100.0),
   };
 
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents({events, {}}, timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
   ASSERT_THAT(data.groups, SizeIs(5));
@@ -218,7 +218,7 @@ TEST_F(DataProviderTest, ProcessSingleCounterEvent) {
 
   const std::vector<TraceEvent> events = {counter_event};
 
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents({{}, events}, timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
 
@@ -261,11 +261,10 @@ TEST_F(DataProviderTest, ProcessMultipleCounterEventsSorted) {
   event2.counter_timestamps = {50.0, 60.0};
   event2.counter_values = {5.0, 6.0};
 
-  const std::vector<TraceEvent> events = {
-      event1, event2,
-      TraceEvent{Phase::kComplete, 1, 1, "Complete Event", 0.0, 10.0}};
-
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents(
+      {{TraceEvent{Phase::kComplete, 1, 1, "Complete Event", 0.0, 10.0}},
+       {event1, event2}},
+      timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
 
@@ -285,11 +284,10 @@ TEST_F(DataProviderTest, ProcessCounterEventAndCompleteEvent) {
   counter_event.counter_timestamps = {10.0, 20.0, 30.0};
   counter_event.counter_values = {1.0, 5.0, 2.0};
 
-  const std::vector<TraceEvent> events = {
-      counter_event,
-      TraceEvent{Phase::kComplete, 1, 1, "Complete Event", 0.0, 10.0}};
-
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents(
+      {{TraceEvent{Phase::kComplete, 1, 1, "Complete Event", 0.0, 10.0}},
+       {counter_event}},
+      timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
 
@@ -327,11 +325,10 @@ TEST_F(DataProviderTest, ProcessCounterEventAndCompleteEventInDifferentPid) {
   counter_event.counter_timestamps = {10.0, 20.0, 30.0};
   counter_event.counter_values = {1.0, 5.0, 2.0};
 
-  const std::vector<TraceEvent> events = {
-      counter_event,
-      TraceEvent{Phase::kComplete, 2, 1, "Complete Event", 0.0, 10.0}};
-
-  data_provider_.ProcessTraceEvents(events, timeline_);
+  data_provider_.ProcessTraceEvents(
+      {{TraceEvent{Phase::kComplete, 2, 1, "Complete Event", 0.0, 10.0}},
+       {counter_event}},
+      timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
 
@@ -368,7 +365,7 @@ TEST_F(DataProviderTest, CounterTrackIncrementsLevel) {
 
   TraceEvent t2_event{Phase::kComplete, 2, 2, "Thread2Event", 0.0, 10.0};
 
-  data_provider_.ProcessTraceEvents({t1_event, t2_event, counter_event},
+  data_provider_.ProcessTraceEvents({{t1_event, t2_event}, {counter_event}},
                                     timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
@@ -411,7 +408,9 @@ TEST_F(DataProviderTest, ProcessCounterEventReservesCapacityCorrectly) {
     counter_event.counter_values.push_back(static_cast<double>(i));
   }
 
-  data_provider_.ProcessTraceEvents({counter_event}, timeline_);
+  const std::vector<TraceEvent> events = {counter_event};
+
+  data_provider_.ProcessTraceEvents({{}, events}, timeline_);
 
   const FlameChartTimelineData& data = timeline_.timeline_data();
 

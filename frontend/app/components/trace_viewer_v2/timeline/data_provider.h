@@ -3,10 +3,9 @@
 
 #include <vector>
 
+#include "absl/strings/string_view.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/timeline.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
-#include "absl/strings/string_view.h"
-#include "absl/types/span.h"
 
 namespace traceviewer {
 
@@ -19,8 +18,8 @@ class DataProvider {
   // Returns a list of process names.
   std::vector<std::string> GetProcessList() const;
 
-  // Processes a vector of TraceEvent structs.
-  void ProcessTraceEvents(absl::Span<const TraceEvent> event_list,
+  // Processes vectors of TraceEvent structs.
+  void ProcessTraceEvents(const ParsedTraceEvents& parsed_events,
                           Timeline& timeline);
 
  private:
