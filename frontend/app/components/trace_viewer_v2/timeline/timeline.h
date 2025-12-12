@@ -118,6 +118,10 @@ class Timeline {
   }
   const FlameChartTimelineData& timeline_data() const { return timeline_data_; }
 
+  int selected_event_index() const { return selected_event_index_; }
+  int selected_group_index() const { return selected_group_index_; }
+  int selected_counter_index() const { return selected_counter_index_; }
+
   void Draw();
 
   // Calculates the screen coordinates of the rectangle for an event.
@@ -183,18 +187,18 @@ class Timeline {
   void DrawEventName(absl::string_view event_name, const EventRect& rect,
                      ImDrawList* absl_nonnull draw_list) const;
 
-  void DrawEvent(int event_index, const EventRect& rect,
+  void DrawEvent(int group_index, int event_index, const EventRect& rect,
                  ImDrawList* absl_nonnull draw_list);
 
-  void DrawEventsForLevel(absl::Span<const int> event_indices,
+  void DrawEventsForLevel(int group_index, absl::Span<const int> event_indices,
                           double px_per_time_unit, int level_in_group,
                           const ImVec2& pos, const ImVec2& max);
 
-  void DrawCounterTooltip(const CounterData& counter_data,
+  void DrawCounterTooltip(int group_index, const CounterData& counter_data,
                           double px_per_time_unit_val, const ImVec2& pos,
                           Pixel height, float y_ratio, ImDrawList* draw_list);
 
-  void DrawCounterTrack(const CounterData& counter_data,
+  void DrawCounterTrack(int group_index, const CounterData& counter_data,
                         double px_per_time_unit_val, const ImVec2& pos,
                         Pixel height);
 
@@ -246,8 +250,15 @@ class Timeline {
   // user interactions like pan or zoom.
   TimeRange data_time_range_ = TimeRange::Zero();
 
+  // The index of the group of the currently selected event (flame or counter),
+  // or -1 if no event is selected.
+  int selected_group_index_ = -1;
   // The index of the currently selected event, or -1 if no event is selected.
   int selected_event_index_ = -1;
+  // The index of the currently selected counter event in the counter data, or
+  // -1 if no counter event is selected.
+  int selected_counter_index_ = -1;
+
   EventCallback event_callback_ = [](absl::string_view, const EventData&) {};
   // Flag to track if an event was clicked in the current frame. This is used
   // to detect clicks in empty areas for deselection logic.

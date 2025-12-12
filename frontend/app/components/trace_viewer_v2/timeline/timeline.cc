@@ -450,7 +450,8 @@ void Timeline::DrawEventName(absl::string_view event_name,
   }
 }
 
-void Timeline::DrawEvent(int event_index, const EventRect& rect,
+void Timeline::DrawEvent(int group_index, int event_index,
+                         const EventRect& rect,
                          ImDrawList* absl_nonnull draw_list) {
   // Only draw the rectangle if it has a positive width after clipping.
   // TODO: b/453676716 - Add ImGUI test for this function, including condition
@@ -502,7 +503,10 @@ void Timeline::DrawEvent(int event_index, const EventRect& rect,
         }
 
         if (selected_event_index_ != event_index) {
+          selected_group_index_ = group_index;
           selected_event_index_ = event_index;
+          // Deselect any selected counter event.
+          selected_counter_index_ = -1;
 
           EventData event_data;
           event_data.try_emplace(kEventSelectedIndex, selected_event_index_);
@@ -525,7 +529,8 @@ void Timeline::DrawEvent(int event_index, const EventRect& rect,
   }
 }
 
-void Timeline::DrawEventsForLevel(absl::Span<const int> event_indices,
+void Timeline::DrawEventsForLevel(int group_index,
+                                  absl::Span<const int> event_indices,
                                   double px_per_time_unit, int level_in_group,
                                   const ImVec2& pos, const ImVec2& max) {
   ImDrawList* const draw_list = ImGui::GetWindowDrawList();
@@ -547,11 +552,11 @@ void Timeline::DrawEventsForLevel(absl::Span<const int> event_indices,
     const EventRect rect = CalculateEventRect(
         start, end, pos.x, pos.y, px_per_time_unit, level_in_group, max.x);
 
-    DrawEvent(event_index, rect, draw_list);
+    DrawEvent(group_index, event_index, rect, draw_list);
   }
 }
 
-void Timeline::DrawCounterTooltip(const CounterData& data,
+void Timeline::DrawCounterTooltip(int group_index, const CounterData& data,
                                   double px_per_time_unit_val,
                                   const ImVec2& pos, Pixel height,
                                   float y_ratio, ImDrawList* draw_list) {
@@ -584,10 +589,34 @@ void Timeline::DrawCounterTooltip(const CounterData& data,
     // Draw tooltip for current counter point's value and timestamp
     ImGui::SetTooltip(kCounterTooltipFormat, FormatTime(mouse_time).c_str(),
                       val);
+
+    // ImGui uses 0 to represent the left mouse button, as defined in the
+    // ImGuiMouseButton enum. We check if the left mouse button was clicked.
+    if (ImGui::IsMouseClicked(0)) {
+      event_clicked_this_frame_ = true;
+      if (selected_group_index_ != group_index ||
+          selected_counter_index_ != index) {
+        selected_group_index_ = group_index;
+        selected_counter_index_ = index;
+        // Deselect any selected flame event.
+        selected_event_index_ = -1;
+
+        // Emit an event to notify the application that a counter event was
+        // selected.
+        const std::string& name = timeline_data_.groups[group_index].name;
+        EventData event_data;
+        // We pass -1 for the event index to indicate that no flame event is
+        // selected.
+        event_data.try_emplace(kEventSelectedIndex, -1);
+        event_data.try_emplace(kEventSelectedName, name);
+
+        event_callback_(kEventSelected, event_data);
+      }
+    }
   }
 }
 
-void Timeline::DrawCounterTrack(const CounterData& data,
+void Timeline::DrawCounterTrack(int group_index, const CounterData& data,
                                 double px_per_time_unit_val, const ImVec2& pos,
                                 Pixel height) {
   // At least two timestamps are required to draw a line segment.
@@ -636,9 +665,20 @@ void Timeline::DrawCounterTrack(const CounterData& data,
     p1 = p2;
   }
 
+  if (selected_group_index_ == group_index && selected_counter_index_ != -1 &&
+      selected_counter_index_ < data.timestamps.size()) {
+    Microseconds ts = data.timestamps[selected_counter_index_];
+    double val = data.values[selected_counter_index_];
+    Pixel x = TimeToScreenX(ts, pos.x, px_per_time_unit_val);
+    Pixel y = pos.y + height - (val - data.min_value) * y_ratio;
+
+    draw_list->AddCircleFilled(ImVec2(x, y), 3.0f, kWhiteColor);
+    draw_list->AddCircle(ImVec2(x, y), 3.0f, kSelectedBorderColor, 0, 2.0f);
+  }
+
   if (ImGui::IsWindowHovered()) {
-    DrawCounterTooltip(data, px_per_time_unit_val, pos, height, y_ratio,
-                       draw_list);
+    DrawCounterTooltip(group_index, data, px_per_time_unit_val, pos, height,
+                       y_ratio, draw_list);
   }
 }
 
@@ -677,7 +717,8 @@ void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
       const auto it =
           timeline_data_.counter_data_by_group_index.find(group_index);
       if (it != timeline_data_.counter_data_by_group_index.end()) {
-        DrawCounterTrack(it->second, px_per_time_unit_val, pos, group_height);
+        DrawCounterTrack(group_index, it->second, px_per_time_unit_val, pos,
+                         group_height);
       }
     } else if (group.type == Group::Type::kFlame) {
       for (int level = start_level; level < end_level; ++level) {
@@ -685,7 +726,7 @@ void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
         // events_by_level.
         if (level < timeline_data_.events_by_level.size()) {
           // TODO: b/453676716 - Add boundary test cases for this function.
-          DrawEventsForLevel(timeline_data_.events_by_level[level],
+          DrawEventsForLevel(group_index, timeline_data_.events_by_level[level],
                              px_per_time_unit_val,
                              /*level_in_group=*/level - start_level, pos, max);
         }
@@ -886,10 +927,13 @@ void Timeline::HandleWheel() {
 void Timeline::HandleEventDeselection() {
   // If an event was selected, and the user clicks on an empty area
   // (i.e., not on any event), deselect the event.
-  if (selected_event_index_ != -1 && ImGui::IsMouseClicked(0) &&
+  if ((selected_event_index_ != -1 || selected_group_index_ != -1) &&
+      ImGui::IsMouseClicked(0) &&
       ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) &&
       !event_clicked_this_frame_) {
     selected_event_index_ = -1;
+    selected_group_index_ = -1;
+    selected_counter_index_ = -1;
 
     EventData event_data;
     event_data[std::string(kEventSelectedIndex)] = -1;

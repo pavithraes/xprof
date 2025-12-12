@@ -1469,6 +1469,190 @@ TEST_F(RealTimelineImGuiFixture, HoverCounterTrackShowsTooltip) {
   ImGui::EndFrame();
 }
 
+TEST_F(RealTimelineImGuiFixture, ClickEventSetsSelectionIndices) {
+  FlameChartTimelineData data;
+  data.groups.push_back(
+      {.name = "Group 1", .start_level = 0, .nesting_level = 0});
+  data.events_by_level.push_back({0});
+  data.entry_names.push_back("event1");
+  data.entry_levels.push_back(0);
+  data.entry_start_times.push_back(0.0);
+  data.entry_total_times.push_back(100.0);
+  timeline_.set_timeline_data(std::move(data));
+  timeline_.SetVisibleRange({0.0, 100.0});
+
+  // Set a mouse position that is guaranteed to be over the event.
+  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);
+  ImGui::GetIO().MouseDown[0] = true;
+
+  SimulateFrame();
+
+  EXPECT_EQ(timeline_.selected_event_index(), 0);
+  EXPECT_EQ(timeline_.selected_group_index(), 0);
+  EXPECT_EQ(timeline_.selected_counter_index(), -1);
+}
+
+TEST_F(RealTimelineImGuiFixture, ClickCounterEventSetsSelectionIndices) {
+  FlameChartTimelineData data;
+  data.groups.push_back({.type = Group::Type::kCounter,
+                         .name = "Counter Group",
+                         .start_level = 0,
+                         .nesting_level = 0});
+
+  CounterData counter_data;
+  counter_data.timestamps = {10.0, 20.0, 30.0};
+  counter_data.values = {0.0, 10.0, 5.0};
+  counter_data.min_value = 0.0;
+  counter_data.max_value = 10.0;
+  data.counter_data_by_group_index[0] = std::move(counter_data);
+
+  timeline_.set_timeline_data(std::move(data));
+  timeline_.SetVisibleRange({0.0, 100.0});
+
+  ImGui::NewFrame();
+  timeline_.Draw();
+
+  ImGuiWindow* counter_window = nullptr;
+  const std::string child_id = "TimelineChild_Counter Group_0";
+  for (ImGuiWindow* w : ImGui::GetCurrentContext()->Windows) {
+    if (std::string(w->Name).find(child_id) != std::string::npos) {
+      counter_window = w;
+      break;
+    }
+  }
+  ASSERT_NE(counter_window, nullptr);
+
+  // Calculate a position over the track corresponding to timestamp 20.0.
+  // We use 0.25f (25% of timeline width) instead of 0.2f (20%) to ensure we
+  // click safely to the right of the 20.0 timestamp (which is at 20%).
+  // This accounts for ImGui window padding which shifts the content origin
+  // right, effectively reducing the "time" value for a given absolute X pixel.
+  // With 0.2f, the calculated time might fall slightly below 20.0 due to this
+  // shift, causing the selection to pick the previous interval (or none).
+  ImVec2 target_pos = counter_window->Pos;
+  target_pos.x += counter_window->Size.x * 0.25f;
+  target_pos.y += counter_window->Size.y * 0.5f;
+
+  ImGui::EndFrame();
+
+  // Next frame: Move mouse to target position and click.
+  ImGui::GetIO().MousePos = target_pos;
+  ImGui::GetIO().MouseDown[0] = true;
+  SimulateFrame();
+
+  EXPECT_EQ(timeline_.selected_event_index(), -1);
+  EXPECT_EQ(timeline_.selected_group_index(), 0);
+  // Timestamp 20.0 is at index 1.
+  EXPECT_EQ(timeline_.selected_counter_index(), 1);
+}
+
+TEST_F(RealTimelineImGuiFixture, SelectionMutualExclusion) {
+  FlameChartTimelineData data;
+  // Group 0: Flame Events
+  data.groups.push_back(
+      {.name = "Group 1", .start_level = 0, .nesting_level = 0});
+  data.events_by_level.push_back({0});
+  data.entry_names.push_back("event1");
+  data.entry_levels.push_back(0);
+  data.entry_start_times.push_back(0.0);
+  data.entry_total_times.push_back(100.0);
+
+  // Group 1: Counter Events
+  data.groups.push_back({.type = Group::Type::kCounter,
+                         .name = "Counter Group",
+                         .start_level = 1,
+                         .nesting_level = 0});
+  CounterData counter_data;
+  // We need at least 2 timestamps for the counter track to be drawn.
+  counter_data.timestamps = {20.0, 30.0};
+  counter_data.values = {5.0, 5.0};
+  counter_data.min_value = 0.0;
+  counter_data.max_value = 10.0;
+  data.counter_data_by_group_index[1] = std::move(counter_data);
+
+  timeline_.set_timeline_data(std::move(data));
+  timeline_.SetVisibleRange({0.0, 100.0});
+
+  // Step 1: Select Flame Event
+  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);  // Over flame event
+  ImGui::GetIO().MouseDown[0] = true;
+  SimulateFrame();
+  ImGui::GetIO().MouseDown[0] = false;
+  SimulateFrame();
+
+  EXPECT_EQ(timeline_.selected_event_index(), 0);
+  EXPECT_EQ(timeline_.selected_group_index(), 0);
+  EXPECT_EQ(timeline_.selected_counter_index(), -1);
+
+  // Step 2: Select Counter Event
+  ImGui::NewFrame();
+  timeline_.Draw();
+  ImGuiWindow* counter_window = nullptr;
+  const std::string child_id = "TimelineChild_Counter Group_1";
+  for (ImGuiWindow* w : ImGui::GetCurrentContext()->Windows) {
+    if (std::string(w->Name).find(child_id) != std::string::npos) {
+      counter_window = w;
+      break;
+    }
+  }
+  ASSERT_NE(counter_window, nullptr);
+  ImVec2 counter_pos = counter_window->Pos;
+  // Use 0.25f to be safe against window padding.
+  counter_pos.x += counter_window->Size.x * 0.25f;  // At 20.0 (starts at 20%)
+  counter_pos.y += counter_window->Size.y * 0.5f;
+  ImGui::EndFrame();
+
+  ImGui::GetIO().MousePos = counter_pos;
+  ImGui::GetIO().MouseDown[0] = true;
+  SimulateFrame();
+  ImGui::GetIO().MouseDown[0] = false;
+  SimulateFrame();
+
+  EXPECT_EQ(timeline_.selected_event_index(), -1);
+  EXPECT_EQ(timeline_.selected_group_index(), 1);
+  EXPECT_EQ(timeline_.selected_counter_index(), 0);
+
+  // Step 3: Select Flame Event Again
+  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);
+  ImGui::GetIO().MouseDown[0] = true;
+  SimulateFrame();
+
+  EXPECT_EQ(timeline_.selected_event_index(), 0);
+  EXPECT_EQ(timeline_.selected_group_index(), 0);
+  EXPECT_EQ(timeline_.selected_counter_index(), -1);
+}
+
+TEST_F(RealTimelineImGuiFixture, ClickEmptyAreaClearsSelectionIndices) {
+  FlameChartTimelineData data;
+  data.groups.push_back(
+      {.name = "Group 1", .start_level = 0, .nesting_level = 0});
+  data.events_by_level.push_back({0});
+  data.entry_names.push_back("event1");
+  data.entry_levels.push_back(0);
+  data.entry_start_times.push_back(0.0);
+  data.entry_total_times.push_back(100.0);
+  timeline_.set_timeline_data(std::move(data));
+  timeline_.SetVisibleRange({0.0, 100.0});
+
+  // Select event
+  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);
+  ImGui::GetIO().MouseDown[0] = true;
+  SimulateFrame();
+  ImGui::GetIO().MouseDown[0] = false;
+  SimulateFrame();
+
+  EXPECT_NE(timeline_.selected_event_index(), -1);
+
+  // Click empty area
+  ImGui::GetIO().MousePos = ImVec2(300.f, 100.f);
+  ImGui::GetIO().MouseDown[0] = true;
+  SimulateFrame();
+
+  EXPECT_EQ(timeline_.selected_event_index(), -1);
+  EXPECT_EQ(timeline_.selected_group_index(), -1);
+  EXPECT_EQ(timeline_.selected_counter_index(), -1);
+}
+
 }  // namespace
 }  // namespace testing
 }  // namespace traceviewer
