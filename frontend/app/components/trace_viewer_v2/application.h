@@ -1,16 +1,16 @@
-#ifndef PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_APPLICATION_H_
-#define PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_APPLICATION_H_
+#ifndef THIRD_PARTY_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_APPLICATION_H_
+#define THIRD_PARTY_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_APPLICATION_H_
 #include <stdlib.h>
 
 #include <memory>
 
-#include "xprof/frontend/app/components/trace_viewer_v2/timeline/data_provider.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/timeline/timeline.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/webgpu_render_platform.h"
 #include "absl/base/no_destructor.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "third_party/dear_imgui/imgui.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/data_provider.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/timeline/timeline.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/webgpu_render_platform.h"
 
 namespace traceviewer {
 
@@ -65,4 +65,4 @@ class Application {
 
 }  // namespace traceviewer
 
-#endif  // PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_APPLICATION_H_
+#endif  // THIRD_PARTY_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_APPLICATION_H_

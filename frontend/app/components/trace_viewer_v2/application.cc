@@ -8,6 +8,9 @@
 
 #include <memory>
 
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "third_party/dear_imgui/imgui.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/animation.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/canvas_state.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/event_manager.h"
@@ -15,9 +18,6 @@
 #include "xprof/frontend/app/components/trace_viewer_v2/input_handler.h"  // NO_LINT
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/timeline.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/webgpu_render_platform.h"
-#include "absl/time/clock.h"
-#include "absl/time/time.h"
-#include "third_party/dear_imgui/imgui.h"
 
 namespace traceviewer {
 

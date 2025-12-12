@@ -1,9 +1,9 @@
-#ifndef PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_EVENT_MANAGER_H_
-#define PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_EVENT_MANAGER_H_
+#ifndef THIRD_PARTY_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_EVENT_MANAGER_H_
+#define THIRD_PARTY_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_EVENT_MANAGER_H_
 
-#include "xprof/frontend/app/components/trace_viewer_v2/event_data.h"
 #include "absl/base/no_destructor.h"
 #include "absl/strings/string_view.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/event_data.h"
 
 namespace traceviewer {
 
@@ -33,4 +33,4 @@ class EventManager {
 
 }  // namespace traceviewer
 
-#endif  // PERFTOOLS_ACCELERATORS_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_EVENT_MANAGER_H_
+#endif  // THIRD_PARTY_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_EVENT_MANAGER_H_
