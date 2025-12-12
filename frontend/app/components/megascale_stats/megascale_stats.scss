@@ -20,6 +20,20 @@
 
 .export-button-container {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.host-selector {
+  margin-bottom: -1.25em;
 }
 
 .perfetto-button {

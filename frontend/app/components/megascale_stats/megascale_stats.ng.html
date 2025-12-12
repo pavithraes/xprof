@@ -36,8 +36,18 @@
       </div>
     </div>
     <div class="export-button-container">
+      <div class="controls-row">
+        <mat-form-field appearance="outline" class="host-selector">
+          <mat-label>Host</mat-label>
+          <mat-select [(ngModel)]="host">
+            <mat-option *ngFor="let h of hostList" [value]="h">
+              {{h}}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button type="button" class="perfetto-button" (click)="openPerfetto()">Open in Perfetto</button>
+      </div>
       <export-as-csv [tool]="tool" [sessionId]="sessionId" [host]="host"></export-as-csv>
-      <button type="button" class="perfetto-button" (click)="openPerfetto()">Open in Perfetto</button>
     </div>
   </div>
 

@@ -1,6 +1,7 @@
 import {Component, inject, OnDestroy} from '@angular/core';
-import {ActivatedRoute, Params} from '@angular/router';
+import {ActivatedRoute, Params, Router} from '@angular/router';
 import {Store} from '@ngrx/store';
+import {HostMetadata} from 'org_xprof/frontend/app/common/interfaces/hosts';
 import {Throbber} from 'org_xprof/frontend/app/common/classes/throbber';
 import {ChartDataInfo} from 'org_xprof/frontend/app/common/interfaces/chart';
 import {SimpleDataTable} from 'org_xprof/frontend/app/common/interfaces/data_table';
@@ -14,6 +15,7 @@ import {setLoadingState} from 'org_xprof/frontend/app/common/utils/utils';
 import {
   setCurrentToolStateAction,
 } from 'org_xprof/frontend/app/store/actions';
+import {getHostsState} from 'org_xprof/frontend/app/store/selectors';
 import {ReplaySubject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
@@ -37,6 +39,7 @@ export class MegascaleStats extends Dashboard implements OnDestroy {
 
   sessionId = '';
   host = '';
+  hostList: string[] = [];
 
   diagnostics: Diagnostics = {info: [], warnings: [], errors: []};
 
@@ -51,13 +54,31 @@ export class MegascaleStats extends Dashboard implements OnDestroy {
   };
 
   constructor(
-      route: ActivatedRoute, private readonly store: Store<{}>) {
+      route: ActivatedRoute,
+      private readonly store: Store<{}>,
+      private readonly router: Router,
+  ) {
     super();
     route.params.pipe(takeUntil(this.destroyed)).subscribe((params) => {
       this.processQuery(params);
       this.update();
     });
     this.store.dispatch(setCurrentToolStateAction({currentTool: this.tool}));
+    this.store
+      .select(getHostsState)
+      .pipe(takeUntil(this.destroyed))
+      .subscribe((hostsmetadata: HostMetadata[]) => {
+        if (!hostsmetadata || hostsmetadata.length === 0) return;
+        this.hostList = hostsmetadata.map((host) => host.hostname);
+
+        if (!this.host && this.hostList.length > 0) {
+          this.host =
+            hostsmetadata.find(
+              (hostMetadata) => hostMetadata.hasDeviceTrace,
+            )?.hostname || this.hostList[0];
+          this.update();
+        }
+      });
   }
 
   processQuery(params: Params) {
@@ -106,13 +127,16 @@ export class MegascaleStats extends Dashboard implements OnDestroy {
 
   openPerfetto() {
     const searchParams = this.dataService.getSearchParams();
+    const queryParams: Params = {};
+    searchParams.forEach((value, key) => {
+      queryParams[key] = value;
+    });
+
     if (this.host) {
-      searchParams.set('host', this.host);
+      queryParams['host'] = this.host;
     }
-    // TODO(b/395565663): Use router to navigate to the page once we have a
-    // better way to handle the query params.
-    const url = `/megascale_perfetto/${this.sessionId}?${searchParams.toString()}`;
-    window.open(url, '_blank');
+
+    this.router.navigate(['/megascale_perfetto', this.sessionId], {queryParams});
   }
 
   ngOnDestroy() {
