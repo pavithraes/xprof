@@ -281,6 +281,8 @@ OverviewPageHostIndependentJobInfo ToOverviewPageHostIndependentJobInfo(
     const HostIndependentJobInfoResult& host_independent_job_info) {
   OverviewPageHostIndependentJobInfo result;
   result.set_change_list(host_independent_job_info.change_list());
+  result.set_workspace_id(host_independent_job_info.workspace_id());
+  result.set_snapshot(host_independent_job_info.snapshot());
   result.set_build_time(host_independent_job_info.build_time());
   result.set_build_target(host_independent_job_info.build_target());
   result.set_profile_duration_ms(
