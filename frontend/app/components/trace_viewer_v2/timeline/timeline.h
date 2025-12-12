@@ -190,11 +190,15 @@ class Timeline {
                           double px_per_time_unit, int level_in_group,
                           const ImVec2& pos, const ImVec2& max);
 
-  void DrawGroup(int group_index, double px_per_time_unit_val);
+  void DrawCounterTooltip(const CounterData& counter_data,
+                          double px_per_time_unit_val, const ImVec2& pos,
+                          Pixel height, float y_ratio, ImDrawList* draw_list);
 
   void DrawCounterTrack(const CounterData& counter_data,
                         double px_per_time_unit_val, const ImVec2& pos,
                         Pixel height);
+
+  void DrawGroup(int group_index, double px_per_time_unit_val);
 
   // Draws a single selected time range.
   void DrawSelectedTimeRange(const TimeRange& range, Pixel timeline_width,

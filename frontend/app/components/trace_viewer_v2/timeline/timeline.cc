@@ -4,6 +4,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstddef>
+#include <iterator>
 #include <numeric>
 #include <string>
 
@@ -550,6 +551,42 @@ void Timeline::DrawEventsForLevel(absl::Span<const int> event_indices,
   }
 }
 
+void Timeline::DrawCounterTooltip(const CounterData& data,
+                                  double px_per_time_unit_val,
+                                  const ImVec2& pos, Pixel height,
+                                  float y_ratio, ImDrawList* draw_list) {
+  const ImVec2 mouse_pos = ImGui::GetMousePos();
+  const double mouse_time =
+      PixelToTime(mouse_pos.x - pos.x, px_per_time_unit_val);
+
+  // Find the interval [t_i, t_{i+1}) containing mouse_time for sample-and-hold
+  // (step) interpolation.
+  // We use upper_bound to find the first timestamp strictly greater than
+  // mouse_time. This ensures that std::prev(it) always points to t_i (the
+  // start of the interval), even if mouse_time exactly equals t_i.
+  // Using lower_bound would be incorrect for exact matches, as it would return
+  // t_i, causing std::prev(it) to point to t_{i-1}.
+  auto it = std::upper_bound(data.timestamps.begin(), data.timestamps.end(),
+                             mouse_time);
+
+  // Ensure we are not before the first timestamp.
+  if (it != data.timestamps.begin()) {
+    size_t index = std::distance(data.timestamps.begin(), std::prev(it));
+    const double val = data.values[index];
+
+    const Pixel x = mouse_pos.x;
+    const Pixel y = pos.y + height - (val - data.min_value) * y_ratio;
+
+    // Draw circle
+    draw_list->AddCircleFilled(ImVec2(x, y), 3.0f, kWhiteColor);
+    draw_list->AddCircle(ImVec2(x, y), 3.0f, kBlackColor);
+
+    // Draw tooltip for current counter point's value and timestamp
+    ImGui::SetTooltip(kCounterTooltipFormat, FormatTime(mouse_time).c_str(),
+                      val);
+  }
+}
+
 void Timeline::DrawCounterTrack(const CounterData& data,
                                 double px_per_time_unit_val, const ImVec2& pos,
                                 Pixel height) {
@@ -597,6 +634,11 @@ void Timeline::DrawCounterTrack(const CounterData& data,
     draw_list->AddLine(p1, p2, kCounterTrackColor);
     // Reuse p2 as the start point for the next segment to avoid re-calculation.
     p1 = p2;
+  }
+
+  if (ImGui::IsWindowHovered()) {
+    DrawCounterTooltip(data, px_per_time_unit_val, pos, height, y_ratio,
+                       draw_list);
   }
 }
 

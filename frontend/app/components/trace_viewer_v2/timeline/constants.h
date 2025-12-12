@@ -19,6 +19,8 @@ inline constexpr ImU32 kBlueColor = IM_COL32(0, 0, 255, 255);
 inline constexpr ImU32 kLightGrayColor = IM_COL32(0xE3, 0xE3, 0xE3, 255);
 // White color with 30% opacity, rgba(255, 255, 255, 0.3).
 inline constexpr ImU32 kTransparentWhiteColor = IM_COL32(255, 255, 255, 77);
+// White color with 100% opacity, rgba(255, 255, 255, 1).
+inline constexpr ImU32 kWhiteColor = IM_COL32(255, 255, 255, 255);
 // go/keep-sorted end
 
 // Counter Track Constants
@@ -107,6 +109,11 @@ inline constexpr float kZoomSpeed = 0.5f;
 // picosecond). This limits the maximum zoom-in level: time range duration
 // cannot shrink below this value when zooming in.
 inline constexpr double kMinDurationMicros = 1e-6;
+// go/keep-sorted end
+
+// UI Strings Constants
+// go/keep-sorted start
+inline constexpr char kCounterTooltipFormat[] = "Time: %s\nValue: %.2f";
 // go/keep-sorted end
 }  // namespace traceviewer
 

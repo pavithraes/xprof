@@ -1387,6 +1387,88 @@ TEST_F(RealTimelineImGuiFixture, DrawCounterTrack) {
   ImGui::EndFrame();
 }
 
+TEST_F(RealTimelineImGuiFixture, HoverCounterTrackShowsTooltip) {
+  FlameChartTimelineData data;
+  data.groups.push_back({.type = Group::Type::kCounter,
+                         .name = "Counter Group",
+                         .start_level = 0,
+                         .nesting_level = 0});
+
+  CounterData counter_data;
+  counter_data.timestamps = {10.0, 20.0, 30.0};
+  counter_data.values = {0.0, 10.0, 5.0};
+  counter_data.min_value = 0.0;
+  counter_data.max_value = 10.0;
+  data.counter_data_by_group_index[0] = std::move(counter_data);
+
+  timeline_.set_timeline_data(std::move(data));
+  timeline_.SetVisibleRange({0.0, 100.0});
+
+  // Render first frame to layout windows and find the counter track location.
+  ImGui::NewFrame();
+  timeline_.Draw();
+
+  ImGuiWindow* counter_window = nullptr;
+  const std::string child_id = "TimelineChild_Counter Group_0";
+  for (ImGuiWindow* w : ImGui::GetCurrentContext()->Windows) {
+    if (std::string(w->Name).find(child_id) != std::string::npos) {
+      counter_window = w;
+      break;
+    }
+  }
+  ASSERT_NE(counter_window, nullptr);
+
+  // Check that initially there are no black vertices (no circle outline).
+  bool has_black_vertices = false;
+  for (const auto& vtx : counter_window->DrawList->VtxBuffer) {
+    if (vtx.col == kBlackColor) {
+      has_black_vertices = true;
+      break;
+    }
+  }
+  EXPECT_FALSE(has_black_vertices);
+
+  // Calculate a position over the track corresponding to timestamp 20.0.
+  // The track handles its own X mapping using TimeToScreenX with
+  // GetCursorScreenPos. We can just use the window's position and size to pick
+  // a point inside. Since visible range is 0-100 and data has points at 10, 20,
+  // 30, they should be roughly at 10%, 20%, 30% of the width. Let's target 20.0
+  // (20% width).
+  ImVec2 target_pos = counter_window->Pos;
+  target_pos.x += counter_window->Size.x * 0.2f;
+  target_pos.y += counter_window->Size.y * 0.5f;
+
+  ImGui::EndFrame();
+
+  // Next frame: Move mouse to target position.
+  ImGui::GetIO().MousePos = target_pos;
+  ImGui::NewFrame();
+  timeline_.Draw();
+
+  // Find window again (pointer might be unstable across frames if reallocations
+  // happen, though usually stable).
+  counter_window = nullptr;
+  for (ImGuiWindow* w : ImGui::GetCurrentContext()->Windows) {
+    if (std::string(w->Name).find(child_id) != std::string::npos) {
+      counter_window = w;
+      break;
+    }
+  }
+  ASSERT_NE(counter_window, nullptr);
+
+  // Check for black vertices (circle outline).
+  has_black_vertices = false;
+  for (const auto& vtx : counter_window->DrawList->VtxBuffer) {
+    if (vtx.col == kBlackColor) {
+      has_black_vertices = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(has_black_vertices);
+
+  ImGui::EndFrame();
+}
+
 }  // namespace
 }  // namespace testing
 }  // namespace traceviewer
