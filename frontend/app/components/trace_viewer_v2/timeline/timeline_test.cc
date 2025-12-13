@@ -801,6 +801,109 @@ TEST_F(MockTimelineImGuiFixture, PanLeftWithShiftAndMouseWheel) {
   SimulateFrame();
 }
 
+TEST_F(MockTimelineImGuiFixture, PanWithMouseDrag) {
+  ImGuiIO& io = ImGui::GetIO();
+  // Main window pos is (0,0), content_min is (0,0), label_width is 250.
+  // So timeline area starts at x=250.
+  io.MousePos = ImVec2(300.0f, 50.0f);
+  SimulateFrame();  // Establish initial state
+
+  // Press mouse button without shift.
+  io.AddMouseButtonEvent(0, true);
+
+  // In the first frame of a drag, MouseDelta will be zero.
+  EXPECT_CALL(timeline_, Pan(0.0f));
+  EXPECT_CALL(timeline_, Scroll(0.0f));
+
+  SimulateFrame();  // This will call HandleMouse and set is_dragging_ to true
+
+  // Drag the mouse.
+  io.AddMousePosEvent(310.0f, 60.0f);
+
+  EXPECT_CALL(timeline_, Pan(FloatEq(-10.0f)));
+  EXPECT_CALL(timeline_, Scroll(FloatEq(-10.0f)));
+
+  SimulateFrame();
+
+  // Release mouse button.
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+}
+
+TEST_F(MockTimelineImGuiFixture,
+       ShiftClickAndReleaseShiftMidDragContinuesSelection) {
+  // Setup similar to TimelineDragSelectionTest to ensure predictable
+  // coordinates.
+  timeline_.SetVisibleRange({0.0, 165.3});
+  timeline_.set_data_time_range({0.0, 165.3});
+  ImGuiIO& io = ImGui::GetIO();
+
+  // Start with Shift held down.
+  io.AddKeyEvent(ImGuiMod_Shift, true);
+
+  // Start drag in timeline area.
+  // X=308 is safely inside the timeline (250 + padding < 308).
+  io.MousePos = ImVec2(308.0f, 50.0f);
+  io.AddMouseButtonEvent(0, true);
+  SimulateFrame();
+
+  // Release Shift key.
+  io.AddKeyEvent(ImGuiMod_Shift, false);
+
+  // Drag mouse to X=508.
+  io.MousePos = ImVec2(508.0f, 50.0f);
+  SimulateFrame();
+
+  // End drag.
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  // Verify that a selection was created despite Shift being released.
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 1);
+  const TimeRange& range = timeline_.selected_time_ranges()[0];
+  // Calculate expected range based on pixel movement.
+  // 10px/us assumption from TimelineDragSelectionTest.
+  // 308 -> 5.0. 508 -> 25.0.
+  EXPECT_NEAR(range.start(), 5.0, 1e-5);
+  EXPECT_NEAR(range.end(), 25.0, 1e-5);
+}
+
+TEST_F(MockTimelineImGuiFixture, ClickAndPressShiftMidDragContinuesPanning) {
+  // Setup similar to TimelineDragSelectionTest.
+  timeline_.SetVisibleRange({0.0, 165.3});
+  timeline_.set_data_time_range({0.0, 165.3});
+  ImGuiIO& io = ImGui::GetIO();
+
+  // Start without Shift.
+  io.AddKeyEvent(ImGuiMod_Shift, false);
+
+  // Start drag in timeline area.
+  io.MousePos = ImVec2(308.0f, 50.0f);
+  io.AddMouseButtonEvent(0, true);
+
+  EXPECT_CALL(timeline_, Pan(0.0f));
+  EXPECT_CALL(timeline_, Scroll(0.0f));
+  SimulateFrame();
+
+  // Press Shift key mid-drag.
+  io.AddKeyEvent(ImGuiMod_Shift, true);
+
+  // Drag mouse to left (simulate pan right).
+  // Move from 308 to 208 (-100px).
+  io.MousePos = ImVec2(208.0f, 50.0f);
+
+  EXPECT_CALL(timeline_, Pan(FloatEq(100.0f)));
+  EXPECT_CALL(timeline_, Scroll(FloatEq(0.0f)));
+  SimulateFrame();
+
+  // End drag.
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  // Verify that NO selection was created.
+  EXPECT_TRUE(timeline_.selected_time_ranges().empty());
+}
+
 TEST_F(MockTimelineImGuiFixture, DrawEventNameTextHiddenWhenTooNarrow) {
   FlameChartTimelineData data;
 

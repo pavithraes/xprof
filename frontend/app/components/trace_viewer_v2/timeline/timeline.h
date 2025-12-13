@@ -224,6 +224,10 @@ class Timeline {
   // Handles mouse input for creating curtains.
   void HandleMouse();
 
+  void HandleMouseDown(float timeline_origin_x);
+  void HandleMouseDrag(float timeline_origin_x);
+  void HandleMouseRelease();
+
   // Private static constants.
   static constexpr ImGuiWindowFlags kImGuiWindowFlags =
       ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse |
@@ -264,7 +268,12 @@ class Timeline {
   // to detect clicks in empty areas for deselection logic.
   bool event_clicked_this_frame_ = false;
 
+  // Whether the user is currently dragging the mouse on the timeline.
   bool is_dragging_ = false;
+  // Whether the current drag operation is a selection (Shift + Drag).
+  // If false, the drag operation is a pan/scroll.
+  // This flag is latched at the start of the drag.
+  bool is_selecting_ = false;
 
   std::vector<TimeRange> selected_time_ranges_;
   Microseconds drag_start_time_ = 0.0;

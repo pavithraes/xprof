@@ -859,7 +859,6 @@ void Timeline::HandleMouse() {
       timeline_area_pos, ImVec2(timeline_area_pos.x + timeline_width,
                                 main_window_pos.y + ImGui::GetWindowHeight()));
 
-  ImGuiIO& io = ImGui::GetIO();
   const bool is_mouse_over_timeline =
       ImGui::IsMouseHoveringRect(timeline_area.Min, timeline_area.Max);
 
@@ -867,34 +866,61 @@ void Timeline::HandleMouse() {
     return;
   }
 
-  if (is_mouse_over_timeline && ImGui::IsMouseClicked(0) && io.KeyShift &&
-      !event_clicked_this_frame_) {
-    is_dragging_ = true;
-    const double px_per_time = px_per_time_unit();
-    drag_start_time_ =
-        PixelToTime(io.MousePos.x - timeline_area.Min.x, px_per_time);
-    current_selected_time_range_ =
-        TimeRange(drag_start_time_, drag_start_time_);
+  if (is_mouse_over_timeline) {
+    HandleMouseDown(timeline_area.Min.x);
   }
 
   if (is_dragging_) {
-    if (ImGui::IsMouseDown(0)) {
+    HandleMouseDrag(timeline_area.Min.x);
+    HandleMouseRelease();
+  }
+}
+
+void Timeline::HandleMouseDown(float timeline_origin_x) {
+  // ImGui uses 0 to represent the left mouse button, as defined in the
+  // ImGuiMouseButton enum. We check if the left mouse button was clicked.
+  if (ImGui::IsMouseClicked(0) && !event_clicked_this_frame_) {
+    is_dragging_ = true;
+    ImGuiIO& io = ImGui::GetIO();
+    is_selecting_ = io.KeyShift;
+    if (is_selecting_) {
+      const double px_per_time = px_per_time_unit();
+      drag_start_time_ =
+          PixelToTime(io.MousePos.x - timeline_origin_x, px_per_time);
+      current_selected_time_range_ =
+          TimeRange(drag_start_time_, drag_start_time_);
+    }
+  }
+}
+
+void Timeline::HandleMouseDrag(float timeline_origin_x) {
+  // ImGui uses 0 to represent the left mouse button, as defined in the
+  // ImGuiMouseButton enum. We check if the left mouse button was clicked.
+  if (ImGui::IsMouseDown(0)) {
+    ImGuiIO& io = ImGui::GetIO();
+    if (is_selecting_) {
       const double px_per_time = px_per_time_unit();
       Microseconds current_time =
-          PixelToTime(io.MousePos.x - timeline_area.Min.x, px_per_time);
+          PixelToTime(io.MousePos.x - timeline_origin_x, px_per_time);
       current_selected_time_range_ =
           TimeRange(std::min(drag_start_time_, current_time),
                     std::max(drag_start_time_, current_time));
+    } else {
+      Pan(-io.MouseDelta.x);
+      Scroll(-io.MouseDelta.y);
     }
+  }
+}
 
-    if (ImGui::IsMouseReleased(0)) {
-      is_dragging_ = false;
-      if (current_selected_time_range_ &&
-          current_selected_time_range_->duration() > 0) {
-        selected_time_ranges_.push_back(*current_selected_time_range_);
-      }
-      current_selected_time_range_.reset();
+void Timeline::HandleMouseRelease() {
+  if (ImGui::IsMouseReleased(0)) {
+    is_dragging_ = false;
+    is_selecting_ = false;
+    if (current_selected_time_range_ &&
+        current_selected_time_range_->duration() > 0) {
+      selected_time_ranges_.push_back(*current_selected_time_range_);
     }
+    current_selected_time_range_.reset();
   }
 }
 
