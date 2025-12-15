@@ -260,15 +260,15 @@ void PopulateOpMetricsNode(
 }
 
 // Recursively insert "fused instruction" nodes (with raw flops).
-void InsertFusedInstructions(const OpMetrics& op_metrics, Node* node) {
+void InsertFusedInstructions(const OpMetrics& op_metrics, Node* node,
+                             OpProfileBuilder* builder) {
   if (!op_metrics.has_children()) return;
   for (const auto& child : op_metrics.children().metrics_db()) {
     Node* new_node = node->add_children();
     PopulateSymbolNode(child, new_node);
-    new_node->mutable_metrics()->set_raw_flops(child.model_flops());
-    new_node->mutable_metrics()->set_bf16_flops(child.flops());
+    builder->AddChildMetrics(child, new_node);
     if (child.has_children()) {
-      InsertFusedInstructions(child, new_node);
+      InsertFusedInstructions(child, new_node, builder);
     }
   }
 }
@@ -311,7 +311,7 @@ Node* OpProfileBuilder::AddOpNode(const OpMetrics& op_metrics,
     leaf = root_->add_children();
   }
   PopulateSymbolNode(op_metrics, leaf);
-  InsertFusedInstructions(op_metrics, leaf);
+  InsertFusedInstructions(op_metrics, leaf, this);
   return leaf;
 }
 
@@ -451,7 +451,17 @@ void OpProfileBuilder::AddOp(const OpMetrics& op_metrics) {
   // 2. Deal with nested grouping nodes (horizontal grouping), only accumulate
   // non-child ops Exclude ops with children ops to avoid double counting of
   // flops, bytes and time from children ops.
-  if (ChildrenTimePs(op_metrics) > 0) return;
+  bool has_children = ChildrenTimePs(op_metrics) > 0;
+  bool has_sc_children = false;
+  if (has_children) {
+    for (const auto& child : op_metrics.children().metrics_db()) {
+      if (child.core_type() == OpMetrics_TpuCoreType_SPARSE_CORE) {
+        has_sc_children = true;
+        break;
+      }
+    }
+  }
+  if (has_children && !has_sc_children) return;
   std::vector<Node*> nested_grouping_nodes;
   if (IsIdleOp(op_metrics)) {
     Node* leaf = AddOpNode(op_metrics);
@@ -481,6 +491,11 @@ void OpProfileBuilder::AddOp(const OpMetrics& op_metrics) {
     // Per program combiner does not need to update OpMetrics.num_cores
     CombineOpMetrics(op_metrics, &metrics_[node], /*update_num_cores=*/false);
   }
+}
+
+void OpProfileBuilder::AddChildMetrics(const OpMetrics& child,
+                                       op_profile::Node* child_node) {
+  CombineOpMetrics(child, &metrics_[child_node], /*update_num_cores=*/false);
 }
 
 void OpProfileBuilder::Finalize(

@@ -445,8 +445,8 @@ StepEvents ConvertDeviceTraceXPlaneToStepEvents(const XPlane& device_trace) {
         // the common step numbers.
         step_events = ConvertTpuDeviceTraceXLineToStepEvents(plane.Id(), line);
       } else if (sc_core_id.has_value()) {
-        // TODO(b/397774568): Switch to IsOpLineName and remove step marker
-        // processing once SparseCore OpMetricsDb is implemented.
+        // TODO(b/397774568): Redefine step events and markers in terms of
+        // offload to SparseCore.
         if (line.Name() != tsl::profiler::kSparseCoreStepLineName) return;
         // There should only be a single SparseCore StepLine per SparseCore.
         DCHECK(step_markers.empty());

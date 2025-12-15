@@ -18,13 +18,16 @@ limitations under the License.
 #include <sys/types.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/cleanup/cleanup.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
@@ -336,7 +339,8 @@ OpStats ConvertXSpaceToOpStats(const XSpace& space,
     if (is_gpu) {
       create_cost_analysis = []() {
         return GetHloCostAnalysisWrapperRegistry().Get(
-            kXprofGpuCostAnalysisName)(nullptr);};
+            kXprofGpuCostAnalysisName)(nullptr);
+      };
     } else {
       // we pass nullptr for the cost analysis for TPU.
       create_cost_analysis = []() { return nullptr; };
@@ -365,23 +369,32 @@ OpStats ConvertXSpaceToOpStats(const XSpace& space,
       if (!device_planes.empty() && !op_stats.has_perf_env()) {
         *op_stats.mutable_perf_env() = GetPerfEnvFromXPlane(*device_planes[0]);
       }
-      for (size_t i = 0; i < device_planes.size(); ++i) {
-        const XPlane* device_plane = device_planes[i];
+      absl::flat_hash_map<std::pair<uint64_t, uint64_t>, OpMetricsDb>
+          sparse_core_metrics_map;
+      std::vector<const XPlane*> other_planes;
+      for (const auto device_plane : device_planes) {
+        if (tsl::profiler::GetSparseCoreId(device_plane->name()).has_value()) {
+          ConvertSparseCoreDeviceTraceXPlaneToOpMetricsDb(
+              *device_plane, sparse_core_metrics_map);
+        } else {
+          other_planes.push_back(device_plane);
+        }
+      }
+      for (auto& [_, op_metrics_db] : sparse_core_metrics_map) {
+        UpdateOpMetricsDbFromHloModuleMap(op_metrics_db, hlo_module_map);
+      }
+      for (size_t i = 0; i < other_planes.size(); ++i) {
+        const XPlane* device_plane = other_planes[i];
         OpMetricsDb& op_metrics_db = all_op_metrics_dbs[i];
         executor->Execute([device_plane, &hlo_module_map, is_tpu,
-                           &op_metrics_db]() {
+                           &op_metrics_db, sparse_core_metrics_map]() {
           if (!is_tpu) {
             op_metrics_db = ConvertDeviceTraceXPlaneToOpMetricsDb(
                 *device_plane, hlo_module_map);
           } else {
-            // TODO(b/397774568): Remove this once the SparseCore
-            // OpMetricsDb is implemented.
-            if (!tsl::profiler::GetSparseCoreId(device_plane->name())
-                     .has_value()) {
-              op_metrics_db =
-                  ConvertTpuDeviceTraceXPlaneToOpMetricsDb(*device_plane);
-              UpdateOpMetricsDbFromHloModuleMap(op_metrics_db, hlo_module_map);
-            }
+            op_metrics_db = ConvertTensorCoreDeviceTraceXPlaneToOpMetricsDb(
+                *device_plane, sparse_core_metrics_map);
+            UpdateOpMetricsDbFromHloModuleMap(op_metrics_db, hlo_module_map);
           }
         });
       }

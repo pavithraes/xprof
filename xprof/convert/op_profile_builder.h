@@ -99,6 +99,8 @@ class OpProfileBuilder {
                 std::vector<double> peak_mem_gibibytes_per_second_per_core,
                 uint64_t total_time_ps);
 
+  void AddChildMetrics(const OpMetrics& child, op_profile::Node* child_node);
+
  private:
   struct Category {
     op_profile::Node* node;

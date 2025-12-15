@@ -199,8 +199,8 @@ TEST(ConvertXPlaneToStepEvents, TpuDevicePlaneToStepEvents) {
   EXPECT_EQ(step_2.Markers().size(), 1);
 }
 
-// TODO(b/397774568): Update this test to include SparseCore ops and assert
-// their proper inclusion.
+// TODO(b/397774568): Update this test to account for idle SparseCore time
+// properly.
 TEST(ConvertXPlaneToStepEvents, SparseCoreShouldHaveStepMarkers) {
   XPlane raw_plane;
   XPlaneBuilder plane(&raw_plane);
@@ -213,26 +213,33 @@ TEST(ConvertXPlaneToStepEvents, SparseCoreShouldHaveStepMarkers) {
       *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kGroupId));
   const XStatMetadata& step_idle_time_stat =
       *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kStepIdleTimePs));
-  XEventMetadata* event_metadata = plane.CreateEventMetadata();
+  XEventMetadata* event_metadata = plane.GetOrCreateEventMetadata("sparse_op");
   XStatsBuilder<XEventMetadata> stats(event_metadata, &plane);
+  stats.AddStatValue(
+      *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kProgramId)), 1);
+  stats.AddStatValue(
+      *plane.GetOrCreateStatMetadata(GetStatTypeStr(StatType::kSymbolId)), 1);
+
   XEventBuilder event = step_line.AddEvent(*event_metadata);
   event.SetOffsetPs(0);
-  event.SetDurationPs(100);
+  event.SetDurationPs(20000);
   event.AddStatValue(group_id_stat, 1);
-  event.AddStatValue(step_idle_time_stat, 10);
+  event.AddStatValue(step_idle_time_stat, 0);
   StepEvents step_events = ConvertDeviceTraceXPlaneToStepEvents(raw_plane);
   EXPECT_EQ(step_events.size(), 1);
   EXPECT_TRUE(step_events.contains(1));
   StepDetails step_1 = step_events[/*group_id=*/1];
   EXPECT_EQ(step_1.Markers().size(), 1);
-  EXPECT_EQ(step_1.StepTime(), tsl::profiler::Timespan(0, 100));
+  EXPECT_EQ(step_1.StepTime(), tsl::profiler::Timespan(0, 20000));
   OpMetricsDb op_metrics_db =
       step_1
           .PerCoreOpMetricsDb()[/*core_id=*/device_id + kSparseCoreIndexStart];
-  ASSERT_EQ(op_metrics_db.metrics_db_size(), 1);
-  const OpMetrics& sparse_core_busy_op = op_metrics_db.metrics_db()[0];
-  EXPECT_EQ(sparse_core_busy_op.time_ps(), 100);
-  EXPECT_EQ(sparse_core_busy_op.self_time_ps(), 90);
+  ASSERT_EQ(op_metrics_db.metrics_db_size(), 1);  // Sparse op
+  const OpMetrics* sparse_core_op = &op_metrics_db.metrics_db(0);
+  EXPECT_EQ(sparse_core_op->name(), "sparse_op");
+  EXPECT_EQ(sparse_core_op->time_ps(), 20000);
+  EXPECT_EQ(sparse_core_op->self_time_ps(), 20000);
+  EXPECT_EQ(sparse_core_op->hlo_module_id(), 1);
 }
 
 TEST(ConvertXPlaneToStepEvents, TpuDevicePlaneNoStepLine) {

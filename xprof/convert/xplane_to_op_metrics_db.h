@@ -17,6 +17,7 @@ limitations under the License.
 #define XPROF_CONVERT_XPLANE_TO_OP_METRICS_DB_H_
 
 #include <cstdint>
+#include <utility>
 
 #include "absl/container/flat_hash_map.h"
 #include "xla/tsl/profiler/utils/tf_op_utils.h"
@@ -60,9 +61,21 @@ OpMetricsDb ConvertHostThreadsXPlaneToOpMetricsDb(const XPlane& host_trace);
 OpMetricsDb ConvertDeviceTraceXPlaneToOpMetricsDb(
     const XPlane& device_trace, const HloModuleMap& hlo_module_map);
 
-// Convert TPU DeviceTrace XPlane to OpMetricDb
-OpMetricsDb ConvertTpuDeviceTraceXPlaneToOpMetricsDb(
-    const XPlane& device_trace);
+// Convert TensorCore DeviceTrace XPlane to OpMetricDb
+// The map is keyed using an ID to the TensorCore with the offload start event,
+// and the HLO instruction ID of the offload start event.
+OpMetricsDb ConvertTensorCoreDeviceTraceXPlaneToOpMetricsDb(
+    const XPlane& device_trace,
+    const absl::flat_hash_map<std::pair<uint64_t, uint64_t>, OpMetricsDb>&
+        sparse_core_metrics_map);
+
+// Convert SparseCore DeviceTrace XPlane to OpMetricDb
+// The map is keyed using an ID to the TensorCore with the offload start event,
+// and the HLO instruction ID of the offload start event.
+void ConvertSparseCoreDeviceTraceXPlaneToOpMetricsDb(
+    const XPlane& device_trace,
+    absl::flat_hash_map<std::pair<uint64_t, uint64_t>, OpMetricsDb>&
+        sparse_core_metrics_map);
 
 }  // namespace profiler
 }  // namespace tensorflow

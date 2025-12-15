@@ -25,6 +25,7 @@ limitations under the License.
 #include <vector>
 
 #include "absl/algorithm/container.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_cat.h"
@@ -232,45 +233,44 @@ CollectTfOpsFromHostThreadsXPlane(const XPlane& host_trace) {
   absl::flat_hash_map<int64_t, tsl::profiler::TfOp> tf_ops;
   XPlaneVisitor plane = tsl::profiler::CreateTfXPlaneVisitor(&host_trace);
   plane.ForEachLine([&tf_ops](const XLineVisitor& line) {
-    line.ForEachEvent(
-        [&tf_ops](const XEventVisitor& event) {
-          // 0. Skip events that does not have valid name - which is necessary
-          // for the host event parsing
-          if (event.Name().empty()) return;
+    line.ForEachEvent([&tf_ops](const XEventVisitor& event) {
+      // 0. Skip events that does not have valid name - which is necessary
+      // for the host event parsing
+      if (event.Name().empty()) return;
 
-          // 1. Newly added input pipeline ops processing: identified by the
-          // stage id and category.
-          auto input_pipeline_stage_id =
-              event.GetStat(StatType::kInputPipelineStageId);
-          if (input_pipeline_stage_id.has_value()) {
-            auto input_pipeline_stage_category =
-                event.GetStat(StatType::kInputPipelineStageCategory);
-            if (input_pipeline_stage_category.has_value()) {
-              tsl::profiler::TfOp tf_op = tsl::profiler::ParseTfOpFullname(
-                  event.Name(), tsl::profiler::Category::kInputPipeline,
-                  input_pipeline_stage_category->StrOrRefValue(),
-                  input_pipeline_stage_id->IntValue());
-              // Note using input pipeline stage id as unique identifier here
-              // instead of events id, because event id's uniqueness is bind
-              // with the event name string due to nature of xplane event
-              // metadata creation, making it a non-sufficient identifier when
-              // building an input pipeline event stack.
-              tf_ops.try_emplace(input_pipeline_stage_id->IntValue(), tf_op);
-            }
-            return;
-          }
+      // 1. Newly added input pipeline ops processing: identified by the
+      // stage id and category.
+      auto input_pipeline_stage_id =
+          event.GetStat(StatType::kInputPipelineStageId);
+      if (input_pipeline_stage_id.has_value()) {
+        auto input_pipeline_stage_category =
+            event.GetStat(StatType::kInputPipelineStageCategory);
+        if (input_pipeline_stage_category.has_value()) {
+          tsl::profiler::TfOp tf_op = tsl::profiler::ParseTfOpFullname(
+              event.Name(), tsl::profiler::Category::kInputPipeline,
+              input_pipeline_stage_category->StrOrRefValue(),
+              input_pipeline_stage_id->IntValue());
+          // Note using input pipeline stage id as unique identifier here
+          // instead of events id, because event id's uniqueness is bind
+          // with the event name string due to nature of xplane event
+          // metadata creation, making it a non-sufficient identifier when
+          // building an input pipeline event stack.
+          tf_ops.try_emplace(input_pipeline_stage_id->IntValue(), tf_op);
+        }
+        return;
+      }
 
-          // 2. Fallback to legacy host ops processing.
-          // On the host, we have added some user-specified TraceMe's in
-          // addition to the TraceMe's added to every TensorFlow op by the
-          // system. These user-inserted TraceMe's have "unknown" type. We don't
-          // count them in Tf-stats.
-          tsl::profiler::TfOp tf_op =
-              tsl::profiler::ParseTfOpFullname(event.Name());
-          if (tf_op.category != tsl::profiler::Category::kUnknown) {
-            tf_ops.try_emplace(event.Id(), tf_op);
-          }
-        });
+      // 2. Fallback to legacy host ops processing.
+      // On the host, we have added some user-specified TraceMe's in
+      // addition to the TraceMe's added to every TensorFlow op by the
+      // system. These user-inserted TraceMe's have "unknown" type. We don't
+      // count them in Tf-stats.
+      tsl::profiler::TfOp tf_op =
+          tsl::profiler::ParseTfOpFullname(event.Name());
+      if (tf_op.category != tsl::profiler::Category::kUnknown) {
+        tf_ops.try_emplace(event.Id(), tf_op);
+      }
+    });
   });
   return tf_ops;
 }
@@ -288,8 +288,10 @@ OpMetricsDb ConvertHostThreadsXPlaneToOpMetricsDb(const XPlane& host_trace) {
   return result;
 }
 
-OpMetricsDb ConvertTpuDeviceTraceXPlaneToOpMetricsDb(
-    const XPlane& device_trace) {
+OpMetricsDb ConvertTensorCoreDeviceTraceXPlaneToOpMetricsDb(
+    const XPlane& device_trace,
+    const absl::flat_hash_map<std::pair<uint64_t, uint64_t>, OpMetricsDb>&
+        sparse_core_metrics_map) {
   XPlaneVisitor plane = tsl::profiler::CreateTfXPlaneVisitor(&device_trace);
   XEventsOpMetricsDbBuilder builder;
   uint64_t first_op_timestamp_ps = std::numeric_limits<uint64_t>::max();
@@ -313,6 +315,22 @@ OpMetricsDb ConvertTpuDeviceTraceXPlaneToOpMetricsDb(
                             ? time_scale_multiplier_stat->DoubleValue()
                             : 1.0;
         op_metrics.set_normalized_time_ps(op_metrics.time_ps() * factor);
+        op_metrics.set_core_type(OpMetrics_TpuCoreType_TENSOR_CORE);
+        std::optional<tsl::profiler::XStatVisitor> offload_core_id_stat =
+            parent.event.GetStat(StatType::kOffloadCoreId);
+        std::optional<tsl::profiler::XStatVisitor> offload_start_id_stat =
+            parent.event.GetStat(StatType::kTcOffloadStartId);
+        if (offload_core_id_stat.has_value() &&
+            offload_start_id_stat.has_value()) {
+          const std::pair<uint64_t, uint64_t> offload_start_op_key = {
+              offload_core_id_stat->UintValue(),
+              offload_start_id_stat->IntValue()};
+          if (auto it = sparse_core_metrics_map.find(offload_start_op_key);
+              it != sparse_core_metrics_map.end()) {
+            OpMetricsDbCombiner combiner(op_metrics.mutable_children());
+            combiner.Combine(it->second, /*update_num_cores=*/false);
+          }
+        }
         builder.AddOpMetric(op_metrics, GetOpKeyFromXEvent(parent.event));
       },
       [](const ParentReference& parent, const ParentReference& child) {
@@ -347,6 +365,117 @@ OpMetricsDb ConvertTpuDeviceTraceXPlaneToOpMetricsDb(
   return builder.Finalize(last_op_timestamp_ps - first_op_timestamp_ps);
 }
 
+void ConvertSparseCoreDeviceTraceXPlaneToOpMetricsDb(
+    const XPlane& device_trace,
+    absl::flat_hash_map<std::pair<uint64_t, uint64_t>, OpMetricsDb>&
+        sparse_core_metrics_map) {
+  XPlaneVisitor plane = tsl::profiler::CreateTfXPlaneVisitor(&device_trace);
+
+  struct ParentReference {
+    const XEventVisitor event;
+    tsl::profiler::Timespan device_timespan;
+    uint64_t offload_core_id;
+    uint64_t tc_start_id;
+    uint64_t children_duration_ps = 0;
+  };
+  struct OpMetricsInProgress {
+    std::shared_ptr<XEventsOpMetricsDbBuilder> builder;
+    tsl::profiler::AncestorStack<ParentReference> event_stack;
+    OpMetricsInProgress()
+        : builder(std::make_shared<XEventsOpMetricsDbBuilder>()),
+          event_stack(
+              [builder = builder](const ParentReference& parent) {
+                OpMetrics op_metrics = FromXEvent(parent.event);
+                op_metrics.set_time_ps(parent.device_timespan.duration_ps());
+                op_metrics.set_self_time_ps(op_metrics.time_ps() -
+                                            parent.children_duration_ps);
+                op_metrics.set_core_type(OpMetrics_TpuCoreType_SPARSE_CORE);
+                XEventsOpMetricsDbBuilder::OpKey key =
+                    GetOpKeyFromXEvent(parent.event);
+                builder->AddOpMetric(op_metrics, key);
+              },
+              [](const ParentReference& parent, const ParentReference& child) {
+                return parent.device_timespan.Includes(child.device_timespan);
+              },
+              [](ParentReference& parent, ParentReference& child) {
+                parent.children_duration_ps +=
+                    child.device_timespan.duration_ps();
+              }) {};
+  };
+  absl::flat_hash_map<std::pair<uint64_t, uint64_t>, OpMetricsInProgress>
+      intermediate_op_metrics_map;
+
+  struct ModuleReference {
+    tsl::profiler::Timespan timespan;
+    const uint64_t offload_core_id;
+    const uint64_t tc_start_id;
+    bool operator<(const ModuleReference& other) const {
+      return timespan < other.timespan;
+    }
+  };
+  absl::btree_set<ModuleReference> module_timespans;
+
+  // Find the module timespan
+  plane.ForEachLine([&](const XLineVisitor& line) {
+    if (line.Name() == tsl::profiler::kSparseCoreModuleLineName) {
+      line.ForEachEvent([&](const XEventVisitor& event) {
+        const std::optional<XStatVisitor> offload_core_id =
+            event.GetStat(StatType::kOffloadCoreId);
+        const std::optional<XStatVisitor> tc_start_id =
+            event.GetStat(StatType::kTcOffloadStartId);
+        if (offload_core_id.has_value() && tc_start_id.has_value()) {
+          module_timespans.insert(
+              {.timespan = GetDeviceEventTimespan(event),
+               .offload_core_id = offload_core_id->UintValue(),
+               .tc_start_id = tc_start_id->UintValue()});
+        }
+      });
+    }
+  });
+  // Now walk through the events and add them to their proper OpMetricsDb
+  plane.ForEachLine([&](const XLineVisitor& line) {
+    if (line.Name() == tsl::profiler::kSparseCoreOpLineName) {
+      auto module_it = module_timespans.begin();
+      line.ForEachEvent([&](const XEventVisitor& event) {
+        const tsl::profiler::Timespan timespan = GetDeviceEventTimespan(event);
+        // Advance module_it to skip modules that end before this event starts.
+        while (module_it != module_timespans.end() &&
+               module_it->timespan.end_ps() < timespan.begin_ps()) {
+          ++module_it;
+        }
+        if (module_it == module_timespans.end()) {
+          return;
+        }
+        // Check if the current module_it encapsulates the event.
+        if (module_it->timespan.Includes(timespan)) {
+          // Insert that event into the stack for that module
+          intermediate_op_metrics_map[{module_it->offload_core_id,
+                                       module_it->tc_start_id}]
+              .event_stack.Push({.event = event,
+                                 .device_timespan = timespan,
+                                 .offload_core_id = module_it->offload_core_id,
+                                 .tc_start_id = module_it->tc_start_id});
+        }
+      });
+    }
+  });
+  absl::flat_hash_map<std::pair<uint64_t, uint64_t>, uint64_t>
+      total_duration_map;
+  for (const auto& module : module_timespans) {
+    const std::pair<uint64_t, uint64_t> key_id = {module.offload_core_id,
+                                                  module.tc_start_id};
+    if (auto it = intermediate_op_metrics_map.find(key_id);
+        it != intermediate_op_metrics_map.end()) {
+      it->second.event_stack.Flush();
+      total_duration_map[key_id] += module.timespan.duration_ps();
+    }
+  }
+  for (auto& [key, progress] : intermediate_op_metrics_map) {
+    sparse_core_metrics_map[key] =
+        progress.builder->Finalize(total_duration_map[key]);
+  }
+}
+
 void AggregateHloFunc(HLOTracker& current, DeviceOpMetricsDbBuilder& metricDb) {
   if (current.hlo_instruction == nullptr) return;
   auto performance_info_wrapper =
@@ -372,7 +501,8 @@ void AggregateHloFunc(HLOTracker& current, DeviceOpMetricsDbBuilder& metricDb) {
                      current.hlo_instruction->TfOpName(),
                      current.hlo_instruction->DeduplicatedName(),
                      current.is_eager, /*occurrences=*/1, current.duration,
-                     /*children_time_ps=*/0, /*flops=*/0, /*bytes_accessed=*/0,
+                     /*children_time_ps=*/0, /*flops=*/0,
+                     /*bytes_accessed=*/0,
                      /*bytes_accessed_breakdown=*/{}, /*model_flops=*/0,
                      current.hlo_instruction->Expression(),
                      current.hlo_instruction->SourceInfo());

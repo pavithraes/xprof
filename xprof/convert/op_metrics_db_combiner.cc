@@ -67,6 +67,9 @@ void CopyOpMetricsMetadata(const OpMetrics& src, OpMetrics* dst) {
   if (!dst->has_source_info() && src.has_source_info()) {
     *dst->mutable_source_info() = src.source_info();
   }
+  if (dst->core_type() == OpMetrics_TpuCoreType_UNKNOWN) {
+    dst->set_core_type(src.core_type());
+  }
 }
 
 void CombineOpMetrics(const OpMetrics& src, OpMetrics* dst,

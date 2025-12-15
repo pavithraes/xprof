@@ -21,10 +21,13 @@ limitations under the License.
 #include <string>
 #include <utility>
 
+#include "net/proto2/contrib/parse_proto/parse_text_proto.h"
 #include "testing/base/public/gmock.h"
 #include "<gtest/gtest.h>"
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "xla/hlo/ir/hlo_module.h"
 #include "xla/hlo/parser/hlo_parser.h"
 #include "xla/tsl/platform/types.h"
@@ -56,6 +59,67 @@ using ::tsl::profiler::XStatsBuilder;
 using ::testing::EqualsProto;
 using ::testing::proto::IgnoringRepeatedFieldOrdering;
 #endif
+
+struct TpuEvent {
+  enum class EventType { kHloOp, kModule } type = EventType::kHloOp;
+  absl::string_view name = "";
+  absl::string_view long_name = "";
+  absl::string_view category = "";
+  int64_t start_timestamp_ns = 0;
+  int64_t duration_ns = 0;
+  uint64_t flops = 0;
+  uint64_t bytes_accessed = 0;
+  int64_t occurrences = 0;
+  int64_t self_duration = 0;
+  uint64_t module_id = 0;
+  int64_t program_id = 0;
+  int64_t symbol_id = 0;
+};
+
+template <typename T>
+XEventBuilder AddXlaTpuEvent(
+    const TpuEvent& event,
+    absl::Span<const std::pair<absl::string_view, T>> stats,
+    XPlaneBuilder* plane, XLineBuilder* line) {
+  XEventBuilder builder =
+      line->AddEvent(*plane->GetOrCreateEventMetadata(event.name));
+  builder.SetTimestampNs(event.start_timestamp_ns);
+  builder.SetDurationNs(event.duration_ns);
+  builder.SetNumOccurrences(event.occurrences);
+  XStatsBuilder<XEventMetadata> event_metadata(
+      plane->GetOrCreateEventMetadata(event.name), plane);
+  if (event.type == TpuEvent::EventType::kHloOp) {
+    event_metadata.AddStatValue(
+        *plane->GetOrCreateStatMetadata(GetStatTypeStr(StatType::kHloOp)),
+        event.long_name);
+    event_metadata.AddStatValue(
+        *plane->GetOrCreateStatMetadata(GetStatTypeStr(StatType::kSymbolId)),
+        event.symbol_id);
+    event_metadata.AddStatValue(
+        *plane->GetOrCreateStatMetadata(GetStatTypeStr(StatType::kProgramId)),
+        event.program_id);
+    event_metadata.AddStatValue(
+        *plane->GetOrCreateStatMetadata(GetStatTypeStr(StatType::kHloCategory)),
+        event.category);
+  } else if (event.type == TpuEvent::EventType::kModule) {
+    event_metadata.AddStatValue(
+        *plane->GetOrCreateStatMetadata(GetStatTypeStr(StatType::kHloModule)),
+        event.long_name);
+    event_metadata.AddStatValue(
+        *plane->GetOrCreateStatMetadata(GetStatTypeStr(StatType::kSymbolId)),
+        event.symbol_id);
+    event_metadata.AddStatValue(
+        *plane->GetOrCreateStatMetadata(GetStatTypeStr(StatType::kProgramId)),
+        event.program_id);
+  }
+  event_metadata.AddStatValue(
+      *plane->GetOrCreateStatMetadata(GetStatTypeStr(StatType::kFlops)),
+      event.flops);
+  for (const auto& [stat_str, value] : stats) {
+    builder.AddStatValue(*plane->GetOrCreateStatMetadata(stat_str), value);
+  }
+  return builder;
+}
 
 void AddTensorFlowTpuOpEvent(std::string&& name, std::string&& tf_op_fullname,
                              int64_t start_timestamp_ns, int64_t duration_ns,
@@ -247,7 +311,7 @@ TEST(ConvertXPlaneToOpMetricsDb, DeviceOpMetricsDb) {
   EXPECT_EQ(tsl::profiler::NanoToPico(0), idle.time_ps());
 }
 
-TEST(ConvertXPlaneToOpMetricsDb, TpuDeviceOpMetricsDb) {
+TEST(ConvertXPlaneToOpMetricsDb, TensorCoreDeviceOpMetricsDb) {
   XSpace xspace;
   XPlane* xplane = tsl::profiler::GetOrCreateTpuXPlane(
       &xspace, /*device_ordinal=*/0, "TPU V4",
@@ -258,28 +322,180 @@ TEST(ConvertXPlaneToOpMetricsDb, TpuDeviceOpMetricsDb) {
   stream1.SetName(tsl::profiler::kTensorFlowOpLineName);
   AddTensorFlowTpuOpEvent("MatMul", "while:MatMul", 0, 10, "MatMul", 34, 45, 2,
                           5, 1, 1, 2.0, &device_plane, &stream1);
-  OpMetricsDb op_metrics = ConvertTpuDeviceTraceXPlaneToOpMetricsDb(*xplane);
+  absl::flat_hash_map<std::pair<uint64_t, uint64_t>, OpMetricsDb>
+      sparse_core_metrics_map;
+  OpMetricsDb op_metrics = ConvertTensorCoreDeviceTraceXPlaneToOpMetricsDb(
+      *xplane, sparse_core_metrics_map);
 #if defined(PLATFORM_GOOGLE)
-  EXPECT_THAT(op_metrics, IgnoringRepeatedFieldOrdering(EqualsProto(
-                              R"pb(metrics_db {
-                                     hlo_module_id: 1
-                                     self_time_ps: 10000
-                                     flops: 68
-                                     model_flops: 68
-                                     num_cores: 1
-                                     occurrences: 2
-                                     name: "MatMul"
-                                     time_ps: 10000
-                                     normalized_time_ps: 20000
-                                     category: "MatMul"
-                                     provenance: "while:MatMul"
-                                     min_time_ps: 10000
-                                   }
-                                   metrics_db { name: "IDLE" category: "IDLE" }
-                                   total_time_ps: 10000
-                                   total_op_time_ps: 10000
-                                   normalized_total_op_time_ps: 20000
-                              )pb")));
+  EXPECT_THAT(op_metrics,
+              EqualsProto(R"pb(metrics_db {
+                                 hlo_module_id: 1
+                                 self_time_ps: 10000
+                                 flops: 68
+                                 model_flops: 68
+                                 num_cores: 1
+                                 occurrences: 2
+                                 name: "MatMul"
+                                 time_ps: 10000
+                                 category: "MatMul"
+                                 normalized_time_ps: 20000
+                                 provenance: "while:MatMul"
+                                 min_time_ps: 10000
+                                 core_type: TENSOR_CORE
+                               }
+                               metrics_db { name: "IDLE" category: "IDLE" }
+                               total_time_ps: 10000
+                               total_op_time_ps: 10000
+                               normalized_total_op_time_ps: 20000
+              )pb"));
+#endif
+}
+
+TEST(ConvertXPlaneToOpMetricsDb,
+     TensorCoreDeviceOpMetricsDbFindsSparseCoreOffload) {
+  XSpace xspace;
+  XPlane* xplane = tsl::profiler::GetOrCreateTpuXPlane(
+      &xspace, /*device_ordinal=*/0, "TPU V5",
+      /*peak_tera_flops_per_second=*/0,
+      /*peak_hbm_bw_gigabytes_per_second=*/0);
+  XPlaneBuilder device_plane(xplane);
+  XLineBuilder stream1 = device_plane.GetOrCreateLine(/*line_id=*/10);
+  stream1.SetName(tsl::profiler::kXlaOpLineName);
+  AddXlaTpuEvent<int64_t>(
+      TpuEvent{
+          .type = TpuEvent::EventType::kHloOp,
+          .name = "call-start",
+          .category = "async-start",
+          .start_timestamp_ns = 0,
+          .duration_ns = 10,
+          .flops = 20,
+          .bytes_accessed = 100,
+          .occurrences = 2,
+          .self_duration = 5,
+          .module_id = 1,
+          .program_id = 1,
+          .symbol_id = 2,
+      },
+      {
+          {GetStatTypeStr(StatType::kTcOffloadStartId),
+           static_cast<int64_t>(0x8F30A352)},
+          {GetStatTypeStr(StatType::kOffloadCoreId), static_cast<int64_t>(0)},
+      },
+      &device_plane, &stream1);
+  OpMetricsDb sparse_core_op_metrics =
+      google::protobuf::contrib::parse_proto::ParseTextProtoOrDie(R"pb(
+        metrics_db {
+          hlo_module_id: 1
+          self_time_ps: 10000
+          flops: 68
+          model_flops: 68
+          occurrences: 2
+          name: "fusion"
+          time_ps: 10000
+          category: "async-start"
+          normalized_time_ps: 20000
+          min_time_ps: 10000
+          core_type: SPARSE_CORE
+        }
+        precision_stats {}
+        metrics_db { name: "IDLE" category: "IDLE" }
+        total_time_ps: 10000
+        total_op_time_ps: 10000
+        normalized_total_op_time_ps: 20000
+      )pb");
+  absl::flat_hash_map<std::pair<uint64_t, uint64_t>, OpMetricsDb>
+      sparse_core_metrics_map = {
+          {std::make_pair(0, 0x8F30A352), sparse_core_op_metrics}};
+  OpMetricsDb op_metrics = ConvertTensorCoreDeviceTraceXPlaneToOpMetricsDb(
+      *xplane, sparse_core_metrics_map);
+#if defined(PLATFORM_GOOGLE)
+  EXPECT_THAT(op_metrics.metrics_db(0).children(),
+              EqualsProto(sparse_core_op_metrics));
+#endif
+}
+
+TEST(ConvertXPlaneToOpMetricsDb, SparseCoreDeviceOpMetricsDb) {
+  XSpace xspace;
+  XPlane* xplane = tsl::profiler::GetOrCreateTpuXPlane(
+      &xspace, /*device_ordinal=*/0, "TPU V5",
+      /*peak_tera_flops_per_second=*/0,
+      /*peak_hbm_bw_gigabytes_per_second=*/0);
+  XPlaneBuilder device_plane(xplane);
+  XLineBuilder module_line = device_plane.GetOrCreateLine(/*line_id=*/65);
+  XLineBuilder op_line = device_plane.GetOrCreateLine(/*line_id=*/66);
+  module_line.SetName(tsl::profiler::kSparseCoreModuleLineName);
+  op_line.SetName(tsl::profiler::kSparseCoreOpLineName);
+  // Add XLA Module
+  XEventBuilder module_event = AddXlaTpuEvent(
+      TpuEvent{
+          .type = TpuEvent::EventType::kModule,
+          .name = "Main",
+          .long_name = "",
+          .start_timestamp_ns = 0,
+          .duration_ns = 100,
+          .flops = 200,
+          .bytes_accessed = 1000,
+          .occurrences = 1,
+          .self_duration = 100,
+          .module_id = 1,
+          .program_id = 1,
+          .symbol_id = 2,
+      },
+      absl::Span<const std::pair<absl::string_view, uint64_t>>(), &device_plane,
+      &module_line);
+  module_event.AddStatValue(*device_plane.GetOrCreateStatMetadata(
+                                GetStatTypeStr(StatType::kOffloadCoreId)),
+                            0);
+  module_event.AddStatValue(*device_plane.GetOrCreateStatMetadata(
+                                GetStatTypeStr(StatType::kTcOffloadStartId)),
+                            123);
+  // Add XLA Ops
+  AddXlaTpuEvent(
+      TpuEvent{
+          .type = TpuEvent::EventType::kHloOp,
+          .name = "Fusion",
+          .category = "XlaFusionOp",
+          .start_timestamp_ns = 0,
+          .duration_ns = 10,
+          .flops = 20,
+          .bytes_accessed = 100,
+          .occurrences = 2,
+          .self_duration = 5,
+          .module_id = 1,
+          .program_id = 1,
+          .symbol_id = 2,
+      },
+      absl::Span<const std::pair<absl::string_view, int64_t>>(), &device_plane,
+      &op_line);
+  absl::flat_hash_map<std::pair<uint64_t, uint64_t>, OpMetricsDb>
+      sparse_core_metrics_map;
+  ConvertSparseCoreDeviceTraceXPlaneToOpMetricsDb(*xplane,
+                                                  sparse_core_metrics_map);
+  ASSERT_EQ(sparse_core_metrics_map.size(), 1);
+  OpMetricsDb op_metrics = sparse_core_metrics_map.begin()->second;
+#if defined(PLATFORM_GOOGLE)
+  EXPECT_THAT(op_metrics, EqualsProto(R"pb(metrics_db {
+                                             self_time_ps: 10000
+                                             flops: 40
+                                             model_flops: 40
+                                             num_cores: 1
+                                             occurrences: 2
+                                             name: "Fusion"
+                                             time_ps: 10000
+                                             category: "XlaFusionOp"
+                                             hlo_module_id: 1
+                                             min_time_ps: 10000
+                                             core_type: SPARSE_CORE
+                                           }
+                                           metrics_db {
+                                             name: "IDLE"
+                                             category: "IDLE"
+                                             self_time_ps: 90000
+                                             time_ps: 90000
+                                           }
+                                           total_time_ps: 100000
+                                           total_op_time_ps: 10000
+              )pb"));
 #endif
 }
 

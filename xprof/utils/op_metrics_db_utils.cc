@@ -130,6 +130,7 @@ class DeviceTfOpMetricsDbBuilder : public OpMetricsDbBuilder {
                                    device_op_metrics.model_flops());
     tf_op_metrics->set_bytes_accessed(tf_op_metrics->bytes_accessed() +
                                       device_op_metrics.bytes_accessed());
+    tf_op_metrics->set_core_type(device_op_metrics.core_type());
   }
 };
 
@@ -248,7 +249,7 @@ void SetOpMetricsFromHloEvent(const tsl::profiler::XEventVisitor& hlo_event,
   }
   // Fill The Custom Call Information
   if (op_metrics->category() ==
-      xla::HloOpcodeString(xla::HloOpcode::kCustomCall) ) {
+      xla::HloOpcodeString(xla::HloOpcode::kCustomCall)) {
     hlo_event.ForEachStat([&](const XStatVisitor& stat) {
       if (!stat.Type()) return;
       switch (static_cast<StatType>(*stat.Type())) {
@@ -258,7 +259,7 @@ void SetOpMetricsFromHloEvent(const tsl::profiler::XEventVisitor& hlo_event,
           break;
         case StatType::kModelFlops:
           op_metrics->set_model_flops(op_metrics->model_flops() +
-                                       stat.IntOrUintValue());
+                                      stat.IntOrUintValue());
           break;
         case StatType::kFlops:
           op_metrics->set_flops(op_metrics->flops() + stat.IntOrUintValue());
@@ -282,6 +283,7 @@ void MergeOpMetrics(const OpMetrics& src, OpMetrics& dst) {
     dst.set_dma_stall_ps(src.dma_stall_ps() + dst.dma_stall_ps());
     dst.set_normalized_time_ps(src.normalized_time_ps() +
                                dst.normalized_time_ps());
+    dst.set_core_type(src.core_type());
   }
 }
 
@@ -291,12 +293,12 @@ void AdjustFlopsAndBytesAccessed(OpMetrics& op_metrics) {
     op_metrics.set_flops(op_metrics.flops() * op_metrics.occurrences());
     if (op_metrics.model_flops() > 0) {
       op_metrics.set_model_flops(op_metrics.model_flops() *
-                                op_metrics.occurrences());
+                                 op_metrics.occurrences());
     } else {
       op_metrics.set_model_flops(op_metrics.flops());
     }
     op_metrics.set_bytes_accessed(op_metrics.bytes_accessed() *
-                                op_metrics.occurrences());
+                                  op_metrics.occurrences());
   }
   for (auto& memory_access : *op_metrics.mutable_memory_accessed_breakdown()) {
     memory_access.set_bytes_accessed(memory_access.bytes_accessed() *
@@ -451,28 +453,12 @@ OpMetricsDb CreateTfMetricsDbFromDeviceOpMetricsDb(
 
 OpMetrics FromXEvent(const tsl::profiler::XEventVisitor& xevent) {
   OpMetrics op_metrics;
-  std::optional<XStatVisitor> stat = xevent.GetStat(StatType::kStepIdleTimePs);
-  if (stat.has_value()) {
-    // TODO(b/397774568) : Remove this once the SparseCore OpMetricsDb is
-    // implemented.
-    uint64_t idle_time_ps = stat->IntOrUintValue();
-    op_metrics.set_self_time_ps(xevent.DurationPs() - idle_time_ps);
-    op_metrics.set_name("sparse_core_busy_ops");
-    op_metrics.set_category("sparse_core_busy_ops");
-    return op_metrics;
-  }
   SetOpMetricsFromHloEvent(xevent, &op_metrics);
   return op_metrics;
 }
 
 XEventsOpMetricsDbBuilder::OpKey GetOpKeyFromXEvent(
     const tsl::profiler::XEventVisitor& event) {
-  std::optional<XStatVisitor> stat = event.GetStat(StatType::kStepIdleTimePs);
-  if (stat.has_value()) {
-    return {.program_id = std::numeric_limits<uint64_t>::max(),
-            .symbol_id = std::numeric_limits<uint64_t>::max()};
-  }
-
   XEventsOpMetricsDbBuilder::OpKey op_key;
   DCHECK(event.metadata() != nullptr);
   event.Metadata().ForEachStat([&](const XStatVisitor& stat) {
