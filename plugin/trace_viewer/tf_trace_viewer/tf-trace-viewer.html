@@ -1725,7 +1725,9 @@ dashboard would integrate trace viewer app using iframe.
       if (this._isStreaming) {
         // Need to create detail filter in init since it contributes to the baseUrl building.
         this._createDetailFilter();
-        this._createMpmdButton();
+        if (!this._isOss) {
+          this._createMpmdButton();
+        }
         this._updateSearchBehavior();
       }
       let initialRequestedRange = null;
