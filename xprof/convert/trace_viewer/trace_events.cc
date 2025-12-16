@@ -430,8 +430,9 @@ void TraceEventsContainerBase<EventFactory, RawData, Hash>::Merge(
   // TODO: b/452643006 - Check if this logic can be moved to
   // xplane_to_trace_container.
   for (const auto& [other_id, other_device] : other.trace().devices()) {
-    LOG(WARNING) << "Remapping device id " << other_id << "for host " << host_id
-                 << " to " << other_id + host_id * kMaxDevicesPerHost;
+    LOG(WARNING) << "Remapping device id " << other_id << " for host "
+                 << host_id << " to "
+                 << other_id + host_id * kMaxDevicesPerHost;
     uint32_t target_id = other_id + host_id * kMaxDevicesPerHost;
     other_to_this_device_id_map[other_id] = target_id;
 
