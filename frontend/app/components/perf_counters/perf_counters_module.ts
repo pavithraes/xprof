@@ -1,3 +1,4 @@
+import {CommonModule} from '@angular/common';
 import {NgModule} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatCheckboxModule} from '@angular/material/checkbox';
@@ -12,6 +13,7 @@ import {PerfCounters} from './perf_counters';
 @NgModule({
   declarations: [PerfCounters],
   imports: [
+    CommonModule,
     StringFilterModule,
     CategoryFilterModule,
     ExportAsCsvModule,
@@ -21,4 +23,5 @@ import {PerfCounters} from './perf_counters';
   ],
   exports: [PerfCounters],
 })
-export class PerfCountersModule {}
+export class PerfCountersModule {
+}

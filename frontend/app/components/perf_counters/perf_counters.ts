@@ -29,6 +29,8 @@ export class PerfCounters extends Dashboard implements OnDestroy {
   sessionId = '';
   showZeroValues = false;
 
+  deviceType = '';
+
   constructor(
     route: ActivatedRoute,
     private readonly store: Store<{}>,
@@ -61,6 +63,8 @@ export class PerfCounters extends Dashboard implements OnDestroy {
     if (!data) return;
 
     const dataTable = new google.visualization.DataTable(data);
+
+    this.deviceType = dataTable.getTableProperty('device_type');
 
     const counterColumnIndex = dataTable.getColumnIndex('Counter');
     // Show 'Description' values as tooltips over the 'Counter' values.
