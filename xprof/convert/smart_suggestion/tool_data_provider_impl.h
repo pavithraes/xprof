@@ -30,6 +30,7 @@ limitations under the License.
 #include "xprof/convert/smart_suggestion/tool_data_provider.h"
 #include "plugin/xprof/protobuf/event_time_fraction_analyzer.pb.h"
 #include "plugin/xprof/protobuf/input_pipeline.pb.h"
+#include "plugin/xprof/protobuf/op_profile.pb.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
 #include "plugin/xprof/protobuf/overview_page.pb.h"
 
@@ -76,6 +77,10 @@ class ToolDataProviderImpl : public ToolDataProvider {
   }
 
   absl::StatusOr<const OpStats*> GetOpStats() override {
+    return absl::UnimplementedError("Not implemented yet.");
+  }
+
+  absl::StatusOr<const op_profile::Profile*> GetOpProfile() override {
     return absl::UnimplementedError("Not implemented yet.");
   }
 

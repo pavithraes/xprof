@@ -22,6 +22,7 @@ limitations under the License.
 #include "tsl/profiler/protobuf/xplane.pb.h"
 #include "plugin/xprof/protobuf/event_time_fraction_analyzer.pb.h"
 #include "plugin/xprof/protobuf/input_pipeline.pb.h"
+#include "plugin/xprof/protobuf/op_profile.pb.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
 #include "plugin/xprof/protobuf/overview_page.pb.h"
 
@@ -46,6 +47,9 @@ class ToolDataProvider {
 
   // Returns the OpStats data.
   virtual absl::StatusOr<const OpStats*> GetOpStats() = 0;
+
+  // Returns the OpProfile data.
+  virtual absl::StatusOr<const op_profile::Profile*> GetOpProfile() = 0;
 };
 
 }  // namespace profiler
