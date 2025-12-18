@@ -1,41 +1,100 @@
 #ifndef THIRD_PARTY_XPROF_CONVERT_STREAMING_TRACE_VIEWER_PROCESSOR_H_
 #define THIRD_PARTY_XPROF_CONVERT_STREAMING_TRACE_VIEWER_PROCESSOR_H_
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "xla/tsl/platform/errors.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
 #include "xprof/convert/profile_processor.h"
 #include "xprof/convert/repository.h"
 #include "xprof/convert/tool_options.h"
 #include "plugin/xprof/protobuf/op_stats.pb.h"
+#include "absl/strings/numbers.h"
+
 namespace xprof {
+
+namespace internal {
+// Options for trace viewer used for testing.
+struct TraceViewOption {
+  uint64_t resolution = 0;
+  double start_time_ms = 0.0;
+  double end_time_ms = 0.0;
+  std::string event_name = "";
+  std::string search_prefix = "";
+  double duration_ms = 0.0;
+  uint64_t unique_id = 0;
+};
+
+inline absl::StatusOr<TraceViewOption> GetTraceViewOption(
+    const tensorflow::profiler::ToolOptions& options) {
+  TraceViewOption trace_options;
+  auto start_time_ms_opt =
+      tensorflow::profiler::GetParamWithDefault<std::string>(
+          options, "start_time_ms", "0.0");
+  auto end_time_ms_opt =
+      tensorflow::profiler::GetParamWithDefault<std::string>(
+          options, "end_time_ms", "0.0");
+  auto resolution_opt =
+      tensorflow::profiler::GetParamWithDefault<std::string>(
+          options, "resolution", "0");
+  trace_options.event_name =
+      tensorflow::profiler::GetParamWithDefault<std::string>(
+          options, "event_name", "");
+  trace_options.search_prefix =
+      tensorflow::profiler::GetParamWithDefault<std::string>(
+          options, "search_prefix", "");
+  auto duration_ms_opt =
+      tensorflow::profiler::GetParamWithDefault<std::string>(
+          options, "duration_ms", "0.0");
+  auto unique_id_opt =
+      tensorflow::profiler::GetParamWithDefault<std::string>(
+          options, "unique_id", "0");
+
+
+  if (!absl::SimpleAtoi(resolution_opt, &trace_options.resolution) ||
+      !absl::SimpleAtod(start_time_ms_opt, &trace_options.start_time_ms) ||
+      !absl::SimpleAtod(end_time_ms_opt, &trace_options.end_time_ms) ||
+      !absl::SimpleAtoi(unique_id_opt, &trace_options.unique_id) ||
+      !absl::SimpleAtod(duration_ms_opt, &trace_options.duration_ms)) {
+    return tsl::errors::InvalidArgument("wrong arguments");
+  }
+  return trace_options;
+}
+}  // namespace internal
 
 class StreamingTraceViewerProcessor : public ProfileProcessor {
  public:
   explicit StreamingTraceViewerProcessor(
-      const tensorflow::profiler::ToolOptions&) {}
+      const tensorflow::profiler::ToolOptions& options)
+      : options_(options) {}
 
   absl::Status ProcessSession(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
       const tensorflow::profiler::ToolOptions& options) final;
 
+  absl::StatusOr<std::string> Map(const std::string& xspace_path) override;
+
   absl::StatusOr<std::string> Map(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
       const std::string& hostname,
-      const tensorflow::profiler::XSpace& xspace) override {
-    return absl::UnimplementedError(
-        "Map not implemented for StreamingTraceViewerProcessor");
-  }
+      const tensorflow::profiler::XSpace& xspace) override;
 
   absl::Status Reduce(
       const tensorflow::profiler::SessionSnapshot& session_snapshot,
-      const std::vector<std::string>& map_output_files) override {
-    return absl::UnimplementedError(
-        "Reduce not implemented for StreamingTraceViewerProcessor");
+      const std::vector<std::string>& map_output_files) override;
+
+  bool ShouldUseWorkerService(
+      const tensorflow::profiler::SessionSnapshot& session_snapshot,
+      const tensorflow::profiler::ToolOptions& options) const override {
+    return session_snapshot.XSpaceSize() > 1;
   }
+
+ private:
+  tensorflow::profiler::ToolOptions options_;
 };
 
 }  // namespace xprof
