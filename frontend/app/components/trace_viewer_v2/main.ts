@@ -1,5 +1,49 @@
 import type {WasmModule} from './trace_viewer_v2_wasm/trace_viewer_v2';
 
+/**
+ * The over-fetching factor for trace events.
+ *
+ * We request ZOOM_RATIO times more events (resolution bins) than the current
+ * viewport width requires. This ensures that we have enough data to allow the
+ * user to zoom in up to this factor without losing detail (i.e., having to
+ * re-fetch data because the resolution became too coarse).
+ */
+export const ZOOM_RATIO = 8;
+
+/**
+ * The width of the left-side label column in the trace viewer in pixels.
+ *
+ * This corresponds to the `label_width_` in `timeline.h`.
+ */
+export const HEADING_WIDTH = 250;
+
+/**
+ * Minimum event width in logical pixels used for calculating resolution.
+ *
+ * Events smaller than this threshold are generally not visible and difficult to
+ * interact with. The backend uses this to downsample events to improve
+ * loading performance.
+ */
+export const MIN_EVENT_WIDTH = 2;
+
+/**
+ * URL parameters corresponding to `TraceOptions`.
+ *
+ * See third_party/xprof/convert/trace_viewer/trace_options.h
+ */
+export const TRACE_OPTIONS = {
+  SELECTED_GROUP_IDS: 'selected_group_ids',
+} as const;
+
+/**
+ * URL parameters corresponding to `TraceViewOption`.
+ *
+ * See third_party/xprof/convert/xplane_to_tools_data.cc
+ */
+export const TRACE_VIEW_OPTION = {
+  RESOLUTION: 'resolution',
+} as const;
+
 declare function loadWasmTraceViewerModule(
   options?: object,
 ): Promise<TraceViewerV2Module>;
@@ -131,6 +175,54 @@ function setupFileInputHandler(traceviewerModule: TraceViewerV2Module) {
   }
 }
 
+/**
+ * Updates a URL with a `resolution` parameter based on the canvas width.
+ *
+ * The resolution is calculated to optimize the number of trace events fetched
+ * from the backend, preventing over-fetching of data that would not be visible.
+ * If certain trace options are present (like filtering), resolution is set to 0
+ * to fetch all data.
+ *
+ * @param url The URL to update.
+ * @param canvas The canvas element used to determine the viewer width.
+ * @return The updated URL string with the resolution parameter.
+ */
+export function updateUrlWithResolution(
+    url: string,
+    canvas: HTMLCanvasElement|null|undefined,
+    ): string {
+  let urlObj: URL;
+  try {
+    urlObj = new URL(url, window.location.href);
+  } catch (e) {
+    console.error('Invalid URL:', url, e);
+    return url;
+  }
+
+  const params = urlObj.searchParams;
+
+  // Default resolution to 0, which fetches all data.
+  let resolution = 0;
+
+  if (!params.has(TRACE_OPTIONS.SELECTED_GROUP_IDS)) {
+    if (canvas) {
+      const viewerWidth = canvas.clientWidth - HEADING_WIDTH;
+
+      if (viewerWidth > 0) {
+        // Calculate resolution based on the number of visual bins and multiply
+        // by ZOOM_RATIO. This requests more data than strictly needed for the
+        // current view (over-fetching), allowing the user to zoom in up to
+        // ZOOM_RATIO times without losing detail (bins remain <=
+        // MIN_EVENT_WIDTH in the zoomed view), avoiding immediate re-fetches.
+        resolution = Math.round(viewerWidth / MIN_EVENT_WIDTH) * ZOOM_RATIO;
+      }
+    }
+  }
+
+  params.set(TRACE_VIEW_OPTION.RESOLUTION, resolution.toString());
+  return urlObj.toString();
+}
+
 // Fetches JSON data from the given URL. The `response.json()` method returns
 // `any`, so this function returns `unknown`. Validation of the data structure
 // (e.g., using `isTraceData`) is expected to be done by the caller.
@@ -149,12 +241,14 @@ async function loadJsonDataInternal(url: string): Promise<unknown> {
 
 /**
  * Initializes the Trace Viewer v2 application.
- * This function sets up the necessary environment, including requesting a WebGPU device,
- * configuring a canvas for WebGPU rendering, and loading the WebAssembly module
- * for the trace viewer. It also exposes a method on the returned module to load
- * trace data from a JSON URL. This is the main entry point for the Trace Viewer v2.
+ * This function sets up the necessary environment, including requesting a
+ * WebGPU device, configuring a canvas for WebGPU rendering, and loading the
+ * WebAssembly module for the trace viewer. It also exposes a method on the
+ * returned module to load trace data from a JSON URL. This is the main entry
+ * point for the Trace Viewer v2.
  *
- * @return A promise that resolves with the initialized TraceViewerV2Module.
+ * @return A promise that resolves with the initialized TraceViewerV2Module, or
+ *     null if initialization fails.
  */
 export async function traceViewerV2Main(): Promise<TraceViewerV2Module | null> {
   let traceviewerModule: TraceViewerV2Module | null = null;
@@ -172,7 +266,8 @@ export async function traceViewerV2Main(): Promise<TraceViewerV2Module | null> {
   // Add a method to the module to load data from a URL
   traceviewerModule.loadJsonData = async (url: string) => {
     try {
-      const jsonData = await loadJsonDataInternal(url);
+      const fullUrl = updateUrlWithResolution(url, traceviewerModule.canvas);
+      const jsonData = await loadJsonDataInternal(fullUrl);
       if (!isTraceData(jsonData)) {
         console.error('File does not contain valid trace events.');
         return;
