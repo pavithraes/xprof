@@ -47,7 +47,6 @@ limitations under the License.
 
 namespace tensorflow {
 namespace profiler {
-using tsl::uint64;
 
 const absl::string_view kIdle = "IDLE";
 const uint32_t kSparseCoreIndexStart = 1000000;
@@ -314,7 +313,7 @@ OpMetricsDbBuilder::OpMetricsDbBuilder(OpMetricsDb* db) : db_(db) {
 }
 
 OpMetrics* OpMetricsDbBuilder::LookupOrInsertNewOpMetrics(
-    uint64 hlo_module_id, absl::string_view name) {
+    uint64_t hlo_module_id, absl::string_view name) {
   OpMetrics*& op_metrics = op_metrics_map_[hlo_module_id][name];
   if (op_metrics == nullptr) {
     op_metrics = db_->add_metrics_db();
@@ -371,7 +370,7 @@ double IdleTimeRatio(const OpMetricsDb& db) {
          tsl::profiler::SafeDivide(db.total_op_time_ps(), db.total_time_ps());
 }
 
-uint64 IdleTimePs(const OpMetricsDb& db) {
+uint64_t IdleTimePs(const OpMetricsDb& db) {
   DCHECK_GE(db.total_time_ps(), db.total_op_time_ps());
   return db.total_time_ps() - db.total_op_time_ps();
 }
@@ -385,7 +384,7 @@ void SetIdleOp(uint64_t idle_time_ps, OpMetrics& metrics) {
 }
 
 void AddIdleOp(OpMetricsDb& db) {
-  uint64 idle_time_ps = IdleTimePs(db);
+  uint64_t idle_time_ps = IdleTimePs(db);
   SetIdleOp(idle_time_ps, *db.add_metrics_db());
 }
 
