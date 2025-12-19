@@ -2190,7 +2190,26 @@ dashboard would integrate trace viewer app using iframe.
     _resolutionFromViewerWidth(viewerWidth) {
       const pixelRatio = window.devicePixelRatio || 1;
       const minEventWidth = 2 * pixelRatio;
-      viewerWidth -= tr.ui.b.constants.HEADING_WIDTH;  // substract row header
+
+      // Use the actual heading width from the DOM if available, otherwise fallback to the constant.
+      // this._traceViewer.trackView.modelTrackContainer_.canvas.offsetLeft gives the exact
+      // horizontal offset of the timeline canvas, effectively representing the heading width.
+      let headingWidth = tr.ui.b.constants.HEADING_WIDTH;
+      if (this._traceViewer && this._traceViewer.trackView &&
+          this._traceViewer.trackView.modelTrackContainer_ &&
+          this._traceViewer.trackView.modelTrackContainer_.canvas) {
+        headingWidth = this._traceViewer.trackView.modelTrackContainer_.canvas.offsetLeft;
+      }
+
+      // Check if subtracting the heading width would result in a negative or zero width.
+      // This handles cases where the viewer is hidden (width 0) or very narrow.
+      // We return the resolution based on the full viewerWidth to avoid negative values
+      // and to provide a small positive resolution (instead of 0) for narrow windows.
+      if (viewerWidth - headingWidth <= 0) {
+        return Math.round((viewerWidth * pixelRatio) / minEventWidth);
+      }
+
+      viewerWidth -= headingWidth;  // substract row header
       viewerWidth *= pixelRatio;  // adjust pixel ratio
       return Math.round(viewerWidth / minEventWidth);
     },
