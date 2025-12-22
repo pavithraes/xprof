@@ -283,6 +283,11 @@ void MergeOpMetrics(const OpMetrics& src, OpMetrics& dst) {
     dst.set_normalized_time_ps(src.normalized_time_ps() +
                                dst.normalized_time_ps());
     dst.set_core_type(src.core_type());
+    if (dst.category() == xla::HloOpcodeString(xla::HloOpcode::kCustomCall)) {
+      dst.set_flops(dst.flops() + src.flops());
+      dst.set_model_flops(dst.model_flops() + src.model_flops());
+      dst.set_bytes_accessed(dst.bytes_accessed() + src.bytes_accessed());
+    }
   }
 }
 
