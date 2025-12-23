@@ -12,7 +12,6 @@
 
 .header-content {
   font-style: italic;
-  margin-top: -16px;
 }
 
 .row {
@@ -30,10 +29,6 @@
   color: $button-focus-color;
 }
 
-.idle-button-container {
-  margin-top: -16px;
-}
-
 model-properties {
   min-width: 550px;
 }
@@ -44,6 +39,3 @@ model-properties {
   margin: 8px 8px 8px 0;
 }
 
-.pie-chart .description {
-  margin-top: -16px;
-}
