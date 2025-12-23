@@ -1,5 +1,6 @@
 #include "xprof/convert/streaming_trace_viewer_processor.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -18,6 +19,7 @@
 #include "xla/tsl/platform/file_system.h"
 #include "xla/tsl/platform/statusor.h"
 #include "xla/tsl/profiler/utils/timespan.h"
+#include "tsl/platform/cpu_info.h"
 #include "tsl/platform/path.h"
 #include "tsl/profiler/protobuf/xplane.pb.h"
 #include "xprof/convert/preprocess_single_host_xplane.h"
@@ -30,9 +32,12 @@
 #include "xprof/convert/trace_viewer/trace_options.h"
 #include "xprof/convert/trace_viewer/trace_viewer_visibility.h"
 #include "xprof/convert/xplane_to_trace_container.h"
+#include "xprof/convert/xprof_thread_pool_executor.h"
 
 namespace xprof {
 
+using internal::GetTraceViewOption;
+using internal::TraceViewOption;
 using ::tensorflow::profiler::IOBufferAdapter;
 using ::tensorflow::profiler::JsonTraceOptions;
 using ::tensorflow::profiler::RawData;
@@ -43,9 +48,8 @@ using ::tensorflow::profiler::TraceEventsContainer;
 using ::tensorflow::profiler::TraceEventsLevelDbFilePaths;
 using ::tensorflow::profiler::TraceOptionsFromToolOptions;
 using ::tensorflow::profiler::TraceVisibilityFilter;
+using ::tensorflow::profiler::XprofThreadPoolExecutor;
 using ::tensorflow::profiler::XSpace;
-using internal::GetTraceViewOption;
-using internal::TraceViewOption;
 
 namespace {
 // Traces with events less than threshold will be disabled from streaming.
@@ -63,7 +67,6 @@ absl::Status StreamingTraceViewerProcessor::ProcessSession(
 
   // TODO: b/452217676 - Optimize this to process hosts in parallel.
   for (int i = 0; i < session_snapshot.XSpaceSize(); ++i) {
-    int host_id = i+1;
     google::protobuf::Arena arena;
     TF_ASSIGN_OR_RETURN(XSpace * xspace, session_snapshot.GetXSpace(i, &arena));
     PreprocessSingleHostXSpace(xspace, /*step_grouping=*/true,
@@ -143,7 +146,7 @@ absl::Status StreamingTraceViewerProcessor::ProcessSession(
           file_paths, std::move(trace_events_filter),
           std::move(visibility_filter), kDisableStreamingThreshold));
     }
-    merged_trace_container.Merge(std::move(trace_container), host_id);
+    merged_trace_container.Merge(std::move(trace_container), i + 1);
   }
 
   std::string trace_viewer_json;
@@ -250,12 +253,13 @@ absl::StatusOr<TraceEventsContainer> LoadTraceContainerForHost(
   if (!metadata_path.has_value() ||
       !tsl::Env::Default()->FileExists(*metadata_path).ok()) {
     return tsl::errors::Internal("Could not find metadata file for host: ",
-                                 hostname, ", path: ", *metadata_path);
+                                 hostname,
+                                 ", path: ", metadata_path.value_or(""));
   }
   if (!trie_path.has_value() ||
       !tsl::Env::Default()->FileExists(*trie_path).ok()) {
     return tsl::errors::Internal("Could not find trie file for host: ",
-                                 hostname, ", path: ", *trie_path);
+                                 hostname, ", path: ", trie_path.value_or(""));
   }
   file_paths.trace_events_metadata_file_path = *metadata_path;
   file_paths.trace_events_prefix_trie_file_path = *trie_path;
@@ -306,18 +310,41 @@ absl::Status StreamingTraceViewerProcessor::Reduce(
   tensorflow::profiler::TraceOptions profiler_trace_options =
       TraceOptionsFromToolOptions(options_);
 
+  int num_hosts = map_output_files.size();
+  int num_threads = std::min(num_hosts, tsl::port::MaxParallelism());
+  std::vector<absl::StatusOr<TraceEventsContainer>> trace_containers(num_hosts);
+
+  {
+    XprofThreadPoolExecutor executor("StreamingTraceViewerReduce", num_threads);
+    for (int i = 0; i < num_hosts; ++i) {
+      executor.Execute([&session_snapshot, &map_output_files, &trace_option,
+                        &profiler_trace_options, &trace_containers, i]() {
+        trace_containers[i] =
+            LoadTraceContainerForHost(session_snapshot, map_output_files[i],
+                                      trace_option, profiler_trace_options);
+      });
+    }
+    executor.JoinAll();
+  }
+
   TraceEventsContainer merged_trace_container;
+  int successful_hosts = 0;
+  for (int i = 0; i < num_hosts; ++i) {
+    if (!trace_containers[i].ok()) {
+      LOG(ERROR) << "Skipping host " << i
+                 << " due to failure: " << trace_containers[i].status();
+      continue;
+    }
 
-  for (int i = 0; i < map_output_files.size(); ++i) {
-    const std::string& trace_events_sstable_path = map_output_files[i];
-    int host_id = i + 1;
+    TF_ASSIGN_OR_RETURN(TraceEventsContainer trace_container,
+                        std::move(trace_containers[i]));
 
-    TF_ASSIGN_OR_RETURN(
-        TraceEventsContainer trace_container,
-        LoadTraceContainerForHost(session_snapshot, trace_events_sstable_path,
-                                  trace_option, profiler_trace_options));
+    merged_trace_container.Merge(std::move(trace_container), i + 1);
+    successful_hosts++;
+  }
 
-    merged_trace_container.Merge(std::move(trace_container), host_id);
+  if (successful_hosts == 0) {
+    return absl::InternalError("No hosts with valid trace data.");
   }
 
   std::string trace_viewer_json;
