@@ -1,4 +1,5 @@
 # load("//third_party/bazel_rules/rules_cc/cc:cc_library.bzl", "cc_library")
+# load("//third_party/bazel_rules/rules_cc/cc:cc_test.bzl", "cc_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -58,5 +59,14 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
         "@org_xprof//plugin/xprof/protobuf:worker_service_cc_grpc_proto",
+    ],
+)
+
+cc_test(
+    name = "stub_factory_test",
+    srcs = ["stub_factory_test.cc"],
+    deps = [
+        ":stub_factory",
+        "@com_google_googletest//:gtest_main",
     ],
 )

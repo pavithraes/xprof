@@ -166,10 +166,9 @@ void InitializeStubs(const std::string& worker_service_addresses) {
     // Already initialized.
     return;
   }
-  std::vector<absl::string_view> addresses =
-      absl::StrSplit(worker_service_addresses, kAddressDelimiter);
+  std::vector<absl::string_view> addresses = absl::StrSplit(
+      worker_service_addresses, kAddressDelimiter, absl::SkipEmpty());
   for (absl::string_view address : addresses) {
-    if (address.empty()) continue;
     std::shared_ptr<::grpc::Channel> channel =
         CreateWorkerChannelForAddress(address);
     gStubs->push_back(XprofAnalysisWorkerService::NewStub(channel));
@@ -191,6 +190,15 @@ std::shared_ptr<XprofAnalysisWorkerService::Stub> GetNextStub() {
       (*gStubs)[index % gStubs->size()].get(),
       [](XprofAnalysisWorkerService::Stub* ptr) { /*do nothing*/ });
 }
+
+namespace internal {
+void ResetStubsForTesting() {
+  absl::MutexLock lock(gStubsMutex);
+  gStubs->clear();
+  gStubsInitialized.store(false, std::memory_order_release);
+  gCurrentStubIndex.store(0, std::memory_order_release);
+}
+}  // namespace internal
 
 }  // namespace profiler
 }  // namespace xprof

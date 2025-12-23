@@ -32,6 +32,11 @@ void InitializeStubs(const std::string& worker_service_addresses);
 std::shared_ptr<xprof::pywrap::grpc::XprofAnalysisWorkerService::Stub>
 GetNextStub();
 
+namespace internal {
+// Resets the stubs for testing.
+void ResetStubsForTesting();
+}  // namespace internal
+
 }  // namespace profiler
 }  // namespace xprof
 
