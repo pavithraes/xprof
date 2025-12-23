@@ -1,8 +1,9 @@
-import {Component, Input, OnDestroy} from '@angular/core';
+import {Component, inject, Input, OnDestroy} from '@angular/core';
 import {Store} from '@ngrx/store';
 import {HeapObject} from 'org_xprof/frontend/app/common/interfaces/heap_object';
 import {SourceInfo} from 'org_xprof/frontend/app/common/interfaces/source_info.jsonpb_decls.d';
 import * as utils from 'org_xprof/frontend/app/common/utils/utils';
+import {DATA_SERVICE_INTERFACE_TOKEN, DataServiceV2Interface} from 'org_xprof/frontend/app/services/data_service_v2/data_service_v2_interface';
 import {getActiveHeapObjectState} from 'org_xprof/frontend/app/store/selectors';
 import {ReplaySubject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
@@ -22,6 +23,9 @@ export class BufferDetails implements OnDestroy {
   @Input() selectedModule = '';
   /** The session id */
   @Input() sessionId = '';
+
+  private readonly dataService: DataServiceV2Interface =
+      inject(DATA_SERVICE_INTERFACE_TOKEN);
 
   heapObject: HeapObject|null = null;
   instructionName?: string;
@@ -48,10 +52,9 @@ export class BufferDetails implements OnDestroy {
     return this.instructionName && this.selectedModule && this.sessionId;
   }
 
-  // TODO(xprof): Update this to proper path to graph viewer in OSS.
   getGraphViewerLink() {
-    return `/graph_viewer/${this.sessionId}?module_name=${
-        this.selectedModule}&node_name=${this.instructionName}`;
+    return this.dataService.getGraphViewerLink(
+        this.sessionId, this.selectedModule, this.instructionName || '', '');
   }
 
   update(heapObject: HeapObject|null) {
