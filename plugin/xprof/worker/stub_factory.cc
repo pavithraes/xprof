@@ -161,7 +161,7 @@ static std::shared_ptr<::grpc::Channel> CreateWorkerChannelForAddress(
 }
 
 void InitializeStubs(const std::string& worker_service_addresses) {
-  absl::MutexLock lock(&gStubsMutex);
+  absl::MutexLock lock(gStubsMutex);
   if (gStubsInitialized.load(std::memory_order_acquire)) {
     // Already initialized.
     return;
@@ -178,7 +178,7 @@ void InitializeStubs(const std::string& worker_service_addresses) {
 }
 
 std::shared_ptr<XprofAnalysisWorkerService::Stub> GetNextStub() {
-  absl::MutexLock lock(&gStubsMutex);
+  absl::MutexLock lock(gStubsMutex);
   if (!gStubsInitialized.load(std::memory_order_acquire) || gStubs->empty()) {
     return nullptr;
   }
