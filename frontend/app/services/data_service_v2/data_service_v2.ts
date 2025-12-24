@@ -184,8 +184,21 @@ export class DataServiceV2 implements DataServiceV2Interface {
   getGraphViewerLink(
       sessionId: string, moduleName: string, opName: string, programId = '') {
     if (moduleName && opName) {
-      return `${window.parent.location.origin}?tool=graph_viewer&module_name=${
-          moduleName}&node_name=${opName}&run=${sessionId}#profile`;
+      const linkParams = new URLSearchParams();
+      linkParams.set('tool', 'graph_viewer');
+      linkParams.set('module_name', moduleName);
+      linkParams.set('node_name', opName);
+      linkParams.set('run', sessionId);
+
+      const sessionPath = this.getSearchParams().get('session_path');
+      const runPath = this.getSearchParams().get('run_path');
+      if (sessionPath) {
+        linkParams.set('session_path', sessionPath);
+      }
+      if (runPath) {
+        linkParams.set('run_path', runPath);
+      }
+      return `${window.parent.location.origin}?${linkParams.toString()}#profile`;
     }
     return '';
   }
@@ -207,6 +220,14 @@ export class DataServiceV2 implements DataServiceV2Interface {
 
   getGraphVizUri(sessionId: string, params: Map<string, string>): string {
     const searchParams = new URLSearchParams();
+    const sessionPath = this.getSearchParams().get('session_path');
+    const runPath = this.getSearchParams().get('run_path');
+    if (sessionPath) {
+      searchParams.set('session_path', sessionPath);
+    }
+    if (runPath) {
+      searchParams.set('run_path', runPath);
+    }
     searchParams.set('run', sessionId);
     searchParams.set('tag', 'graph_viewer');
     for (const [key, value] of params.entries()) {
@@ -232,17 +253,17 @@ export class DataServiceV2 implements DataServiceV2Interface {
   }
 
   getMeGraphJson(sessionId: string, params: Map<string, string>) {
-    const queryPrams = new HttpParams();
-    queryPrams.set('run', sessionId);
-    queryPrams.set('tag', 'graph_viewer');
-    queryPrams.set('module_name', params.get('module_name') || '');
-    queryPrams.set('program_id', params.get('program_id') || '');
-    queryPrams.set('node_name', params.get('node_name') || '');
-    queryPrams.set('graph_width', params.get('graph_width') || '');
-    queryPrams.set('type', 'me_graph');
+    const queryParams = this.getHttpParamsWithPath()
+                            .set('run', sessionId)
+                            .set('tag', 'graph_viewer')
+                            .set('module_name', params.get('module_name') || '')
+                            .set('program_id', params.get('program_id') || '')
+                            .set('node_name', params.get('node_name') || '')
+                            .set('graph_width', params.get('graph_width') || '')
+                            .set('type', 'me_graph');
     return this.get(
                this.pathPrefix + DATA_API,
-               {'params': queryPrams, 'responseType': 'text'}) as
+               {'params': queryParams, 'responseType': 'text'}) as
         Observable<string>;
   }
 
@@ -342,11 +363,11 @@ export class DataServiceV2 implements DataServiceV2Interface {
   }
 
   exportDataAsCSV(sessionId: string, tool: string, host: string) {
-    const params = new HttpParams()
-                       .set('run', sessionId)
-                       .set('tag', tool)
-                       .set('host', host)
-                       .set('tqx', 'out:csv;');
+    let params = this.getHttpParamsWithPath();
+    params = params.set('run', sessionId)
+                 .set('tag', tool)
+                 .set('host', host)
+                 .set('tqx', 'out:csv;');
     windowOpen(window, this.pathPrefix + DATA_API + '?' + params.toString(), '_blank');
   }
 
