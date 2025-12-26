@@ -6,6 +6,7 @@
 
 #include "testing/base/public/gmock.h"
 #include "<gtest/gtest.h>"
+#include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
 #include "third_party/dear_imgui/imgui.h"
 #include "third_party/dear_imgui/imgui_internal.h"
@@ -834,24 +835,24 @@ TEST_F(MockTimelineImGuiFixture,
        ShiftClickAndReleaseShiftMidDragContinuesSelection) {
   // Setup similar to TimelineDragSelectionTest to ensure predictable
   // coordinates.
-  timeline_.SetVisibleRange({0.0, 165.3});
-  timeline_.set_data_time_range({0.0, 165.3});
+  timeline_.SetVisibleRange({0.0, 166.9});
+  timeline_.set_data_time_range({0.0, 166.9});
   ImGuiIO& io = ImGui::GetIO();
 
   // Start with Shift held down.
   io.AddKeyEvent(ImGuiMod_Shift, true);
 
   // Start drag in timeline area.
-  // X=308 is safely inside the timeline (250 + padding < 308).
-  io.MousePos = ImVec2(308.0f, 50.0f);
+  // X=300 is safely inside the timeline (250 + padding < 300).
+  io.MousePos = ImVec2(300.0f, 50.0f);
   io.AddMouseButtonEvent(0, true);
   SimulateFrame();
 
   // Release Shift key.
   io.AddKeyEvent(ImGuiMod_Shift, false);
 
-  // Drag mouse to X=508.
-  io.MousePos = ImVec2(508.0f, 50.0f);
+  // Drag mouse to X=500.
+  io.MousePos = ImVec2(500.0f, 50.0f);
   SimulateFrame();
 
   // End drag.
@@ -863,22 +864,22 @@ TEST_F(MockTimelineImGuiFixture,
   const TimeRange& range = timeline_.selected_time_ranges()[0];
   // Calculate expected range based on pixel movement.
   // 10px/us assumption from TimelineDragSelectionTest.
-  // 308 -> 5.0. 508 -> 25.0.
+  // 300 -> 5.0. 500 -> 25.0.
   EXPECT_NEAR(range.start(), 5.0, 1e-5);
   EXPECT_NEAR(range.end(), 25.0, 1e-5);
 }
 
 TEST_F(MockTimelineImGuiFixture, ClickAndPressShiftMidDragContinuesPanning) {
   // Setup similar to TimelineDragSelectionTest.
-  timeline_.SetVisibleRange({0.0, 165.3});
-  timeline_.set_data_time_range({0.0, 165.3});
+  timeline_.SetVisibleRange({0.0, 166.9});
+  timeline_.set_data_time_range({0.0, 166.9});
   ImGuiIO& io = ImGui::GetIO();
 
   // Start without Shift.
   io.AddKeyEvent(ImGuiMod_Shift, false);
 
   // Start drag in timeline area.
-  io.MousePos = ImVec2(308.0f, 50.0f);
+  io.MousePos = ImVec2(300.0f, 50.0f);
   io.AddMouseButtonEvent(0, true);
 
   EXPECT_CALL(timeline_, Pan(0.0f));
@@ -889,8 +890,8 @@ TEST_F(MockTimelineImGuiFixture, ClickAndPressShiftMidDragContinuesPanning) {
   io.AddKeyEvent(ImGuiMod_Shift, true);
 
   // Drag mouse to left (simulate pan right).
-  // Move from 308 to 208 (-100px).
-  io.MousePos = ImVec2(208.0f, 50.0f);
+  // Move from 300 to 200 (-100px).
+  io.MousePos = ImVec2(200.0f, 50.0f);
 
   EXPECT_CALL(timeline_, Pan(FloatEq(100.0f)));
   EXPECT_CALL(timeline_, Scroll(FloatEq(0.0f)));
@@ -953,6 +954,21 @@ TEST_F(MockTimelineImGuiFixture,
 
 using RealTimelineImGuiFixture = TimelineImGuiTestFixture<Timeline>;
 
+// Add a sanity check that the window padding is set to zero.
+// This is the presumption for all the drawing logic. And all tests below assume
+// this.
+TEST_F(RealTimelineImGuiFixture, DrawSetsWindowPaddingToZero) {
+  ImGui::NewFrame();
+  timeline_.Draw();
+
+  ImGuiWindow* window = ImGui::FindWindowByName("Timeline viewer");
+  ASSERT_NE(window, nullptr);
+  EXPECT_EQ(window->WindowPadding.x, 0.0f);
+  EXPECT_EQ(window->WindowPadding.y, 0.0f);
+
+  ImGui::EndFrame();
+}
+
 TEST_F(RealTimelineImGuiFixture, ClickEventSelectsEvent) {
   FlameChartTimelineData data;
 
@@ -978,7 +994,9 @@ TEST_F(RealTimelineImGuiFixture, ClickEventSelectsEvent) {
 
   // Set a mouse position that is guaranteed to be over the event, since the
   // event spans the entire timeline.
-  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);
+  // y=28 is safely within the event rect (starts at 20, height 16 -> ends at
+  // 36).
+  ImGui::GetIO().MousePos = ImVec2(300.f, 28.f);
   ImGui::GetIO().MouseDown[0] = true;
 
   SimulateFrame();
@@ -1040,7 +1058,7 @@ TEST_F(RealTimelineImGuiFixture,
         callback_count++;
       });
 
-  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);
+  ImGui::GetIO().MousePos = ImVec2(300.f, 28.f);
 
   // First click.
   ImGui::GetIO().MouseDown[0] = true;
@@ -1074,7 +1092,7 @@ TEST_F(RealTimelineImGuiFixture, ClickEmptyAreaDeselectsEvent) {
   timeline_.SetVisibleRange({0.0, 100.0});
 
   // First, select an event.
-  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);  // A position over the event.
+  ImGui::GetIO().MousePos = ImVec2(300.f, 28.f);  // A position over the event.
   ImGui::GetIO().MouseDown[0] = true;
   SimulateFrame();
   ImGui::GetIO().MouseDown[0] = false;  // Release the mouse.
@@ -1117,7 +1135,7 @@ TEST_F(RealTimelineImGuiFixture, ClickEmptyAreaDeselectsOnlyOnce) {
   timeline_.SetVisibleRange({0.0, 100.0});
 
   // First, select an event.
-  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);  // A position over the event.
+  ImGui::GetIO().MousePos = ImVec2(300.f, 28.f);  // A position over the event.
   ImGui::GetIO().MouseDown[0] = true;
   SimulateFrame();
   ImGui::GetIO().MouseDown[0] = false;  // Release the mouse.
@@ -1209,7 +1227,7 @@ TEST_F(RealTimelineImGuiFixture, ShiftClickEventTogglesCurtain) {
   timeline_.SetVisibleRange({0.0, 100.0});
 
   // Mouse is over the event
-  ImGui::GetIO().MousePos = ImVec2(500.f, 40.f);
+  ImGui::GetIO().MousePos = ImVec2(500.f, 28.f);
   ImGui::GetIO().AddKeyEvent(ImGuiMod_Shift, true);
   ImGui::GetIO().MouseDown[0] = true;
 
@@ -1255,7 +1273,7 @@ TEST_F(RealTimelineImGuiFixture,
   ImGui::GetIO().AddKeyEvent(ImGuiMod_Shift, true);
 
   // First shift-click on event 1.
-  ImGui::GetIO().MousePos = ImVec2(500.f, 40.f);  // Position over event 1.
+  ImGui::GetIO().MousePos = ImVec2(500.f, 28.f);  // Position over event 1.
   ImGui::GetIO().MouseDown[0] = true;
   SimulateFrame();
 
@@ -1268,7 +1286,7 @@ TEST_F(RealTimelineImGuiFixture,
   SimulateFrame();
 
   // Second shift-click on event 2.
-  ImGui::GetIO().MousePos = ImVec2(1100.f, 40.f);  // Position over event 2.
+  ImGui::GetIO().MousePos = ImVec2(1100.f, 28.f);  // Position over event 2.
   ImGui::GetIO().MouseDown[0] = true;
   SimulateFrame();
 
@@ -1283,7 +1301,7 @@ TEST_F(RealTimelineImGuiFixture,
   SimulateFrame();
 
   // Third shift-click on event 1 again to deselect.
-  ImGui::GetIO().MousePos = ImVec2(500.f, 40.f);  // Position over event 1.
+  ImGui::GetIO().MousePos = ImVec2(500.f, 28.f);  // Position over event 1.
   ImGui::GetIO().MouseDown[0] = true;
   SimulateFrame();
 
@@ -1344,11 +1362,11 @@ class TimelineDragSelectionTest : public RealTimelineImGuiFixture {
   void SetUp() override {
     RealTimelineImGuiFixture::SetUp();
     // Set a visible range that results in a round number for px_per_time_unit
-    // to make test calculations predictable. With a timeline width of 1653px
-    // (based on 1920px window width and paddings), a duration of 165.3 gives
-    // 10px per microsecond.
-    timeline_.SetVisibleRange({0.0, 165.3});
-    timeline_.set_data_time_range({0.0, 165.3});
+    // to make test calculations predictable. With a timeline width of 1669px
+    // (based on 1920px window width, 250px label width, and 1px padding),
+    // a duration of 166.9 gives 10px per microsecond.
+    timeline_.SetVisibleRange({0.0, 166.9});
+    timeline_.set_data_time_range({0.0, 166.9});
 
     ImGui::GetIO().AddKeyEvent(ImGuiMod_Shift, true);
   }
@@ -1364,12 +1382,12 @@ TEST_F(TimelineDragSelectionTest, ShiftDragCreatesTimeSelection) {
 
   // Start drag in timeline area.
   // The label column is 250px wide, so timeline starts after that.
-  io.MousePos = ImVec2(308.0f, 50.0f);
+  io.MousePos = ImVec2(300.0f, 50.0f);
   io.AddMouseButtonEvent(0, true);
   SimulateFrame();
 
   // Dragging
-  io.MousePos = ImVec2(508.0f, 50.0f);
+  io.MousePos = ImVec2(500.0f, 50.0f);
   SimulateFrame();
 
   // End drag
@@ -1386,10 +1404,10 @@ TEST_F(TimelineDragSelectionTest, ShiftDragCreatesMultipleTimeSelections) {
   ImGuiIO& io = ImGui::GetIO();
 
   // First drag
-  io.MousePos = ImVec2(308.0f, 50.0f);
+  io.MousePos = ImVec2(300.0f, 50.0f);
   io.AddMouseButtonEvent(0, true);
   SimulateFrame();
-  io.MousePos = ImVec2(408.0f, 50.0f);
+  io.MousePos = ImVec2(400.0f, 50.0f);
   SimulateFrame();
   io.AddMouseButtonEvent(0, false);
   SimulateFrame();
@@ -1399,10 +1417,10 @@ TEST_F(TimelineDragSelectionTest, ShiftDragCreatesMultipleTimeSelections) {
   EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[0].end(), 15.0);
 
   // Second drag
-  io.MousePos = ImVec2(508.0f, 50.0f);
+  io.MousePos = ImVec2(500.0f, 50.0f);
   io.AddMouseButtonEvent(0, true);
   SimulateFrame();
-  io.MousePos = ImVec2(608.0f, 50.0f);
+  io.MousePos = ImVec2(600.0f, 50.0f);
   SimulateFrame();
   io.AddMouseButtonEvent(0, false);
   SimulateFrame();
@@ -1418,12 +1436,12 @@ TEST_F(TimelineDragSelectionTest, DraggingUpdatesCurrentSelectedTimeRange) {
   ImGuiIO& io = ImGui::GetIO();
 
   // Start drag in timeline area.
-  io.MousePos = ImVec2(308.0f, 50.0f);
+  io.MousePos = ImVec2(300.0f, 50.0f);
   io.AddMouseButtonEvent(0, true);
   SimulateFrame();
 
   // Dragging
-  io.MousePos = ImVec2(508.0f, 50.0f);
+  io.MousePos = ImVec2(500.0f, 50.0f);
   SimulateFrame();
 
   // During drag, current_selected_time_range_ should be set, but
@@ -1579,7 +1597,7 @@ TEST_F(RealTimelineImGuiFixture, ClickEventSetsSelectionIndices) {
   timeline_.SetVisibleRange({0.0, 100.0});
 
   // Set a mouse position that is guaranteed to be over the event.
-  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);
+  ImGui::GetIO().MousePos = ImVec2(300.f, 28.f);
   ImGui::GetIO().MouseDown[0] = true;
 
   SimulateFrame();
@@ -1671,7 +1689,7 @@ TEST_F(RealTimelineImGuiFixture, SelectionMutualExclusion) {
   timeline_.SetVisibleRange({0.0, 100.0});
 
   // Step 1: Select Flame Event
-  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);  // Over flame event
+  ImGui::GetIO().MousePos = ImVec2(300.f, 28.f);  // Over flame event
   ImGui::GetIO().MouseDown[0] = true;
   SimulateFrame();
   ImGui::GetIO().MouseDown[0] = false;
@@ -1710,7 +1728,7 @@ TEST_F(RealTimelineImGuiFixture, SelectionMutualExclusion) {
   EXPECT_EQ(timeline_.selected_counter_index(), 0);
 
   // Step 3: Select Flame Event Again
-  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);
+  ImGui::GetIO().MousePos = ImVec2(300.f, 28.f);
   ImGui::GetIO().MouseDown[0] = true;
   SimulateFrame();
 
@@ -1732,7 +1750,7 @@ TEST_F(RealTimelineImGuiFixture, ClickEmptyAreaClearsSelectionIndices) {
   timeline_.SetVisibleRange({0.0, 100.0});
 
   // Select event
-  ImGui::GetIO().MousePos = ImVec2(300.f, 40.f);
+  ImGui::GetIO().MousePos = ImVec2(300.f, 28.f);
   ImGui::GetIO().MouseDown[0] = true;
   SimulateFrame();
   ImGui::GetIO().MouseDown[0] = false;
@@ -1748,6 +1766,41 @@ TEST_F(RealTimelineImGuiFixture, ClickEmptyAreaClearsSelectionIndices) {
   EXPECT_EQ(timeline_.selected_event_index(), -1);
   EXPECT_EQ(timeline_.selected_group_index(), -1);
   EXPECT_EQ(timeline_.selected_counter_index(), -1);
+}
+
+TEST_F(RealTimelineImGuiFixture, SelectionOverlayIsDrawnOnTopOfTracks) {
+  // Ensure we have some data so tracks are drawn.
+  FlameChartTimelineData data;
+  data.groups.push_back({.name = "Group 1", .start_level = 0});
+  timeline_.set_timeline_data(std::move(data));
+
+  ImGui::NewFrame();
+  timeline_.Draw();
+
+  ImGuiWindow* timeline_window = ImGui::FindWindowByName("Timeline viewer");
+  ASSERT_NE(timeline_window, nullptr);
+
+  bool found_tracks = false;
+  bool found_overlay = false;
+  bool overlay_is_after_tracks = false;
+
+  for (ImGuiWindow* child : timeline_window->DC.ChildWindows) {
+    if (absl::StrContains(child->Name, "Tracks")) {
+      found_tracks = true;
+    } else if (absl::StrContains(child->Name, "SelectionOverlay")) {
+      found_overlay = true;
+      if (found_tracks) {
+        overlay_is_after_tracks = true;
+      }
+    }
+  }
+
+  EXPECT_TRUE(found_tracks) << "Tracks child window not found";
+  EXPECT_TRUE(found_overlay) << "SelectionOverlay child window not found";
+  EXPECT_TRUE(overlay_is_after_tracks)
+      << "SelectionOverlay should be drawn after Tracks to appear on top";
+
+  ImGui::EndFrame();
 }
 
 }  // namespace

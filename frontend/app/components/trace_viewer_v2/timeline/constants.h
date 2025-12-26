@@ -75,8 +75,13 @@ inline constexpr Pixel kSelectedBorderThickness = 2.0f;
 // go/keep-sorted start
 // A solid blue for the curtain border. #A1C9FFFF at 100% opacity.
 inline constexpr ImU32 kSelectedTimeRangeBorderColor = 0xFFFFC9A1;
-// A semi-transparent blue for the curtain highlight. #A1C9FF4D at 30% opacity.
-inline constexpr ImU32 kSelectedTimeRangeColor = 0x4DFFC9A1;
+// The color for the bottom of the selected time range gradient. #a1c9ff99 at
+// 60% opacity.
+inline constexpr ImU32 kSelectedTimeRangeBottomColor = 0x99FFC9A1;
+// The color for the top half of the selected time range gradient. #a1c9ff1a
+// at 10% opacity.
+inline constexpr ImU32 kSelectedTimeRangeTopColor = 0x1AFFC9A1;
+inline constexpr Pixel kSelectedTimeRangeTextBottomPadding = 10.0f;
 // go/keep-sorted end
 
 // Zooming and Panning Constants

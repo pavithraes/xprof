@@ -59,6 +59,7 @@ void Timeline::Draw() {
   ImGui::SetNextWindowViewport(viewport->ID);
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0.0f, 0.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
 
@@ -115,16 +116,25 @@ void Timeline::Draw() {
   HandleWheel();
   HandleMouse();
 
-  // Keep this at the end.
-  // `DrawSelectedTimeRanges` should be called after all other timeline content
-  // (events, ruler, etc.) has been drawn. This ensures that the selected time
-  // range is rendered on top of everything else within the current ImGui
-  // window, without affecting global foreground elements like tooltips.
-  DrawSelectedTimeRanges(timeline_width, px_per_time_unit_val);
-
   ImGui::EndChild();
+
+  // Draw the selected time range in a separate overlay child window.
+  // This ensures it is drawn on top of the "Tracks" child window (because it's
+  // declared after) but below tooltips (because it's a child window, not
+  // in the foreground draw list).
+  ImGui::SetCursorPos(ImVec2(0, 0));
+  ImGui::BeginChild("SelectionOverlay", ImVec2(0, 0), ImGuiChildFlags_None,
+                    ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                        ImGuiWindowFlags_NoSavedSettings |
+                        ImGuiWindowFlags_NoInputs |
+                        ImGuiWindowFlags_NoBackground);
+  DrawSelectedTimeRanges(timeline_width, px_per_time_unit_val);
+  ImGui::EndChild();
+
   ImGui::PopStyleVar();  // ItemSpacing
   ImGui::PopStyleVar();  // CellPadding
+  ImGui::PopStyleVar();  // WindowPadding
   ImGui::PopStyleVar();  // WindowRounding
   ImGui::End();          // Timeline viewer
 }
@@ -743,9 +753,8 @@ void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
 void Timeline::DrawSelectedTimeRange(const TimeRange& range,
                                      Pixel timeline_width,
                                      double px_per_time_unit_val) {
-  const ImVec2 table_rect_min = ImGui::GetItemRectMin();
-  const ImVec2 table_rect_max = ImGui::GetItemRectMax();
-  const Pixel timeline_x_start = table_rect_min.x + label_width_;
+  const ImGuiViewport* viewport = ImGui::GetMainViewport();
+  const Pixel timeline_x_start = viewport->Pos.x + label_width_;
 
   const Pixel time_range_x_start =
       TimeToScreenX(range.start(), timeline_x_start, px_per_time_unit_val);
@@ -763,18 +772,34 @@ void Timeline::DrawSelectedTimeRange(const TimeRange& range,
   if (clipped_x_end > clipped_x_start) {
     // Use the window draw list to render over all other timeline content.
     ImDrawList* const draw_list = ImGui::GetWindowDrawList();
-    draw_list->AddRectFilled(ImVec2(clipped_x_start, table_rect_min.y),
-                             ImVec2(clipped_x_end, table_rect_max.y),
-                             kSelectedTimeRangeColor);
+
+    const float rect_y_min = viewport->Pos.y;
+    const float rect_y_max = viewport->Pos.y + viewport->Size.y;
+    const float rect_y_mid = (rect_y_min + rect_y_max) * 0.5f;
+
+    // Draw the top half with a lighter color to keep the timeline content
+    // visible.
+    draw_list->AddRectFilled(ImVec2(clipped_x_start, rect_y_min),
+                             ImVec2(clipped_x_end, rect_y_mid),
+                             kSelectedTimeRangeTopColor);
+
+    // Apply the gradient only to the bottom half of the timeline.
+    // Increase the opacity of the bottom part to make the text area less
+    // transparent and the text more visible.
+    draw_list->AddRectFilledMultiColor(
+        ImVec2(clipped_x_start, rect_y_mid), ImVec2(clipped_x_end, rect_y_max),
+        kSelectedTimeRangeTopColor, kSelectedTimeRangeTopColor,
+        kSelectedTimeRangeBottomColor, kSelectedTimeRangeBottomColor);
+
     // Only draw the border if the edge of the time range is visible.
     if (time_range_x_start >= timeline_x_start) {
-      draw_list->AddLine(ImVec2(time_range_x_start, table_rect_min.y),
-                         ImVec2(time_range_x_start, table_rect_max.y),
+      draw_list->AddLine(ImVec2(time_range_x_start, rect_y_min),
+                         ImVec2(time_range_x_start, rect_y_max),
                          kSelectedTimeRangeBorderColor);
     }
     if (time_range_x_end <= timeline_x_start + timeline_width) {
-      draw_list->AddLine(ImVec2(time_range_x_end, table_rect_min.y),
-                         ImVec2(time_range_x_end, table_rect_max.y),
+      draw_list->AddLine(ImVec2(time_range_x_end, rect_y_min),
+                         ImVec2(time_range_x_end, rect_y_max),
                          kSelectedTimeRangeBorderColor);
     }
 
@@ -784,10 +809,10 @@ void Timeline::DrawSelectedTimeRange(const TimeRange& range,
     if (clipped_x_end - clipped_x_start > text_size.x) {
       const float text_x =
           clipped_x_start + (clipped_x_end - clipped_x_start - text_size.x) / 2;
-      const ImVec2 window_pos = ImGui::GetWindowPos();
-      const ImVec2 window_size = ImGui::GetWindowSize();
+      // Move the text up a little bit to avoid being too close to the bottom
+      // edge.
       const float text_y =
-          window_pos.y + window_size.y - text_size.y - kRulerTextPadding;
+          rect_y_max - text_size.y - kSelectedTimeRangeTextBottomPadding;
       draw_list->AddText(ImVec2(text_x, text_y), kRulerTextColor, text.c_str());
     }
   }
