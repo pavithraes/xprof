@@ -61,6 +61,9 @@ class Application {
   float GetDeltaTime();
 
   void UpdateImGuiDisplaySize(const CanvasState& canvas_state);
+
+  void UpdateMouseCursor();
+  ImGuiMouseCursor last_cursor_ = ImGuiMouseCursor_Arrow;
 };
 
 }  // namespace traceviewer

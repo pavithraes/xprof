@@ -858,6 +858,7 @@ void Timeline::DrawDeleteButton(ImDrawList* draw_list, const ImVec2& text_pos,
     // range from the list of selected time ranges.
     if (ImGui::IsMouseHoveringRect(button_min, button_max)) {
       button_color = kCloseButtonHoverColor;
+      ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
       // ImGui uses 0 to represent the left mouse button.
       // If the mouse is clicked on the button, remove the range from the list
       // of selected time ranges.

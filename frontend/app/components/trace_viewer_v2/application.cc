@@ -84,6 +84,9 @@ void Application::Initialize() {
   emscripten_set_keyup_callback(kWindowTarget, /*user_data=*/this,
                                 /*use_capture=*/true, HandleKeyUp);
 
+  // The canvas element is guaranteed to exist at this point, because
+  // traceViewerV2Main() in main.ts ensures it before calling callMain(), which
+  // then calls Initialize().
   // Register mouse event handlers to the canvas element.
   emscripten_set_mousemove_callback(kCanvasTarget, /*user_data=*/this,
                                     /*use_capture=*/true, HandleMouseMove);
@@ -116,7 +119,33 @@ void Application::MainLoop() {
 
   platform_->NewFrame();
   timeline_->Draw();
+  UpdateMouseCursor();
   platform_->RenderFrame();
+}
+
+void Application::UpdateMouseCursor() {
+  ImGuiMouseCursor cursor = ImGui::GetMouseCursor();
+  if (cursor == last_cursor_) return;
+  last_cursor_ = cursor;
+
+  EM_ASM(
+      {
+        // EM_ASM only supports JavaScript, not TypeScript.
+        var cursor = $0;
+        var cursor_css = 'default';
+        // TODO: b/470449677 - Support other cursor styles.
+        // https://developer.mozilla.org/en-US/docs/Web/CSS/cursor
+        // ImGuiMouseCursor_Hand = 7
+        if (cursor == 7) {
+          cursor_css = 'pointer';
+        }
+
+        // The canvas element is guaranteed to exist at this point, because
+        // traceViewerV2Main() in main.ts ensures it before calling callMain(),
+        // which then calls Initialize().
+        document.getElementById('canvas').style.cursor = cursor_css;
+      },
+      cursor);
 }
 
 void Application::Main() {

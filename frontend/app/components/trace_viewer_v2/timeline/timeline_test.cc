@@ -1505,12 +1505,20 @@ TEST_F(TimelineDragSelectionTest, ClickCloseButtonRemovesSelectedTimeRange) {
 
   // Move mouse to button and click.
   io.MousePos = button_center;
+  // Simulate a frame to update the hover state and verify the cursor changes to
+  // a hand.
+  SimulateFrame();
+  EXPECT_EQ(ImGui::GetMouseCursor(), ImGuiMouseCursor_Hand);
+
   io.AddMouseButtonEvent(0, true);
   SimulateFrame();
   io.AddMouseButtonEvent(0, false);
   SimulateFrame();
 
   EXPECT_TRUE(timeline_.selected_time_ranges().empty());
+  // Verify that the cursor changes back to an arrow after the button is
+  // removed.
+  EXPECT_EQ(ImGui::GetMouseCursor(), ImGuiMouseCursor_Arrow);
 }
 
 TEST_F(TimelineDragSelectionTest, ClickingTextDoesNotRemoveSelectedTimeRange) {
