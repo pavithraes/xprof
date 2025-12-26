@@ -7,7 +7,9 @@
 #include <iterator>
 #include <numeric>
 #include <string>
+#include <vector>
 
+#include "absl/algorithm/container.h"
 #include "absl/base/nullability.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_cat.h"
@@ -496,8 +498,7 @@ void Timeline::DrawEvent(int group_index, int event_index,
           const Microseconds end =
               start + timeline_data_.entry_total_times[event_index];
           TimeRange selected_time_range(start, end);
-          auto it = std::find(selected_time_ranges_.begin(),
-                              selected_time_ranges_.end(), selected_time_range);
+          auto it = absl::c_find(selected_time_ranges_, selected_time_range);
           // Click on the event to select, and click on the same event to
           // de-select.
           if (it != selected_time_ranges_.end()) {
@@ -813,16 +814,87 @@ void Timeline::DrawSelectedTimeRange(const TimeRange& range,
       // edge.
       const float text_y =
           rect_y_max - text_size.y - kSelectedTimeRangeTextBottomPadding;
+
+      DrawDeleteButton(draw_list, ImVec2(text_x, text_y), text_size, range);
       draw_list->AddText(ImVec2(text_x, text_y), kRulerTextColor, text.c_str());
     }
   }
 }
 
+void Timeline::DrawDeleteButton(ImDrawList* draw_list, const ImVec2& text_pos,
+                                const ImVec2& text_size,
+                                const TimeRange& range) {
+  const float button_size = kCloseButtonSize;
+  const float padding = kCloseButtonPadding;
+
+  const ImVec2 button_pos(text_pos.x + text_size.x + padding,
+                          text_pos.y + (text_size.y - button_size) / 2.0f);
+
+  const ImVec2 text_min = text_pos;
+  const ImVec2 text_max(text_pos.x + text_size.x, text_pos.y + text_size.y);
+
+  const ImVec2 button_min = button_pos;
+  const ImVec2 button_max(button_pos.x + button_size,
+                          button_pos.y + button_size);
+
+  // Expand the hover area to include both the text and the button, with a
+  // small margin.
+  ImVec2 hover_min(std::min(text_min.x, button_min.x),
+                   std::min(text_min.y, button_min.y));
+  ImVec2 hover_max(std::max(text_max.x, button_max.x),
+                   std::max(text_max.y, button_max.y));
+
+  hover_min.x -= 2.0f;
+  hover_min.y -= 2.0f;
+  hover_max.x += 2.0f;
+  hover_max.y += 2.0f;
+
+  // If the mouse is hovering over the text area, draw the button.
+  if (ImGui::IsMouseHoveringRect(hover_min, hover_max)) {
+    ImU32 button_color = kCloseButtonColor;
+
+    // If the mouse is hovering over the button, change the color to the
+    // hover color. Also, if the mouse is clicked on the button, remove the
+    // range from the list of selected time ranges.
+    if (ImGui::IsMouseHoveringRect(button_min, button_max)) {
+      button_color = kCloseButtonHoverColor;
+      // ImGui uses 0 to represent the left mouse button.
+      // If the mouse is clicked on the button, remove the range from the list
+      // of selected time ranges.
+      if (ImGui::IsMouseClicked(0)) {
+        auto it = absl::c_find(selected_time_ranges_, range);
+        if (it != selected_time_ranges_.end()) {
+          selected_time_ranges_.erase(it);
+        }
+      }
+    }
+
+    const ImVec2 center(button_min.x + button_size / 2.0f,
+                        button_min.y + button_size / 2.0f);
+    draw_list->AddCircleFilled(center, button_size / 2.0f, button_color);
+
+    const float x_radius = button_size * 0.25f;
+    draw_list->AddLine(ImVec2(center.x - x_radius, center.y - x_radius),
+                       ImVec2(center.x + x_radius, center.y + x_radius),
+                       kWhiteColor);
+    draw_list->AddLine(ImVec2(center.x - x_radius, center.y + x_radius),
+                       ImVec2(center.x + x_radius, center.y - x_radius),
+                       kWhiteColor);
+  }
+}
+
 void Timeline::DrawSelectedTimeRanges(Pixel timeline_width,
                                       double px_per_time_unit_val) {
-  for (const TimeRange& selected_time_range : selected_time_ranges_) {
-    DrawSelectedTimeRange(selected_time_range, timeline_width,
-                          px_per_time_unit_val);
+  // We make a copy of the selected time ranges because DrawSelectedTimeRange
+  // might modify `selected_time_ranges_` (e.g. by deleting a range), which
+  // would invalidate iterators if we were iterating over the original vector.
+  // We want to iterate over the ranges as they were at the start of the frame.
+  // Note that `selected_time_ranges_` contains only user-created selections
+  // (typically very few), not the trace events, so this copy is negligible in
+  // terms of memory and performance.
+  std::vector<TimeRange> ranges_to_draw = selected_time_ranges_;
+  for (const auto& range : ranges_to_draw) {
+    DrawSelectedTimeRange(range, timeline_width, px_per_time_unit_val);
   }
 
   if (current_selected_time_range_) {

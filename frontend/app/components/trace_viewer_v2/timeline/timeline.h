@@ -215,6 +215,11 @@ class Timeline {
   void DrawSelectedTimeRange(const TimeRange& range, Pixel timeline_width,
                              double px_per_time_unit_val);
 
+  // Draws a delete button next to the text. Deletes the time range if the
+  // button is clicked.
+  void DrawDeleteButton(ImDrawList* draw_list, const ImVec2& text_pos,
+                        const ImVec2& text_size, const TimeRange& range);
+
   // Draws all the selected time ranges, including the current selected range.
   void DrawSelectedTimeRanges(Pixel timeline_width,
                               double px_per_time_unit_val);

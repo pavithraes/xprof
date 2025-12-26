@@ -84,6 +84,14 @@ inline constexpr ImU32 kSelectedTimeRangeTopColor = 0x1AFFC9A1;
 inline constexpr Pixel kSelectedTimeRangeTextBottomPadding = 10.0f;
 // go/keep-sorted end
 
+// Close Button Constants
+// go/keep-sorted start
+inline constexpr ImU32 kCloseButtonColor = IM_COL32(128, 128, 128, 255);
+inline constexpr ImU32 kCloseButtonHoverColor = IM_COL32(100, 100, 100, 255);
+inline constexpr Pixel kCloseButtonPadding = 4.0f;
+inline constexpr Pixel kCloseButtonSize = 14.0f;
+// go/keep-sorted end
+
 // Zooming and Panning Constants
 // These constants control the zooming and panning behavior of the timeline.
 // go/keep-sorted start

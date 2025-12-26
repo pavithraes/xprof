@@ -1463,6 +1463,95 @@ TEST_F(TimelineDragSelectionTest, DraggingUpdatesCurrentSelectedTimeRange) {
   EXPECT_DOUBLE_EQ(timeline_.selected_time_ranges()[0].end(), 25.0);
 }
 
+TEST_F(TimelineDragSelectionTest, ClickCloseButtonRemovesSelectedTimeRange) {
+  ImGuiIO& io = ImGui::GetIO();
+
+  // Start drag in timeline area.
+  io.MousePos = ImVec2(300.0f, 50.0f);
+  io.AddMouseButtonEvent(0, true);
+  SimulateFrame();
+
+  // Dragging
+  io.MousePos = ImVec2(500.0f, 50.0f);
+  SimulateFrame();
+
+  // End drag
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 1);
+
+  // Calculate button position.
+  // The range is [5.0, 25.0], duration is 20.0 us.
+  // FormatTime uses %.4g and non-breaking space. 20.0 becomes "20".
+  const std::string text = "20\xc2\xa0us";
+  const ImVec2 text_size = ImGui::CalcTextSize(text.c_str());
+
+  // Coordinates:
+  // timeline_x_start = 250.0f (label_width)
+  // range_start_x = 300.0f
+  // range_end_x = 500.0f
+  // text_x = 300 + (200 - text_size.x) / 2
+  // text_y = 1080 - text_size.y - kSelectedTimeRangeTextBottomPadding (10.0f)
+  const float text_x = 300.0f + (200.0f - text_size.x) / 2.0f;
+  const float text_y =
+      io.DisplaySize.y - text_size.y - kSelectedTimeRangeTextBottomPadding;
+
+  const float button_x = text_x + text_size.x + kCloseButtonPadding;
+  const float button_y = text_y + (text_size.y - kCloseButtonSize) / 2.0f;
+
+  const ImVec2 button_center(button_x + kCloseButtonSize / 2.0f,
+                             button_y + kCloseButtonSize / 2.0f);
+
+  // Move mouse to button and click.
+  io.MousePos = button_center;
+  io.AddMouseButtonEvent(0, true);
+  SimulateFrame();
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  EXPECT_TRUE(timeline_.selected_time_ranges().empty());
+}
+
+TEST_F(TimelineDragSelectionTest, ClickingTextDoesNotRemoveSelectedTimeRange) {
+  ImGuiIO& io = ImGui::GetIO();
+
+  // Start drag in timeline area.
+  io.MousePos = ImVec2(300.0f, 50.0f);
+  io.AddMouseButtonEvent(0, true);
+  SimulateFrame();
+
+  // Dragging
+  io.MousePos = ImVec2(500.0f, 50.0f);
+  SimulateFrame();
+
+  // End drag
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  ASSERT_EQ(timeline_.selected_time_ranges().size(), 1);
+
+  // FormatTime uses %.4g and non-breaking space. 20.0 becomes "20".
+  const std::string text = "20\xc2\xa0us";
+  const ImVec2 text_size = ImGui::CalcTextSize(text.c_str());
+
+  const float text_x = 300.0f + (200.0f - text_size.x) / 2.0f;
+  const float text_y =
+      io.DisplaySize.y - text_size.y - kSelectedTimeRangeTextBottomPadding;
+
+  // Click on the text (center of text).
+  const ImVec2 text_center(text_x + text_size.x / 2.0f,
+                           text_y + text_size.y / 2.0f);
+
+  io.MousePos = text_center;
+  io.AddMouseButtonEvent(0, true);
+  SimulateFrame();
+  io.AddMouseButtonEvent(0, false);
+  SimulateFrame();
+
+  EXPECT_EQ(timeline_.selected_time_ranges().size(), 1);
+}
+
 TEST_F(RealTimelineImGuiFixture, DrawCounterTrack) {
   FlameChartTimelineData data;
   data.groups.push_back({.type = Group::Type::kCounter,
