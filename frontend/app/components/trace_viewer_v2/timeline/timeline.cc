@@ -745,7 +745,7 @@ void Timeline::DrawGroup(int group_index, double px_per_time_unit_val) {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     float line_y = ImGui::GetItemRectMax().y + ImGui::GetStyle().CellPadding.y;
-    draw_list->AddLine(ImVec2(viewport->Pos.x + label_width_ + 15, line_y),
+    draw_list->AddLine(ImVec2(viewport->Pos.x + label_width_, line_y),
                        ImVec2(viewport->Pos.x + viewport->Size.x, line_y),
                        kLightGrayColor);
   }
