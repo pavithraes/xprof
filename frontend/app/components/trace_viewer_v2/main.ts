@@ -321,6 +321,10 @@ async function handleFetchDataEvent(
   }
 
   try {
+    window.dispatchEvent(new CustomEvent(LOADING_STATUS_UPDATE_EVENT_NAME, {
+      detail: {status: TraceViewerV2LoadingStatus.LOADING_DATA},
+    }));
+
     const urlObj = new URL(currentDataUrl, window.location.href);
 
     urlObj.searchParams.set(
@@ -336,12 +340,40 @@ async function handleFetchDataEvent(
     const jsonData = await loadJsonDataInternal(urlObj.toString());
     if (!isTraceData(jsonData)) {
       console.error('File does not contain valid trace events.');
+      window.dispatchEvent(new CustomEvent(LOADING_STATUS_UPDATE_EVENT_NAME, {
+        detail: {status: TraceViewerV2LoadingStatus.IDLE},
+      }));
       return;
     }
+
+    window.dispatchEvent(new CustomEvent(LOADING_STATUS_UPDATE_EVENT_NAME, {
+      detail: {status: TraceViewerV2LoadingStatus.PROCESSING_DATA},
+    }));
+
+    // Yield to the event loop to allow the UI to re-render and display the
+    // 'Processing data' status before the potentially long-running
+    // processTraceEvents call.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
     traceviewerModule.processTraceEvents(
         jsonData, /* timeRangeFromUrl= */ undefined);
+
+    window.dispatchEvent(new CustomEvent(LOADING_STATUS_UPDATE_EVENT_NAME, {
+      detail: {status: TraceViewerV2LoadingStatus.IDLE},
+    }));
   } catch (e) {
     console.error('Error fetching new data:', e);
+    const error = e as Error;
+    window.dispatchEvent(
+        new CustomEvent(LOADING_STATUS_UPDATE_EVENT_NAME, {
+          detail: {
+            status: TraceViewerV2LoadingStatus.ERROR,
+            message: error.message,
+          },
+        }),
+    );
   }
 }
 
