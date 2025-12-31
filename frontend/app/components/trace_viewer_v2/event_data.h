@@ -25,8 +25,9 @@ inline constexpr absl::string_view kEventSelectedName = "name";
 
 // Constants for fetch data event.
 inline constexpr absl::string_view kFetchData = "fetch_data";
-inline constexpr absl::string_view kFetchDataStart = "start";
-inline constexpr absl::string_view kFetchDataEnd = "end";
+
+inline constexpr absl::string_view kFetchDataStart = "start_time_ms";
+inline constexpr absl::string_view kFetchDataEnd = "end_time_ms";
 
 }  // namespace traceviewer
 

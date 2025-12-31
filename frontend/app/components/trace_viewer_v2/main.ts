@@ -42,6 +42,8 @@ export const TRACE_OPTIONS = {
  */
 export const TRACE_VIEW_OPTION = {
   RESOLUTION: 'resolution',
+  START_TIME_MS: 'start_time_ms',
+  END_TIME_MS: 'end_time_ms',
 } as const;
 
 /**
@@ -49,6 +51,12 @@ export const TRACE_VIEW_OPTION = {
  * Trace Viewer v2.
  */
 export const LOADING_STATUS_UPDATE_EVENT_NAME = 'loadingstatusupdate';
+
+/**
+ * The name of the request data custom event, dispatched from the UI when the
+ * user requests new data (e.g. by zooming or panning).
+ */
+export const FETCH_DATA_EVENT_NAME = 'fetch_data';
 
 /**
  * The loading status of the trace viewer, used to update the loading status
@@ -195,29 +203,21 @@ function setupFileInputHandler(traceviewerModule: TraceViewerV2Module) {
 }
 
 /**
- * Updates a URL with a `resolution` parameter based on the canvas width.
+ * Updates a URL object in-place with a `resolution` parameter based on the
+ * canvas width.
  *
  * The resolution is calculated to optimize the number of trace events fetched
  * from the backend, preventing over-fetching of data that would not be visible.
  * If certain trace options are present (like filtering), resolution is set to 0
  * to fetch all data.
  *
- * @param url The URL to update.
+ * @param urlObj The URL object to update.
  * @param canvas The canvas element used to determine the viewer width.
- * @return The updated URL string with the resolution parameter.
  */
 export function updateUrlWithResolution(
-    url: string,
+    urlObj: URL,
     canvas: HTMLCanvasElement|null|undefined,
-    ): string {
-  let urlObj: URL;
-  try {
-    urlObj = new URL(url, window.location.href);
-  } catch (e) {
-    console.error('Invalid URL:', url, e);
-    return url;
-  }
-
+    ): void {
   const params = urlObj.searchParams;
 
   // Default resolution to 0, which fetches all data.
@@ -239,7 +239,6 @@ export function updateUrlWithResolution(
   }
 
   params.set(TRACE_VIEW_OPTION.RESOLUTION, resolution.toString());
-  return urlObj.toString();
 }
 
 // Fetches JSON data from the given URL. The `response.json()` method returns
@@ -258,6 +257,62 @@ async function loadJsonDataInternal(url: string): Promise<unknown> {
   }
 }
 
+declare interface FetchDataEventDetail {
+  start_time_ms: number;
+  end_time_ms: number;
+}
+
+function isFetchDataEvent(
+    event: Event,
+    ): event is CustomEvent<FetchDataEventDetail> {
+  return (
+      event instanceof CustomEvent && event.detail &&
+      typeof event.detail.start_time_ms === 'number' &&
+      typeof event.detail.end_time_ms === 'number');
+}
+
+async function handleFetchDataEvent(
+    event: Event,
+    currentDataUrl: string|null,
+    traceviewerModule: TraceViewerV2Module|null,
+) {
+  if (!isFetchDataEvent(event)) {
+    return;
+  }
+  const detail = event.detail;
+  if (!currentDataUrl) {
+    console.warn('Data URL not set, cannot fetch new data.');
+    return;
+  }
+  if (!traceviewerModule) {
+    console.warn('Trace viewer module not initialized.');
+    return;
+  }
+
+  try {
+    const urlObj = new URL(currentDataUrl, window.location.href);
+
+    urlObj.searchParams.set(
+        TRACE_VIEW_OPTION.START_TIME_MS, String(detail.start_time_ms));
+    urlObj.searchParams.set(
+        TRACE_VIEW_OPTION.END_TIME_MS, String(detail.end_time_ms));
+
+    // Update resolution
+    updateUrlWithResolution(urlObj, traceviewerModule.canvas);
+
+    // TODO(b/470214911): Add support for additional query parameters to allow
+    // for filtering by specific events, groups, or other criteria.
+    const jsonData = await loadJsonDataInternal(urlObj.toString());
+    if (!isTraceData(jsonData)) {
+      console.error('File does not contain valid trace events.');
+      return;
+    }
+    traceviewerModule.processTraceEvents(jsonData);
+  } catch (e) {
+    console.error('Error fetching new data:', e);
+  }
+}
+
 /**
  * Initializes the Trace Viewer v2 application.
  * This function sets up the necessary environment, including requesting a
@@ -271,6 +326,7 @@ async function loadJsonDataInternal(url: string): Promise<unknown> {
  */
 export async function traceViewerV2Main(): Promise<TraceViewerV2Module|null> {
   let traceviewerModule: TraceViewerV2Module|null = null;
+  let currentDataUrl: string|null = null;
 
   try {
     traceviewerModule = await initGpuAndStartWasmApp();
@@ -284,12 +340,23 @@ export async function traceViewerV2Main(): Promise<TraceViewerV2Module|null> {
 
   // Add a method to the module to load data from a URL
   traceviewerModule.loadJsonData = async (url: string) => {
+    currentDataUrl = url;
     try {
       window.dispatchEvent(new CustomEvent(LOADING_STATUS_UPDATE_EVENT_NAME, {
         detail: {status: TraceViewerV2LoadingStatus.LOADING_DATA},
       }));
 
-      const fullUrl = updateUrlWithResolution(url, traceviewerModule.canvas);
+      let fullUrl = url;
+      try {
+        const urlObj = new URL(url, window.location.href);
+
+        updateUrlWithResolution(urlObj, traceviewerModule.canvas);
+
+        fullUrl = urlObj.toString();
+      } catch (e) {
+        console.error('Invalid URL:', url, e);
+      }
+
       const jsonData = await loadJsonDataInternal(fullUrl);
       if (!isTraceData(jsonData)) {
         console.error('File does not contain valid trace events.');
@@ -330,6 +397,10 @@ export async function traceViewerV2Main(): Promise<TraceViewerV2Module|null> {
       );
     }
   };
+
+  window.addEventListener(FETCH_DATA_EVENT_NAME, (event: Event) => {
+    handleFetchDataEvent(event, currentDataUrl, traceviewerModule);
+  });
 
   // TODO(b/459575608): This should be updated when emscripten bindings
   // are updated.
