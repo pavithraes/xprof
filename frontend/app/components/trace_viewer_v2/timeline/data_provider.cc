@@ -16,6 +16,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/helper/time_formatter.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/timeline.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/trace_helper/trace_event.h"
@@ -424,6 +425,14 @@ void DataProvider::ProcessTraceEvents(const ParsedTraceEvents& parsed_events,
   } else {
     timeline.set_fetched_data_time_range(TimeRange::Zero());
     timeline.SetVisibleRange(TimeRange::Zero());
+  }
+
+  if (parsed_events.full_timespan.has_value()) {
+    Microseconds start = MillisToMicros(parsed_events.full_timespan->first);
+    Microseconds end = MillisToMicros(parsed_events.full_timespan->second);
+    timeline.set_data_time_range({start, end});
+  } else {
+    timeline.set_data_time_range(timeline.fetched_data_time_range());
   }
 }
 

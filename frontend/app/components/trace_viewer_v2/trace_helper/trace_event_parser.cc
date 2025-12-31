@@ -13,6 +13,8 @@ namespace traceviewer {
 
 namespace {
 
+constexpr char kFullTimespan[] = "fullTimespan";
+
 Phase ParsePhase(const std::string& ph_str) {
   if (!ph_str.empty()) {
     switch (ph_str[0]) {
@@ -157,6 +159,17 @@ ParsedTraceEvents ParseTraceEvents(const emscripten::val& trace_data) {
   // Vectors typically double in capacity upon reallocation; shrinking ensures
   // memory usage matches the actual data size.
   result.counter_events.shrink_to_fit();
+
+  if (trace_data.hasOwnProperty(kFullTimespan)) {
+    emscripten::val span = trace_data[kFullTimespan];
+    if (span["length"].as<int>() == 2) {
+      Milliseconds start = span[0].as<Milliseconds>();
+      Milliseconds end = span[1].as<Milliseconds>();
+      if (start >= 0 && end >= 0 && start <= end) {
+        result.full_timespan = std::make_pair(start, end);
+      }
+    }
+  }
 
   return result;
 }
