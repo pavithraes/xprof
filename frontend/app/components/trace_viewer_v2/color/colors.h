@@ -24,6 +24,16 @@ inline constexpr ImU32 kPurple70 = 0xFFFF97C5;
 inline constexpr ImU32 kYellow90 = 0xFF7CE0FF;
 // go/keep-sorted end
 
+// Baseline palette:
+// go/keep-sorted start
+// GM3 "inverse on surface" #F2F2F2
+inline constexpr ImU32 kInverseOnSurfaceColor = 0xFFF2F2F2;
+// GM3 "outline" #747775
+inline constexpr ImU32 kOutlineColor = 0xFF757774;
+// GM3 "outline variant" #C4C7C5
+inline constexpr ImU32 kOutlineVariantColor = 0xFFC5C7C4;
+// go/keep-sorted end
+
 }  // namespace traceviewer
 
 #endif  // THIRD_PARTY_XPROF_FRONTEND_APP_COMPONENTS_TRACE_VIEWER_V2_COLOR_COLORS_H_

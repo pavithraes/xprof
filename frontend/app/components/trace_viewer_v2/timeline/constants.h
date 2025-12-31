@@ -32,14 +32,17 @@ inline constexpr Pixel kCounterTrackHeight = 40.0f;
 // Ruler Constants
 // These constants are used for drawing the timeline ruler.
 // go/keep-sorted start
-inline constexpr ImU32 kRulerLineColor = kBlackColor;
-inline constexpr ImU32 kRulerTextColor = kBlackColor;
+inline constexpr ImU32 kRulerLineColor = kOutlineVariantColor;
+inline constexpr ImU32 kRulerTextColor = kOutlineColor;
+inline constexpr ImU32 kTraceVerticalLineColor = kInverseOnSurfaceColor;
 inline constexpr Pixel kMinTickDistancePx = 80.0f;
 inline constexpr Pixel kRulerHeight = 20.0f;
+// The height of the minor ticks on the ruler. Major ticks span the full height
+// of the ruler.
+inline constexpr Pixel kRulerMinorTickHeight = 8.0f;
 // The buffer for drawing elements slightly off-screen to avoid pop-in.
 inline constexpr Pixel kRulerScreenBuffer = 5.0f;
 inline constexpr Pixel kRulerTextPadding = 2.0f;
-inline constexpr Pixel kRulerTickHeight = 8.0f;
 inline constexpr int kMinorTickDivisions = 5;
 // go/keep-sorted end
 

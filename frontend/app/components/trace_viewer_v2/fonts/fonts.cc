@@ -1,17 +1,23 @@
 #include "xprof/frontend/app/components/trace_viewer_v2/fonts/fonts.h"
 
+#include <tuple>
 #include <vector>
 
-#include "xprof/frontend/app/components/trace_viewer_v2/fonts/roboto_light.h"
-#include "xprof/frontend/app/components/trace_viewer_v2/fonts/roboto_regular.h"
 #include "absl/log/log.h"
 #include "third_party/dear_imgui/imgui.h"
 #include "third_party/dear_imgui/misc/freetype/imgui_freetype.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/fonts/roboto_light.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/fonts/roboto_regular.h"
 
 namespace traceviewer::fonts {
 
 ImFont* body = nullptr;
 ImFont* caption = nullptr;
+ImFont* label_small = nullptr;
+
+// The font sizes correspond to the GM3 Typography Type scale tokens.
+constexpr float kBodyFontSize = 14.0f;
+constexpr float kLabelSmallFontSize = 11.0f;
 
 void LoadFonts(float pixel_ratio) {
   ImGuiIO& io = ImGui::GetIO();
@@ -41,7 +47,9 @@ void LoadFonts(float pixel_ratio) {
   const char* kFontRegular = roboto_regular_compressed_data_base85;
 
   // TODO: b/444025890 - Get the fonts and sizes from the UX design.
-  auto styles = std::vector{std::tuple(&body, 14.0f, kFontRegular)};
+  auto styles =
+      std::vector{std::tuple(&body, kBodyFontSize, kFontRegular),
+                  std::tuple(&label_small, kLabelSmallFontSize, kFontRegular)};
 
   for (const auto& [font_ptr, base_size, font_data] : styles) {
     // We don't multiply the base_size by pixel_ratio because the font sizes are

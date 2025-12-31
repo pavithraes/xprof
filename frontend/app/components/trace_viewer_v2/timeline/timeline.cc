@@ -19,6 +19,7 @@
 #include "third_party/dear_imgui/imgui_internal.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/color/color_generator.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/event_data.h"
+#include "xprof/frontend/app/components/trace_viewer_v2/fonts/fonts.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/helper/time_formatter.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/constants.h"
 #include "xprof/frontend/app/components/trace_viewer_v2/timeline/time_range.h"
@@ -61,6 +62,7 @@ void Timeline::Draw() {
   ImGui::SetNextWindowViewport(viewport->ID);
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0.0f, 0.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
@@ -137,6 +139,7 @@ void Timeline::Draw() {
   ImGui::PopStyleVar();  // ItemSpacing
   ImGui::PopStyleVar();  // CellPadding
   ImGui::PopStyleVar();  // WindowPadding
+  ImGui::PopStyleVar();  // WindowBorderSize
   ImGui::PopStyleVar();  // WindowRounding
   ImGui::End();          // Timeline viewer
 }
@@ -404,14 +407,19 @@ void Timeline::DrawRuler(Pixel timeline_width, Pixel viewport_bottom) {
 
         // Draw major tick.
         if (x >= pos.x - kRulerScreenBuffer) {
-          draw_list->AddLine(ImVec2(x, line_y - kRulerTickHeight),
-                             ImVec2(x, line_y), kRulerLineColor);
-          draw_list->AddLine(ImVec2(x, line_y), ImVec2(x, viewport_bottom),
-                             kLightGrayColor);
+          // Draw major tick.
+          draw_list->AddLine(ImVec2(x, pos.y), ImVec2(x, line_y),
+                             kRulerLineColor);
 
-          const std::string text = FormatTime(t_relative);
+          // Draw vertical line across the tracks.
+          draw_list->AddLine(ImVec2(x, line_y), ImVec2(x, viewport_bottom),
+                             kTraceVerticalLineColor);
+
+          const std::string time_label_text = FormatTime(t_relative);
+          ImGui::PushFont(fonts::label_small);
           draw_list->AddText(ImVec2(x + kRulerTextPadding, pos.y),
-                             kRulerTextColor, text.c_str());
+                             kRulerTextColor, time_label_text.c_str());
+          ImGui::PopFont();
         }
 
         // Draw minor ticks for the current interval.
@@ -421,9 +429,8 @@ void Timeline::DrawRuler(Pixel timeline_width, Pixel viewport_bottom) {
             break;
           }
           if (minor_x >= pos.x - kRulerScreenBuffer) {
-            draw_list->AddLine(
-                ImVec2(minor_x, line_y - kRulerTickHeight / 2.0f),
-                ImVec2(minor_x, line_y), kRulerLineColor);
+            draw_list->AddLine(ImVec2(minor_x, line_y - kRulerMinorTickHeight),
+                               ImVec2(minor_x, line_y), kRulerLineColor);
           }
         }
       }
