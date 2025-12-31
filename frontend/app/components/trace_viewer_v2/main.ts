@@ -398,6 +398,16 @@ export async function traceViewerV2Main(): Promise<TraceViewerV2Module|null> {
       }
 
       const timeRangeFromUrl = getTimeRangeFromUrl(urlObj);
+      // If the time range is present in the URL, we just need to fetch the
+      // visible part.
+      // TODO(b/471367724): We may need to expand the time range by FETCH_RATIO
+      // like Trace Viewer v1.
+      if (timeRangeFromUrl) {
+        urlObj.searchParams.set(
+            TRACE_VIEW_OPTION.START_TIME_MS, String(timeRangeFromUrl[0]));
+        urlObj.searchParams.set(
+            TRACE_VIEW_OPTION.END_TIME_MS, String(timeRangeFromUrl[1]));
+      }
 
       updateUrlWithResolution(urlObj, traceviewerModule.canvas);
 
