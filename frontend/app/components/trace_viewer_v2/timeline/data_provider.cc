@@ -421,14 +421,23 @@ void DataProvider::ProcessTraceEvents(const ParsedTraceEvents& parsed_events,
   // handle any potential issues with max_time.
   if (time_bounds.min < std::numeric_limits<Microseconds>::max()) {
     timeline.set_fetched_data_time_range({time_bounds.min, time_bounds.max});
+
+    // TODO: b/460265076 - Change the logic here for visible range after
+    // we decided how to handle the visible range in url.
     if (parsed_events.visible_range_from_url.has_value()) {
       Microseconds start =
           MillisToMicros(parsed_events.visible_range_from_url->first);
       Microseconds end =
           MillisToMicros(parsed_events.visible_range_from_url->second);
+
       timeline.SetVisibleRange({start, end});
     } else {
-      timeline.SetVisibleRange({time_bounds.min, time_bounds.max});
+      // If the visible range is not zero, we just keep it. This happens when
+      // the incremental loading is triggered and we don't want to override the
+      // current visible range.
+      if (timeline.visible_range() == TimeRange::Zero()) {
+        timeline.SetVisibleRange({time_bounds.min, time_bounds.max});
+      }
     }
   } else {
     timeline.set_fetched_data_time_range(TimeRange::Zero());

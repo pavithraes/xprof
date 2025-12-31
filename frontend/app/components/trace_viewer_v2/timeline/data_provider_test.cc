@@ -665,5 +665,31 @@ TEST_F(DataProviderTest,
   EXPECT_EQ(counter_data.values.capacity(), kTotalEntries);
 }
 
+TEST_F(DataProviderTest, ProcessTraceEventsPreservesVisibleRange) {
+  // Initial load
+  const std::vector<TraceEvent> events1 = {
+      TraceEvent{Phase::kComplete, 1, 1, "Event 1", 1000.0, 100.0}};
+  data_provider_.ProcessTraceEvents({events1, {}}, timeline_);
+
+  // Set visible range to something specific (simulating zoom).
+  timeline_.SetVisibleRange({1020.0, 1050.0});
+  TimeRange visible_before = timeline_.visible_range();
+
+  // Incremental load (new events, but within or related to current view)
+  const std::vector<TraceEvent> events2 = {
+      TraceEvent{Phase::kComplete, 1, 1, "Event 1", 1000.0, 100.0},
+      TraceEvent{Phase::kComplete, 1, 1, "Event 2", 1200.0, 100.0}};
+
+  data_provider_.ProcessTraceEvents({events2, {}}, timeline_);
+
+  // Verify visible range is preserved.
+  EXPECT_DOUBLE_EQ(timeline_.visible_range().start(), visible_before.start());
+  EXPECT_DOUBLE_EQ(timeline_.visible_range().end(), visible_before.end());
+
+  // Verify fetched data range is updated.
+  EXPECT_DOUBLE_EQ(timeline_.fetched_data_time_range().start(), 1000.0);
+  EXPECT_DOUBLE_EQ(timeline_.fetched_data_time_range().end(), 1300.0);
+}
+
 }  // namespace
 }  // namespace traceviewer
