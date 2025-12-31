@@ -132,7 +132,9 @@ void ParseAndAppend(const emscripten::val& event, ParsedTraceEvents& result) {
 
 }  // namespace
 
-ParsedTraceEvents ParseTraceEvents(const emscripten::val& trace_data) {
+ParsedTraceEvents ParseTraceEvents(
+    const emscripten::val& trace_data,
+    const emscripten::val& visible_range_from_url) {
   ParsedTraceEvents result;
   if (!trace_data.hasOwnProperty("traceEvents")) {
     return result;
@@ -171,11 +173,21 @@ ParsedTraceEvents ParseTraceEvents(const emscripten::val& trace_data) {
     }
   }
 
+  if (!visible_range_from_url.isNull() &&
+      !visible_range_from_url.isUndefined() &&
+      visible_range_from_url["length"].as<int>() == 2) {
+    Milliseconds start = visible_range_from_url[0].as<Milliseconds>();
+    Milliseconds end = visible_range_from_url[1].as<Milliseconds>();
+    result.visible_range_from_url = std::make_pair(start, end);
+  }
+
   return result;
 }
 
-void ParseAndProcessTraceEvents(const emscripten::val& trace_data) {
-  const ParsedTraceEvents parsed_events = ParseTraceEvents(trace_data);
+void ParseAndProcessTraceEvents(const emscripten::val& trace_data,
+                                const emscripten::val& visible_range_from_url) {
+  const ParsedTraceEvents parsed_events =
+      ParseTraceEvents(trace_data, visible_range_from_url);
 
   Application::Instance().data_provider().ProcessTraceEvents(
       parsed_events, Application::Instance().timeline());

@@ -67,6 +67,8 @@ struct ParsedTraceEvents {
   // The full timespan of the trace, from the earliest event timestamp to the
   // latest event timestamp, in milliseconds.
   std::optional<std::pair<Milliseconds, Milliseconds>> full_timespan;
+  // The initial visible range in milliseconds.
+  std::optional<std::pair<Milliseconds, Milliseconds>> visible_range_from_url;
 
   bool mpmd_pipeline_view = false;
 };
