@@ -51,6 +51,10 @@ Microseconds MillisToMicros(double time_ms) {
   return time_ms * kMicrosPerMilli;
 }
 
+Milliseconds MicrosToMillis(Microseconds time_us) {
+  return time_us / kMicrosPerMilli;
+}
+
 Microseconds CalculateNiceInterval(Microseconds min_interval) {
   if (min_interval <= 0) return 1.0;
 

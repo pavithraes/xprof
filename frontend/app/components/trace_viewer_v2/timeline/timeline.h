@@ -137,6 +137,10 @@ class Timeline {
     return mpmd_pipeline_view_enabled_;
   }
 
+  void set_is_incremental_loading(bool is_incremental_loading) {
+    is_incremental_loading_ = is_incremental_loading;
+  }
+
   void Draw();
 
   // Calculates the screen coordinates of the rectangle for an event.
@@ -258,6 +262,13 @@ class Timeline {
   static constexpr ImGuiWindowFlags kLaneFlags =
       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 
+  // Checks if the visible time range is close to the edge of the loaded data
+  // range. If the user pans or zooms to an area where data might soon be
+  // needed (i.e., outside the `preserve` range), this function triggers a data
+  // fetch request for a larger range (`fetch` range) to ensure data is
+  // available before it becomes visible, providing a smoother user experience.
+  void MaybeRequestData();
+
   FlameChartTimelineData timeline_data_;
   // TODO - b/444026851: Set the label width based on the real screen width.
   Pixel label_width_ = 250.0f;
@@ -303,6 +314,10 @@ class Timeline {
   std::vector<TimeRange> selected_time_ranges_;
   Microseconds drag_start_time_ = 0.0;
   std::optional<TimeRange> current_selected_time_range_;
+
+  // Initialize to true to prevent sending request in the initial load where
+  // JS side is already fetching the data.
+  bool is_incremental_loading_ = true;
 };
 
 }  // namespace traceviewer
