@@ -2004,6 +2004,40 @@ TEST_F(RealTimelineImGuiFixture, SelectionOverlayIsDrawnOnTopOfTracks) {
   ImGui::EndFrame();
 }
 
+TEST_F(RealTimelineImGuiFixture, MaybeRequestDataRefetchWhenZoomedIn) {
+  // Data range: [0, 1000].
+  // Fetched range: [0, 1000].
+  // Visible range: [100, 101]. Duration 1.
+  // Fetch range (Scale 3.0): [99, 102]. Duration 3.
+  // fetched_duration / fetch_duration = 1000 / 3 = 333.3 > kRefetchZoomRatio
+  // (8.0).
+  // Expect refetch.
+
+  timeline_.set_data_time_range({0.0, 1000.0});
+  timeline_.set_fetched_data_time_range({0.0, 1000.0});
+  timeline_.set_is_incremental_loading(false);
+
+  bool request_triggered = false;
+  EventData received_data;
+  timeline_.set_event_callback(
+      [&](absl::string_view type, const EventData& detail) {
+        if (type == kFetchData) {
+          request_triggered = true;
+          received_data = detail;
+        }
+      });
+
+  timeline_.SetVisibleRange({100.0, 101.0});
+
+  ASSERT_TRUE(request_triggered);
+  EXPECT_DOUBLE_EQ(
+      std::any_cast<double>(received_data.at(std::string(kFetchDataStart))),
+      99.0 / 1000.0);
+  EXPECT_DOUBLE_EQ(
+      std::any_cast<double>(received_data.at(std::string(kFetchDataEnd))),
+      102.0 / 1000.0);
+}
+
 }  // namespace
 }  // namespace testing
 }  // namespace traceviewer

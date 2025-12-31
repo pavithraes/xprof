@@ -1074,12 +1074,30 @@ void Timeline::HandleEventDeselection() {
 void Timeline::MaybeRequestData() {
   if (is_incremental_loading_) return;
 
+  // We have several ranges of interest for incremental loading:
+  //
+  // |-----------data_time_range_---------|                  Full trace duration
+  //     |---------fetch----------|         Amount to fetch on load (viewport*3)
+  //         |----preserve----|               Buffer to keep loaded (viewport*2)
+  //             |viewport|              aka current_visible: On-screen viewport
+  //
+  // If 'preserve' isn't contained in 'fetched_data_time_range_', or resolution
+  // is too coarse, a new load of 'fetch' range is triggered.
+  // - fetched_data_time_range_: The time range covered by data currently
+  // loaded.
   const TimeRange current_visible = visible_range();
   const TimeRange preserve = current_visible.Scale(kPreserveRatio);
+  const TimeRange fetch = current_visible.Scale(kFetchRatio);
 
-  if (!fetched_data_time_range_.Contains(preserve)) {
-    const TimeRange fetch = current_visible.Scale(kFetchRatio);
+  // Refetch data if user scrolled out of range.
+  const bool scrolled_out_of_range =
+      !fetched_data_time_range_.Contains(preserve);
+  // Refetch data if user zoomed in significantly, making resolution too coarse.
+  const bool zoomed_in_too_much =
+      fetched_data_time_range_.duration() / fetch.duration() >
+      kRefetchZoomRatio;
 
+  if (scrolled_out_of_range || zoomed_in_too_much) {
     EventData event_data;
     event_data.try_emplace(kFetchDataStart, MicrosToMillis(fetch.start()));
     event_data.try_emplace(kFetchDataEnd, MicrosToMillis(fetch.end()));
